@@ -331,6 +331,92 @@ theorem Tileable_translate {ι : Type*} (ps : Protoset ι) {r : Region} (h : Til
   use ιₜ, inferInstance, inferInstance, t.translate offset
   exact t.translate_preserves_valid offset r hv
 
+/-- If two disjoint regions are both tileable, their union is tileable -/
+theorem Tileable_union {ι : Type*} (ps : Protoset ι) {r1 r2 : Region} (h1 : Tileable ps r1)
+    (h2 : Tileable ps r2) (hdisj : Disjoint r1 r2) : Tileable ps (r1 ∪ r2) := by
+  obtain ⟨ι1, _, _, t1, hv1⟩ := h1
+  obtain ⟨ι2, _, _, t2, hv2⟩ := h2
+  -- Combine the two tilesets
+  let t : TileSet ps (ι1 ⊕ ι2) := ⟨fun i =>
+    match i with
+    | Sum.inl i1 => t1 i1
+    | Sum.inr i2 => t2 i2⟩
+  use ι1 ⊕ ι2, inferInstance, inferInstance, t
+  constructor
+  · -- Pairwise disjoint
+    intro i j hij
+    match i, j with
+    | Sum.inl i1, Sum.inl j1 =>
+      simp only [TileSet.cellsAt]
+      exact hv1.disjoint i1 j1 (fun h => hij (congrArg Sum.inl h))
+    | Sum.inr i2, Sum.inr j2 =>
+      simp only [TileSet.cellsAt]
+      exact hv2.disjoint i2 j2 (fun h => hij (congrArg Sum.inr h))
+    | Sum.inl i1, Sum.inr j2 =>
+      simp only [TileSet.cellsAt, Finset.disjoint_iff_ne]
+      intro c hc d hd
+      have hc1 : c ∈ r1 := by
+        rw [← hv1.covers]
+        simp only [TileSet.coveredCells, Finset.mem_biUnion, Finset.mem_univ, true_and]
+        exact ⟨i1, hc⟩
+      have hd2 : d ∈ r2 := by
+        rw [← hv2.covers]
+        simp only [TileSet.coveredCells, Finset.mem_biUnion, Finset.mem_univ, true_and]
+        exact ⟨j2, hd⟩
+      exact Finset.disjoint_iff_ne.mp hdisj c hc1 d hd2
+    | Sum.inr i2, Sum.inl j1 =>
+      simp only [TileSet.cellsAt, Finset.disjoint_iff_ne]
+      intro c hc d hd
+      have hc2 : c ∈ r2 := by
+        rw [← hv2.covers]
+        simp only [TileSet.coveredCells, Finset.mem_biUnion, Finset.mem_univ, true_and]
+        exact ⟨i2, hc⟩
+      have hd1 : d ∈ r1 := by
+        rw [← hv1.covers]
+        simp only [TileSet.coveredCells, Finset.mem_biUnion, Finset.mem_univ, true_and]
+        exact ⟨j1, hd⟩
+      exact Finset.disjoint_iff_ne.mp hdisj d hd1 c hc2 ∘ Eq.symm
+  · -- Covers
+    simp only [TileSet.coveredCells, ← hv1.covers, ← hv2.covers]
+    ext c
+    simp only [Finset.mem_union, Finset.mem_biUnion, Finset.mem_univ, true_and, TileSet.cellsAt]
+    constructor
+    · rintro ⟨i, hi⟩
+      match i with
+      | Sum.inl i1 => left; exact ⟨i1, hi⟩
+      | Sum.inr i2 => right; exact ⟨i2, hi⟩
+    · intro h
+      rcases h with ⟨i1, hi1⟩ | ⟨i2, hi2⟩
+      · exact ⟨Sum.inl i1, hi1⟩
+      · exact ⟨Sum.inr i2, hi2⟩
+
+/-- Translating by offset and then by -offset gives the original region -/
+theorem translateRegion_neg (r : Region) (offset : Cell) :
+    translateRegion (translateRegion r offset) (-offset.1, -offset.2) = r := by
+  simp only [translateRegion, Finset.image_image]
+  have : ((fun x => translateCell x (-offset.1, -offset.2)) ∘
+          (fun x => translateCell x offset)) = id := by
+    funext ⟨x, y⟩
+    simp only [translateCell, Function.comp_apply, id]
+    ext <;> ring
+  simp only [this, Finset.image_id]
+
+/-- Tileability is preserved by translation (both directions) -/
+theorem Tileable_translate_iff {ι : Type*} (ps : Protoset ι) (r : Region) (offset : Cell) :
+    Tileable ps r ↔ Tileable ps (translateRegion r offset) := by
+  constructor
+  · exact fun h => Tileable_translate ps h offset
+  · intro h
+    have h' := Tileable_translate ps h (-offset.1, -offset.2)
+    rw [translateRegion_neg] at h'
+    exact h'
+
+/-- If R = S.image(translate by offset) and R is tileable, then S is tileable -/
+theorem Tileable_of_translate_eq {ι : Type*} (ps : Protoset ι) {R S : Region} (offset : Cell)
+    (heq : R = translateRegion S offset) (hR : Tileable ps R) : Tileable ps S := by
+  rw [heq] at hR
+  exact (Tileable_translate_iff ps S offset).mpr hR
+
 /-! ## L-Tromino Protoset
 
 The L-tromino is a single prototile that looks like:
@@ -379,6 +465,89 @@ theorem mem_rectangle {n m : ℕ} {c : Cell} :
   · rintro ⟨h1, h2, h3, h4⟩
     refine ⟨⟨c.1.toNat, by omega, by simp; omega⟩, ⟨c.2.toNat, by omega, by simp; omega⟩⟩
 
+/-! ## Rectangle Splitting and Combining -/
+
+/-- A rectangle can be split horizontally -/
+theorem rectangle_split_horizontal (a b m : ℕ) :
+    rectangle (a + b) m = rectangle a m ∪ translateRegion (rectangle b m) (a, 0) := by
+  ext ⟨x, y⟩
+  simp only [Finset.mem_union, mem_rectangle, translateRegion, Finset.mem_image, translateCell]
+  constructor
+  · rintro ⟨hx0, hxab, hy0, hym⟩
+    by_cases hxa : x < a
+    · left; exact ⟨hx0, hxa, hy0, hym⟩
+    · right
+      push_neg at hxa
+      refine ⟨(x - a, y), ⟨by omega, by omega, hy0, hym⟩, ?_⟩
+      simp only [Prod.mk.injEq]; omega
+  · rintro (⟨hx0, hxa, hy0, hym⟩ | ⟨⟨x', y'⟩, ⟨hx0', hxb, hy0', hym'⟩, heq⟩)
+    · exact ⟨hx0, by omega, hy0, hym⟩
+    · simp only [Prod.mk.injEq] at heq
+      omega
+
+/-- The two parts of a horizontal split are disjoint -/
+theorem rectangle_split_horizontal_disjoint (a b m : ℕ) :
+    Disjoint (rectangle a m) (translateRegion (rectangle b m) (a, 0)) := by
+  rw [Finset.disjoint_iff_ne]
+  intro c hc d hd heq
+  simp only [mem_rectangle] at hc
+  simp only [translateRegion, Finset.mem_image, translateCell, mem_rectangle] at hd
+  obtain ⟨⟨x', y'⟩, ⟨hx0', hxb, _, _⟩, rfl⟩ := hd
+  -- d = (x' + a, y' + 0), c ∈ rectangle a m, c = d
+  -- c.1 < a (from hc) but c.1 = x' + a ≥ a
+  have hc1 : c.1 < ↑a := hc.2.1
+  have hd1 : c.1 = x' + ↑a := by rw [heq]
+  linarith
+
+/-- A rectangle can be split vertically -/
+theorem rectangle_split_vertical (n a b : ℕ) :
+    rectangle n (a + b) = rectangle n a ∪ translateRegion (rectangle n b) (0, a) := by
+  ext ⟨x, y⟩
+  simp only [Finset.mem_union, mem_rectangle, translateRegion, Finset.mem_image, translateCell]
+  constructor
+  · rintro ⟨hx0, hxn, hy0, hyab⟩
+    by_cases hya : y < a
+    · left; exact ⟨hx0, hxn, hy0, hya⟩
+    · right
+      push_neg at hya
+      refine ⟨(x, y - a), ⟨hx0, hxn, by omega, by omega⟩, ?_⟩
+      simp only [Prod.mk.injEq]; omega
+  · rintro (⟨hx0, hxn, hy0, hya⟩ | ⟨⟨x', y'⟩, ⟨hx0', hxn', hy0', hyb⟩, heq⟩)
+    · exact ⟨hx0, hxn, hy0, by omega⟩
+    · simp only [Prod.mk.injEq] at heq
+      omega
+
+/-- The two parts of a vertical split are disjoint -/
+theorem rectangle_split_vertical_disjoint (n a b : ℕ) :
+    Disjoint (rectangle n a) (translateRegion (rectangle n b) (0, a)) := by
+  rw [Finset.disjoint_iff_ne]
+  intro c hc d hd heq
+  simp only [mem_rectangle] at hc
+  simp only [translateRegion, Finset.mem_image, translateCell, mem_rectangle] at hd
+  obtain ⟨⟨x', y'⟩, ⟨_, _, hy0', hyb⟩, rfl⟩ := hd
+  -- d = (x' + 0, y' + a), c ∈ rectangle n a, c = d
+  -- c.2 < a but c.2 = y' + a ≥ a
+  have hc2 : c.2 < ↑a := hc.2.2.2
+  have hd2 : c.2 = y' + ↑a := by rw [heq]
+  linarith
+
+/-- If we can tile two horizontally adjacent rectangles, we can tile their union -/
+theorem Tileable_horizontal_union {ι : Type*} (ps : Protoset ι) (a b m : ℕ)
+    (h1 : Tileable ps (rectangle a m)) (h2 : Tileable ps (rectangle b m)) :
+    Tileable ps (rectangle (a + b) m) := by
+  rw [rectangle_split_horizontal]
+  apply Tileable_union ps h1
+  · exact Tileable_translate ps h2 (a, 0)
+  · exact rectangle_split_horizontal_disjoint a b m
+
+/-- If we can tile two vertically adjacent rectangles, we can tile their union -/
+theorem Tileable_vertical_union {ι : Type*} (ps : Protoset ι) (n a b : ℕ)
+    (h1 : Tileable ps (rectangle n a)) (h2 : Tileable ps (rectangle n b)) :
+    Tileable ps (rectangle n (a + b)) := by
+  rw [rectangle_split_vertical]
+  apply Tileable_union ps h1
+  · exact Tileable_translate ps h2 (0, a)
+  · exact rectangle_split_vertical_disjoint n a b
 
 /-! ## Utility Lemmas -/
 
@@ -969,94 +1138,23 @@ theorem empty_LTileable : LTileable ∅ :=
 
 /-- If two disjoint regions are both L-tileable, their union is L-tileable -/
 theorem LTileable_union {r1 r2 : Region} (h1 : LTileable r1) (h2 : LTileable r2)
-    (hdisj : Disjoint r1 r2) : LTileable (r1 ∪ r2) := by
-  obtain ⟨ι1, _, _, t1, hv1⟩ := h1
-  obtain ⟨ι2, _, _, t2, hv2⟩ := h2
-  -- Combine the two tilesets
-  let t : TileSet lTrominoSet (ι1 ⊕ ι2) := ⟨fun i =>
-    match i with
-    | Sum.inl i1 => t1 i1
-    | Sum.inr i2 => t2 i2⟩
-  use ι1 ⊕ ι2, inferInstance, inferInstance, t
-  constructor
-  · -- Pairwise disjoint
-    intro i j hij
-    match i, j with
-    | Sum.inl i1, Sum.inl j1 =>
-      simp only [TileSet.cellsAt]
-      exact hv1.disjoint i1 j1 (fun h => hij (congrArg Sum.inl h))
-    | Sum.inr i2, Sum.inr j2 =>
-      simp only [TileSet.cellsAt]
-      exact hv2.disjoint i2 j2 (fun h => hij (congrArg Sum.inr h))
-    | Sum.inl i1, Sum.inr j2 =>
-      simp only [TileSet.cellsAt, Finset.disjoint_iff_ne]
-      intro c hc d hd
-      have hc1 : c ∈ r1 := by
-        rw [← hv1.covers]
-        simp only [TileSet.coveredCells, Finset.mem_biUnion, Finset.mem_univ, true_and]
-        exact ⟨i1, hc⟩
-      have hd2 : d ∈ r2 := by
-        rw [← hv2.covers]
-        simp only [TileSet.coveredCells, Finset.mem_biUnion, Finset.mem_univ, true_and]
-        exact ⟨j2, hd⟩
-      exact Finset.disjoint_iff_ne.mp hdisj c hc1 d hd2
-    | Sum.inr i2, Sum.inl j1 =>
-      simp only [TileSet.cellsAt, Finset.disjoint_iff_ne]
-      intro c hc d hd
-      have hc2 : c ∈ r2 := by
-        rw [← hv2.covers]
-        simp only [TileSet.coveredCells, Finset.mem_biUnion, Finset.mem_univ, true_and]
-        exact ⟨i2, hc⟩
-      have hd1 : d ∈ r1 := by
-        rw [← hv1.covers]
-        simp only [TileSet.coveredCells, Finset.mem_biUnion, Finset.mem_univ, true_and]
-        exact ⟨j1, hd⟩
-      exact Finset.disjoint_iff_ne.mp hdisj d hd1 c hc2 ∘ Eq.symm
-  · -- Covers
-    simp only [TileSet.coveredCells, ← hv1.covers, ← hv2.covers]
-    ext c
-    simp only [Finset.mem_union, Finset.mem_biUnion, Finset.mem_univ, true_and, TileSet.cellsAt]
-    constructor
-    · rintro ⟨i, hi⟩
-      match i with
-      | Sum.inl i1 => left; exact ⟨i1, hi⟩
-      | Sum.inr i2 => right; exact ⟨i2, hi⟩
-    · intro h
-      rcases h with ⟨i1, hi1⟩ | ⟨i2, hi2⟩
-      · exact ⟨Sum.inl i1, hi1⟩
-      · exact ⟨Sum.inr i2, hi2⟩
+    (hdisj : Disjoint r1 r2) : LTileable (r1 ∪ r2) :=
+  Tileable_union lTrominoSet h1 h2 hdisj
 
 /-- A translated L-tileable region is L-tileable -/
 theorem LTileable_translate {r : Region} (h : LTileable r) (offset : Cell) :
     LTileable (translateRegion r offset) :=
   Tileable_translate lTrominoSet h offset
 
-/-- Translating by offset and then by -offset gives the original region -/
-theorem translateRegion_neg (r : Region) (offset : Cell) :
-    translateRegion (translateRegion r offset) (-offset.1, -offset.2) = r := by
-  simp only [translateRegion, Finset.image_image]
-  have : ((fun x => translateCell x (-offset.1, -offset.2)) ∘
-          (fun x => translateCell x offset)) = id := by
-    funext ⟨x, y⟩
-    simp only [translateCell, Function.comp_apply, id]
-    ext <;> ring
-  simp only [this, Finset.image_id]
-
 /-- L-tileability is preserved by translation (both directions) -/
 theorem LTileable_translate_iff (r : Region) (offset : Cell) :
-    LTileable r ↔ LTileable (translateRegion r offset) := by
-  constructor
-  · exact fun h => LTileable_translate h offset
-  · intro h
-    have h' := LTileable_translate h (-offset.1, -offset.2)
-    rw [translateRegion_neg] at h'
-    exact h'
+    LTileable r ↔ LTileable (translateRegion r offset) :=
+  Tileable_translate_iff lTrominoSet r offset
 
 /-- If R = S.image(translate by offset) and R is L-tileable, then S is L-tileable -/
 theorem LTileable_of_translate_eq {R S : Region} (offset : Cell)
-    (heq : R = translateRegion S offset) (hR : LTileable R) : LTileable S := by
-  rw [heq] at hR
-  exact (LTileable_translate_iff S offset).mpr hR
+    (heq : R = translateRegion S offset) (hR : LTileable R) : LTileable S :=
+  Tileable_of_translate_eq lTrominoSet offset heq hR
 
 /-! ## 3×odd Impossibility (requires translation invariance) -/
 
@@ -1154,87 +1252,17 @@ theorem LTileable_swap_rectangle (n m : ℕ) :
     have h' := LTileable_swap h
     rwa [swap_rectangle] at h'
 
-/-- A rectangle can be split horizontally -/
-theorem rectangle_split_horizontal (a b m : ℕ) :
-    rectangle (a + b) m = rectangle a m ∪ translateRegion (rectangle b m) (a, 0) := by
-  ext ⟨x, y⟩
-  simp only [Finset.mem_union, mem_rectangle, translateRegion, Finset.mem_image, translateCell]
-  constructor
-  · rintro ⟨hx0, hxab, hy0, hym⟩
-    by_cases hxa : x < a
-    · left; exact ⟨hx0, hxa, hy0, hym⟩
-    · right
-      push_neg at hxa
-      refine ⟨(x - a, y), ⟨by omega, by omega, hy0, hym⟩, ?_⟩
-      simp only [Prod.mk.injEq]; omega
-  · rintro (⟨hx0, hxa, hy0, hym⟩ | ⟨⟨x', y'⟩, ⟨hx0', hxb, hy0', hym'⟩, heq⟩)
-    · exact ⟨hx0, by omega, hy0, hym⟩
-    · simp only [Prod.mk.injEq] at heq
-      omega
-
-/-- The two parts of a horizontal split are disjoint -/
-theorem rectangle_split_horizontal_disjoint (a b m : ℕ) :
-    Disjoint (rectangle a m) (translateRegion (rectangle b m) (a, 0)) := by
-  rw [Finset.disjoint_iff_ne]
-  intro c hc d hd heq
-  simp only [mem_rectangle] at hc
-  simp only [translateRegion, Finset.mem_image, translateCell, mem_rectangle] at hd
-  obtain ⟨⟨x', y'⟩, ⟨hx0', hxb, _, _⟩, rfl⟩ := hd
-  -- d = (x' + a, y' + 0), c ∈ rectangle a m, c = d
-  -- c.1 < a (from hc) but c.1 = x' + a ≥ a
-  have hc1 : c.1 < ↑a := hc.2.1
-  have hd1 : c.1 = x' + ↑a := by rw [heq]
-  linarith
-
 /-- If we can tile two horizontally adjacent rectangles, we can tile their union -/
 theorem LTileable_horizontal_union (a b m : ℕ)
     (h1 : LTileable (rectangle a m)) (h2 : LTileable (rectangle b m)) :
-    LTileable (rectangle (a + b) m) := by
-  rw [rectangle_split_horizontal]
-  apply LTileable_union h1
-  · exact LTileable_translate h2 (a, 0)
-  · exact rectangle_split_horizontal_disjoint a b m
-
-/-- A rectangle can be split vertically -/
-theorem rectangle_split_vertical (n a b : ℕ) :
-    rectangle n (a + b) = rectangle n a ∪ translateRegion (rectangle n b) (0, a) := by
-  ext ⟨x, y⟩
-  simp only [Finset.mem_union, mem_rectangle, translateRegion, Finset.mem_image, translateCell]
-  constructor
-  · rintro ⟨hx0, hxn, hy0, hyab⟩
-    by_cases hya : y < a
-    · left; exact ⟨hx0, hxn, hy0, hya⟩
-    · right
-      push_neg at hya
-      refine ⟨(x, y - a), ⟨hx0, hxn, by omega, by omega⟩, ?_⟩
-      simp only [Prod.mk.injEq]; omega
-  · rintro (⟨hx0, hxn, hy0, hya⟩ | ⟨⟨x', y'⟩, ⟨hx0', hxn', hy0', hyb⟩, heq⟩)
-    · exact ⟨hx0, hxn, hy0, by omega⟩
-    · simp only [Prod.mk.injEq] at heq
-      omega
-
-/-- The two parts of a vertical split are disjoint -/
-theorem rectangle_split_vertical_disjoint (n a b : ℕ) :
-    Disjoint (rectangle n a) (translateRegion (rectangle n b) (0, a)) := by
-  rw [Finset.disjoint_iff_ne]
-  intro c hc d hd heq
-  simp only [mem_rectangle] at hc
-  simp only [translateRegion, Finset.mem_image, translateCell, mem_rectangle] at hd
-  obtain ⟨⟨x', y'⟩, ⟨_, _, hy0', hyb⟩, rfl⟩ := hd
-  -- d = (x' + 0, y' + a), c ∈ rectangle n a, c = d
-  -- c.2 < a but c.2 = y' + a ≥ a
-  have hc2 : c.2 < ↑a := hc.2.2.2
-  have hd2 : c.2 = y' + ↑a := by rw [heq]
-  linarith
+    LTileable (rectangle (a + b) m) :=
+  Tileable_horizontal_union lTrominoSet a b m h1 h2
 
 /-- If we can tile two vertically adjacent rectangles, we can tile their union -/
 theorem LTileable_vertical_union (n a b : ℕ)
     (h1 : LTileable (rectangle n a)) (h2 : LTileable (rectangle n b)) :
-    LTileable (rectangle n (a + b)) := by
-  rw [rectangle_split_vertical]
-  apply LTileable_union h1
-  · exact LTileable_translate h2 (0, a)
-  · exact rectangle_split_vertical_disjoint n a b
+    LTileable (rectangle n (a + b)) :=
+  Tileable_vertical_union lTrominoSet n a b h1 h2
 
 /-! ## Base Case Tilings -/
 
