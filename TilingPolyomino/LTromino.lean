@@ -847,72 +847,8 @@ theorem not_tileable_n_by_1 {n : ℕ} (hn : n ≥ 1) : ¬LTileable (rectangle n 
 
 /-! ## 3×odd Impossibility -/
 
-/-! ## L-Tromino Specific Placement Enumeration -/
-
-/-- All L-tromino placements covering a target cell -/
-def lTrominoPlacementsCovering (target : Cell) : List (PlacedTile Unit) :=
-  allPlacementsCoveringProto () lTromino target
-
-/-- All L-tromino placements covering a target cell and contained in a region -/
-def lTrominoPlacementsCoveringIn (target : Cell) (region : Region) : List (PlacedTile Unit) :=
-  (lTrominoPlacementsCovering target).filter fun pt => pt.containedIn lTrominoSet region
-
-/-- The 3×2 rectangle for this section -/
+/-- The 3×2 rectangle used in the 3×odd impossibility proof -/
 def rect3x2 : Region := rectangle 3 2
-
-/-- Placements covering (0,0) contained in 3×2 -/
-def placements00 : List (PlacedTile Unit) := lTrominoPlacementsCoveringIn (0, 0) rect3x2
-
-/-- Placements covering (2,0) contained in 3×2 -/
-def placements20 : List (PlacedTile Unit) := lTrominoPlacementsCoveringIn (2, 0) rect3x2
-
-/-- All pairs of placements -/
-def allPairs : List (PlacedTile Unit × PlacedTile Unit) := do
-  let pt1 ← placements00
-  let pt2 ← placements20
-  return (pt1, pt2)
-
-/-- Disjoint pairs -/
-def disjointPairs : List (PlacedTile Unit × PlacedTile Unit) :=
-  allPairs.filter fun (pt1, pt2) => Disjoint (pt1.cells lTrominoSet) (pt2.cells lTrominoSet)
-
-/-- There exist disjoint pairs -/
-theorem disjointPairs_nonempty : disjointPairs.length > 0 := by decide
-
-/-- Every disjoint pair covers exactly the 3×2 rectangle -/
-theorem disjointPairs_cover_rect3x2 :
-    ∀ p ∈ disjointPairs,
-      (p.1.cells lTrominoSet) ∪ (p.2.cells lTrominoSet) = rect3x2 := by
-  decide
-
-/-- The placements covering (0,0) in 3×2 are exactly 3 -/
-theorem placements00_length : placements00.length = 3 := by decide
-
-/-- The placements covering (2,0) in 3×2 are exactly 3 -/
-theorem placements20_length : placements20.length = 3 := by decide
-
-/-- All placements covering (0,0) fit within y < 2 -/
-theorem placements00_y_bound :
-    ∀ pt ∈ placements00, ∀ c ∈ pt.cells lTrominoSet, c.2 < 2 := by decide
-
-/-- All placements covering (2,0) fit within y < 2 -/
-theorem placements20_y_bound :
-    ∀ pt ∈ placements20, ∀ c ∈ pt.cells lTrominoSet, c.2 < 2 := by decide
-
-/-- lTrominoPlacementsCovering is complete:
-    any L-tromino placement covering target is in the list -/
-theorem lTrominoPlacementsCovering_complete (target : Cell) (pt : PlacedTile Unit)
-    (hcover : pt.coversCell lTrominoSet target) :
-    pt ∈ lTrominoPlacementsCovering target := by
-  exact allPlacementsCoveringProto_complete lTrominoSet () target pt rfl hcover
-
-/-- lTrominoPlacementsCoveringIn is complete -/
-theorem lTrominoPlacementsCoveringIn_complete (target : Cell) (region : Region)
-    (pt : PlacedTile Unit) (hcover : pt.coversCell lTrominoSet target)
-    (hcontained : pt.containedIn lTrominoSet region) :
-    pt ∈ lTrominoPlacementsCoveringIn target region := by
-  simp only [lTrominoPlacementsCoveringIn, List.mem_filter, decide_eq_true_eq]
-  exact ⟨lTrominoPlacementsCovering_complete target pt hcover, hcontained⟩
 
 /-! ## Key Lemmas for the 3×odd Impossibility Proof -/
 
@@ -969,14 +905,6 @@ theorem lTromino_x_span_2 (pt : PlacedTile Unit) (c1 c2 : Cell)
   have h1' : o1 ∈ ([(0, 0), (0, 1), (1, 0)] : List Cell) := ho1
   have h2' : o2 ∈ ([(0, 0), (0, 1), (1, 0)] : List Cell) := ho2
   fin_cases rot <;> fin_cases h1' <;> fin_cases h2' <;> simp [rotateCell, rotateCell90]
-
-/-- Similarly for x-coordinates: tile covering (0,0) has x < 2 -/
-theorem tile_covering_00_x_bound (pt : PlacedTile Unit)
-    (hcover : pt.coversCell lTrominoSet (0, 0))
-    (c : Cell) (hc : c ∈ pt.cells lTrominoSet) (_hx_nonneg : c.1 ≥ 0) :
-    c.1 < 2 := by
-  have hspan := lTromino_x_span_2 pt (0, 0) c hcover hc
-  omega
 
 /-- If a tile covers (0,0) and is contained in rectangle 3 n (n ≥ 2),
     then it's contained in rect3x2 -/
