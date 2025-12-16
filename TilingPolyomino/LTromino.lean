@@ -149,6 +149,24 @@ theorem translateRegion_card (r : Region) (offset : Cell) :
   simp only [translateRegion]
   exact Finset.card_image_of_injective _ (translateCell_injective offset)
 
+/-! ## Swap Transformation
+
+Swapping x and y coordinates (reflection across the line y=x).
+-/
+
+/-- Swap x and y coordinates -/
+def swapCell (c : Cell) : Cell := (c.2, c.1)
+
+/-- Swap is an involution -/
+theorem swapCell_involutive : Function.Involutive swapCell := fun _ => rfl
+
+/-- Swap is injective -/
+theorem swapCell_injective : Function.Injective swapCell :=
+  swapCell_involutive.injective
+
+/-- Apply swap to a region -/
+def swapRegion (r : Region) : Region := r.image swapCell
+
 /-- Get the cells covered by a placed tile -/
 def PlacedTile.cells {ι : Type*} (ps : Protoset ι) (pt : PlacedTile ι) : Finset Cell :=
   (rotateProto (ps pt.index) pt.rotation).image (translateCell · pt.translation)
@@ -191,6 +209,14 @@ def coveredCells [Fintype ιₜ] (t : TileSet ps ιₜ) : Finset Cell :=
 /-- Pairwise disjointness of tiles -/
 def PairwiseDisjoint [DecidableEq ιₜ] (t : TileSet ps ιₜ) : Prop :=
   ∀ i j : ιₜ, i ≠ j → Disjoint (t.cellsAt i) (t.cellsAt j)
+
+/-- If tiles are pairwise disjoint, the total area is the sum of individual areas -/
+theorem card_coveredCells [Fintype ιₜ] [DecidableEq ιₜ] (t : TileSet ps ιₜ)
+    (hdisj : t.PairwiseDisjoint) : t.coveredCells.card = ∑ i : ιₜ, (t.cellsAt i).card := by
+  simp only [coveredCells]
+  rw [Finset.card_biUnion]
+  intro i _ j _ hij
+  exact hdisj i j hij
 
 /-- A tileset is valid for a region if tiles are disjoint and exactly cover it -/
 structure Valid [Fintype ιₜ] [DecidableEq ιₜ] (t : TileSet ps ιₜ) (region : Region) : Prop where
@@ -279,6 +305,20 @@ theorem mem_rectangle {n m : ℕ} {c : Cell} :
   · rintro ⟨h1, h2, h3, h4⟩
     refine ⟨⟨c.1.toNat, by omega, by simp; omega⟩, ⟨c.2.toNat, by omega, by simp; omega⟩⟩
 
+
+/-! ## Utility Lemmas -/
+
+/-- Each L-tromino covers exactly 3 cells -/
+theorem lTromino_covers_3 (pt : PlacedTile Unit) :
+    (pt.cells lTrominoSet).card = 3 :=
+  PlacedTile.cells_card lTrominoSet pt
+
+/-! ## Existential Tileability -/
+
+/-- A region is tileable by L-trominoes if there exists a valid tiling -/
+def LTileable (r : Region) : Prop :=
+  ∃ (ιₜ : Type) (_ : Fintype ιₜ) (_ : DecidableEq ιₜ) (t : TileSet lTrominoSet ιₜ), t.Valid r
+
 /-- 2×3 rectangle tiling -/
 def tiling_2x3 : TileSet lTrominoSet (Fin 2) := ⟨![
   ⟨(), (0, 0), 0⟩,
@@ -286,34 +326,6 @@ def tiling_2x3 : TileSet lTrominoSet (Fin 2) := ⟨![
 ]⟩
 
 theorem tiling_2x3_valid : tiling_2x3.Valid (rectangle 2 3) := by decide
-
-/-! ## Utility Lemmas -/
-
-/-- The rotated L-tromino has exactly 3 cells -/
-theorem rotateProto_lTromino_card (r : Fin 4) : (rotateProto lTromino r).card = 3 :=
-  rotateProto_card lTromino r
-
-/-- Each L-tromino covers exactly 3 cells -/
-theorem lTromino_covers_3 (pt : PlacedTile Unit) :
-    (pt.cells lTrominoSet).card = 3 :=
-  PlacedTile.cells_card lTrominoSet pt
-
-/-! ## Cardinality Lemmas using Finset.card_biUnion -/
-
-/-- If tiles are pairwise disjoint, the total area is the sum of individual areas -/
-theorem TileSet.card_coveredCells {ι : Type*} {ps : Protoset ι} {ιₜ : Type*}
-    [Fintype ιₜ] [DecidableEq ιₜ] (t : TileSet ps ιₜ) (hdisj : t.PairwiseDisjoint) :
-    t.coveredCells.card = ∑ i : ιₜ, (t.cellsAt i).card := by
-  simp only [TileSet.coveredCells]
-  rw [Finset.card_biUnion]
-  intro i _ j _ hij
-  exact hdisj i j hij
-
-/-! ## Existential Tileability -/
-
-/-- A region is tileable by L-trominoes if there exists a valid tiling -/
-def LTileable (r : Region) : Prop :=
-  ∃ (ιₜ : Type) (_ : Fintype ιₜ) (_ : DecidableEq ιₜ) (t : TileSet lTrominoSet ιₜ), t.Valid r
 
 /-- The 2×3 rectangle is tileable (basic example) -/
 example : LTileable (rectangle 2 3) :=
@@ -411,19 +423,6 @@ theorem not_tileable_1x3 : ¬LTileable (rectangle 1 3) := not_tileable_1_by_n (b
 L-tileability is preserved under transformations of regions.
 This lets us reduce symmetric cases (e.g., n×1 to 1×n).
 -/
-
-/-- Swap x and y coordinates -/
-def swapCell (c : Cell) : Cell := (c.2, c.1)
-
-/-- Swap is an involution -/
-theorem swapCell_involutive : Function.Involutive swapCell := fun _ => rfl
-
-/-- Swap is injective -/
-theorem swapCell_injective : Function.Injective swapCell :=
-  swapCell_involutive.injective
-
-/-- Apply swap to a region -/
-def swapRegion (r : Region) : Region := r.image swapCell
 
 /-- Swapping an n×m rectangle gives an m×n rectangle -/
 theorem swap_rectangle (n m : ℕ) : swapRegion (rectangle n m) = rectangle m n := by
