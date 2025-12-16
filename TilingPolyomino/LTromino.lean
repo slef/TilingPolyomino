@@ -171,6 +171,22 @@ def swapRegion (r : Region) : Region := r.image swapCell
 def PlacedTile.cells {ι : Type*} (ps : Protoset ι) (pt : PlacedTile ι) : Finset Cell :=
   (rotateProto (ps pt.index) pt.rotation).image (translateCell · pt.translation)
 
+/-- Translate a placed tile by an offset -/
+def PlacedTile.translate {ι : Type*} (pt : PlacedTile ι) (offset : Cell) : PlacedTile ι :=
+  ⟨pt.index, (pt.translation.1 + offset.1, pt.translation.2 + offset.2), pt.rotation⟩
+
+/-- Translation of a placed tile translates its cells -/
+theorem PlacedTile.translate_cells {ι : Type*} (ps : Protoset ι) (pt : PlacedTile ι)
+    (offset : Cell) : (pt.translate offset).cells ps = translateRegion (pt.cells ps) offset := by
+  simp only [PlacedTile.cells, PlacedTile.translate, translateRegion]
+  ext c
+  simp only [Finset.mem_image, translateCell]
+  constructor
+  · rintro ⟨b, hb, rfl⟩
+    exact ⟨(b.1 + pt.translation.1, b.2 + pt.translation.2), ⟨b, hb, rfl⟩, by ring_nf⟩
+  · rintro ⟨c', ⟨b, hb, rfl⟩, rfl⟩
+    exact ⟨b, hb, by ring_nf⟩
+
 /-- Placing a tile preserves the cardinality of the prototile -/
 theorem PlacedTile.cells_card {ι : Type*} (ps : Protoset ι) (pt : PlacedTile ι) :
     (pt.cells ps).card = (ps pt.index).cells.length := by
@@ -255,7 +271,65 @@ theorem Valid.tile_contained [Fintype ιₜ] [DecidableEq ιₜ] {t : TileSet ps
   simp only [coveredCells, Finset.mem_biUnion, Finset.mem_univ, true_and]
   exact ⟨i, hc⟩
 
+/-- Translate a tileset by an offset -/
+def translate (t : TileSet ps ιₜ) (offset : Cell) : TileSet ps ιₜ :=
+  ⟨fun i => (t i).translate offset⟩
+
+/-- Translation of a tileset preserves disjointness -/
+theorem translate_preserves_disjoint [DecidableEq ιₜ] (t : TileSet ps ιₜ) (offset : Cell)
+    (hdisj : t.PairwiseDisjoint) : (t.translate offset).PairwiseDisjoint := by
+  intro i j hij
+  have hdisj_orig := hdisj i j hij
+  rw [cellsAt, cellsAt, translate, PlacedTile.translate_cells, PlacedTile.translate_cells]
+  rw [Finset.disjoint_iff_ne] at hdisj_orig ⊢
+  intro c hc d hd heq
+  simp only [translateRegion, Finset.mem_image, translateCell] at hc hd
+  obtain ⟨c1, hc1, rfl⟩ := hc
+  obtain ⟨c2, hc2, rfl⟩ := hd
+  -- c = translateCell c1 offset = translateCell c2 offset, so c1 = c2 by injectivity
+  have h_eq : c1 = c2 := translateCell_injective offset heq
+  subst h_eq
+  exact hdisj_orig c1 hc1 c1 hc2 rfl
+
+/-- Translation of a tileset translates coverage -/
+theorem translate_coveredCells [Fintype ιₜ] (t : TileSet ps ιₜ) (offset : Cell) :
+    (t.translate offset).coveredCells = translateRegion t.coveredCells offset := by
+  simp only [coveredCells, translate]
+  change Finset.univ.biUnion (fun i => ((t i).translate offset).cells ps) =
+    translateRegion (Finset.univ.biUnion (fun i => (t i).cells ps)) offset
+  rw [Finset.biUnion_congr rfl fun i _ => PlacedTile.translate_cells ps (t i) offset]
+  simp only [translateRegion]
+  -- Need: biUnion (image f) = image f (biUnion)
+  -- This follows from image distributing over biUnion
+  rw [← Finset.biUnion_image]
+
+/-- Translation preserves validity -/
+theorem translate_preserves_valid [Fintype ιₜ] [DecidableEq ιₜ] (t : TileSet ps ιₜ) (offset : Cell)
+    (region : Region) (hv : t.Valid region) :
+    (t.translate offset).Valid (translateRegion region offset) := by
+  constructor
+  · exact translate_preserves_disjoint t offset hv.disjoint
+  · rw [translate_coveredCells, hv.covers]
+
 end TileSet
+
+/-! ## General Tileability -/
+
+/-- A region is tileable by a protoset if there exists a valid tiling -/
+def Tileable {ι : Type*} (ps : Protoset ι) (r : Region) : Prop :=
+  ∃ (ιₜ : Type) (_ : Fintype ιₜ) (_ : DecidableEq ιₜ) (t : TileSet ps ιₜ), t.Valid r
+
+/-- The empty region is tileable by any protoset -/
+theorem empty_tileable {ι : Type*} (ps : Protoset ι) : Tileable ps ∅ :=
+  ⟨Fin 0, inferInstance, inferInstance, ⟨Fin.elim0⟩,
+    ⟨fun i _ _ => Fin.elim0 i, by simp [TileSet.coveredCells]⟩⟩
+
+/-- A translated tileable region is tileable by any protoset -/
+theorem Tileable_translate {ι : Type*} (ps : Protoset ι) {r : Region} (h : Tileable ps r)
+    (offset : Cell) : Tileable ps (translateRegion r offset) := by
+  obtain ⟨ιₜ, _, _, t, hv⟩ := h
+  use ιₜ, inferInstance, inferInstance, t.translate offset
+  exact t.translate_preserves_valid offset r hv
 
 /-! ## L-Tromino Protoset
 
@@ -316,8 +390,7 @@ theorem lTromino_covers_3 (pt : PlacedTile Unit) :
 /-! ## Existential Tileability -/
 
 /-- A region is tileable by L-trominoes if there exists a valid tiling -/
-def LTileable (r : Region) : Prop :=
-  ∃ (ιₜ : Type) (_ : Fintype ιₜ) (_ : DecidableEq ιₜ) (t : TileSet lTrominoSet ιₜ), t.Valid r
+def LTileable (r : Region) : Prop := Tileable lTrominoSet r
 
 /-- 2×3 rectangle tiling -/
 def tiling_2x3 : TileSet lTrominoSet (Fin 2) := ⟨![
@@ -888,10 +961,9 @@ def RectTileableConditions (n m : ℕ) : Prop :=
     ¬(n = 3 ∧ Odd m) ∧                    -- Not 3×odd
     ¬(Odd n ∧ m = 3))                     -- Not odd×3
 
-/-- The empty region is tileable -/
-theorem empty_tileable : LTileable ∅ :=
-  ⟨Fin 0, inferInstance, inferInstance, ⟨Fin.elim0⟩,
-    ⟨fun i _ _ => Fin.elim0 i, by simp [TileSet.coveredCells]⟩⟩
+/-- The empty region is L-tileable -/
+theorem empty_LTileable : LTileable ∅ :=
+  empty_tileable lTrominoSet
 
 /-! ## Combining Tilings -/
 
@@ -954,46 +1026,10 @@ theorem LTileable_union {r1 r2 : Region} (h1 : LTileable r1) (h2 : LTileable r2)
       · exact ⟨Sum.inl i1, hi1⟩
       · exact ⟨Sum.inr i2, hi2⟩
 
-/-- A translated tileable region is tileable -/
+/-- A translated L-tileable region is L-tileable -/
 theorem LTileable_translate {r : Region} (h : LTileable r) (offset : Cell) :
-    LTileable (translateRegion r offset) := by
-  obtain ⟨ι, _, _, t, hv⟩ := h
-  -- Translate each tile's translation by offset
-  let t' : TileSet lTrominoSet ι := ⟨fun i =>
-    ⟨(t i).index, ((t i).translation.1 + offset.1, (t i).translation.2 + offset.2), (t i).rotation⟩⟩
-  -- Key fact about t'
-  have ht' : ∀ i, (t' i).translation =
-      ((t i).translation.1 + offset.1, (t i).translation.2 + offset.2) := fun _ => rfl
-  have hrot : ∀ i, (t' i).rotation = (t i).rotation := fun _ => rfl
-  use ι, inferInstance, inferInstance, t'
-  constructor
-  · -- Disjointness: same tiles, just shifted
-    intro i j hij
-    have hdisj := hv.disjoint i j hij
-    simp only [TileSet.cellsAt, PlacedTile.cells, lTrominoSet, hrot] at hdisj ⊢
-    rw [Finset.disjoint_iff_ne] at hdisj ⊢
-    intro c hc d hd heq
-    simp only [Finset.mem_image, translateCell, ht'] at hc hd heq
-    obtain ⟨b, hb, rfl⟩ := hc
-    obtain ⟨b', hb', rfl⟩ := hd
-    have hmem1 : (b.1 + (t i).translation.1, b.2 + (t i).translation.2) ∈
-        (rotateProto lTromino (t i).rotation).image (translateCell · (t i).translation) :=
-      Finset.mem_image.mpr ⟨b, hb, rfl⟩
-    have hmem2 : (b'.1 + (t j).translation.1, b'.2 + (t j).translation.2) ∈
-        (rotateProto lTromino (t j).rotation).image (translateCell · (t j).translation) :=
-      Finset.mem_image.mpr ⟨b', hb', rfl⟩
-    apply hdisj _ hmem1 _ hmem2
-    simp only [Prod.mk.injEq] at heq ⊢; omega
-  · -- Coverage
-    simp only [TileSet.coveredCells, translateRegion, ← hv.covers]
-    ext c
-    simp only [Finset.mem_biUnion, Finset.mem_univ, true_and, Finset.mem_image,
-      TileSet.cellsAt, PlacedTile.cells, lTrominoSet, translateCell, hrot, ht']
-    constructor
-    · rintro ⟨i, b, hb, rfl⟩
-      exact ⟨(b.1 + (t i).translation.1, b.2 + (t i).translation.2), ⟨i, b, hb, rfl⟩, by ring_nf⟩
-    · rintro ⟨c', ⟨i, b, hb, rfl⟩, rfl⟩
-      exact ⟨i, b, hb, by ring_nf⟩
+    LTileable (translateRegion r offset) :=
+  Tileable_translate lTrominoSet h offset
 
 /-- Translating by offset and then by -offset gives the original region -/
 theorem translateRegion_neg (r : Region) (offset : Cell) :
@@ -1299,7 +1335,7 @@ theorem tileable_even_x3 (k : ℕ) (hk : k ≥ 1) : LTileable (rectangle (2 * k)
 /-- 2×(3k) is tileable for any k -/
 theorem tileable_2x_mult3 (k : ℕ) : LTileable (rectangle 2 (3 * k)) := by
   induction k with
-  | zero => simp only [Nat.mul_zero, rectangle_n_0]; exact empty_tileable
+  | zero => simp only [Nat.mul_zero, rectangle_n_0]; exact empty_LTileable
   | succ k' ih =>
     have heq : 3 * (k' + 1) = 3 * k' + 3 := by ring
     rw [heq]
@@ -1332,7 +1368,7 @@ theorem tileable_even_mult3 (j k : ℕ) (hj : j ≥ 1) :
 /-- 3 × (6j) is tileable for any j -/
 theorem tileable_3x6j (j : ℕ) : LTileable (rectangle 3 (6 * j)) := by
   induction j with
-  | zero => simp only [Nat.mul_zero, rectangle_n_0]; exact empty_tileable
+  | zero => simp only [Nat.mul_zero, rectangle_n_0]; exact empty_LTileable
   | succ j' ih =>
     have heq : 6 * (j' + 1) = 6 * j' + 6 := by ring
     rw [heq]
@@ -1341,7 +1377,7 @@ theorem tileable_3x6j (j : ℕ) : LTileable (rectangle 3 (6 * j)) := by
 /-- 5 × (6j) is tileable for any j -/
 theorem tileable_5x6j (j : ℕ) : LTileable (rectangle 5 (6 * j)) := by
   induction j with
-  | zero => simp only [Nat.mul_zero, rectangle_n_0]; exact empty_tileable
+  | zero => simp only [Nat.mul_zero, rectangle_n_0]; exact empty_LTileable
   | succ j' ih =>
     have heq : 6 * (j' + 1) = 6 * j' + 6 := by ring
     rw [heq]
@@ -1417,9 +1453,9 @@ theorem rect_tileable_of_conditions (n m : ℕ) (h : RectTileableConditions n m)
     LTileable (rectangle n m) := by
   rcases h with rfl | rfl | ⟨harea, hn, hm, hnodd3, hnodd3'⟩
   · -- n = 0
-    rw [rectangle_0_m]; exact empty_tileable
+    rw [rectangle_0_m]; exact empty_LTileable
   · -- m = 0
-    rw [rectangle_n_0]; exact empty_tileable
+    rw [rectangle_n_0]; exact empty_LTileable
   · -- Main case: n ≥ 2, m ≥ 2, n*m divisible by 3, not 3×odd or odd×3
     -- Since n*m divisible by 3, either 3 | n or 3 | m
     have h3div : 3 ∣ n ∨ 3 ∣ m := Nat.Prime.dvd_mul Nat.prime_three |>.mp
