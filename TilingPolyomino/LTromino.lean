@@ -336,35 +336,18 @@ example : ¬LTileable (rectangle 2 2) := by
   have := h.area_div_3
   simp at this
 
-/-- The L-tromino has two cells with different x-coordinates -/
-theorem lTromino_x_span :
-    ∃ c1 c2 : Cell, c1 ∈ (lTromino : Finset Cell) ∧
-      c2 ∈ (lTromino : Finset Cell) ∧ c1.1 ≠ c2.1 := by
-  refine ⟨(0, 0), (1, 0), ?_, ?_, by decide⟩ <;> simp [lTromino]
-
-/-- The L-tromino has two cells with different y-coordinates -/
-theorem lTromino_y_span :
-    ∃ c1 c2 : Cell, c1 ∈ (lTromino : Finset Cell) ∧
-      c2 ∈ (lTromino : Finset Cell) ∧ c1.2 ≠ c2.2 := by
-  refine ⟨(0, 0), (0, 1), ?_, ?_, by decide⟩ <;> simp [lTromino]
-
 /-- Any rotated L-tromino has two cells with different x-coordinates -/
 theorem rotateProto_lTromino_x_span (r : Fin 4) :
     ∃ c1 c2 : Cell, c1 ∈ rotateProto lTromino r ∧
       c2 ∈ rotateProto lTromino r ∧ c1.1 ≠ c2.1 := by
-  fin_cases r
-  · -- r = 0: cells are (0,0), (0,1), (1,0)
-    refine ⟨(0, 0), (1, 0), ?_, ?_, by omega⟩ <;>
-      simp [rotateProto, lTromino, rotateCell]
-  · -- r = 1: cells are (0,0), (-1,0), (0,1)
-    refine ⟨(0, 0), (-1, 0), ?_, ?_, by omega⟩ <;>
-      simp [rotateProto, lTromino, rotateCell, rotateCell90]
-  · -- r = 2: cells are (0,0), (0,-1), (-1,0)
-    refine ⟨(0, 0), (-1, 0), ?_, ?_, by omega⟩ <;>
-      simp [rotateProto, lTromino, rotateCell, rotateCell90]
-  · -- r = 3: cells are (0,0), (1,0), (0,-1)
-    refine ⟨(0, 0), (1, 0), ?_, ?_, by omega⟩ <;>
-      simp [rotateProto, lTromino, rotateCell, rotateCell90]
+  use rotateCell (0, 1) r, rotateCell (1, 0) r
+  constructor
+  · simp only [rotateProto, Finset.mem_image]
+    exact ⟨(0, 1), by simp [lTromino], rfl⟩
+  constructor
+  · simp only [rotateProto, Finset.mem_image]
+    exact ⟨(1, 0), by simp [lTromino], rfl⟩
+  · fin_cases r <;> simp [rotateCell, rotateCell90]
 
 /-- Any placed L-tromino has cells with different x-coordinates -/
 theorem lTromino_placed_x_span (pt : PlacedTile Unit) :
