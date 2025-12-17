@@ -401,6 +401,63 @@ theorem translateRegion_neg (r : Region) (offset : Cell) :
     ext <;> ring
   simp only [this, Finset.image_id]
 
+/-- Composition of translations on a region adds their offsets. -/
+theorem translateRegion_add (r : Region) (o₁ o₂ : Cell) :
+    translateRegion (translateRegion r o₁) o₂ =
+      translateRegion r (o₁.1 + o₂.1, o₁.2 + o₂.2) := by
+  simp only [translateRegion, Finset.image_image]
+  have :
+      ((fun x => translateCell x o₂) ∘
+        (fun x => translateCell x o₁)) =
+        (fun x => translateCell x (o₁.1 + o₂.1, o₁.2 + o₂.2)) := by
+    funext ⟨x, y⟩
+    simp [translateCell, Function.comp_apply, add_left_comm, add_comm]
+  simp [this]
+
+/-- Erasing a point from a finite union distributes over both sides. -/
+theorem erase_union_finset {α : Type*} [DecidableEq α]
+    (A B : Finset α) (x : α) :
+    (A ∪ B).erase x = A.erase x ∪ B.erase x := by
+  classical
+  ext c
+  by_cases hcx : c = x
+  · subst hcx
+    simp [Finset.mem_union, Finset.mem_erase]
+  · simp [Finset.mem_union, Finset.mem_erase, hcx]
+
+/-- Erasing a translated point is the same as translating an erased region. -/
+theorem translateRegion_erase_point (r : Region) (offset x : Cell) :
+    (translateRegion r offset).erase (translateCell x offset) =
+      translateRegion (r.erase x) offset := by
+  classical
+  unfold translateRegion
+  ext c
+  constructor
+  · intro hc
+    rcases Finset.mem_erase.mp hc with ⟨hc_ne, hc_img⟩
+    rcases Finset.mem_image.mp hc_img with ⟨c₀, hc₀, rfl⟩
+    have hc₀_ne : c₀ ≠ x := by
+      intro h_eq
+      apply hc_ne
+      subst h_eq
+      rfl
+    have hc₀_erase : c₀ ∈ r.erase x :=
+      Finset.mem_erase.mpr ⟨hc₀_ne, hc₀⟩
+    exact Finset.mem_image.mpr ⟨c₀, hc₀_erase, rfl⟩
+  · intro hc
+    rcases Finset.mem_image.mp hc with ⟨c₀, hc₀_erase, rfl⟩
+    rcases Finset.mem_erase.mp hc₀_erase with ⟨hc₀_ne, hc₀⟩
+    have hc_img :
+        translateCell c₀ offset ∈
+          Finset.image (translateCell · offset) r :=
+      Finset.mem_image.mpr ⟨c₀, hc₀, rfl⟩
+    have hc_ne :
+        translateCell c₀ offset ≠ translateCell x offset := by
+      intro h_eq
+      apply hc₀_ne
+      exact translateCell_injective offset h_eq
+    exact Finset.mem_erase.mpr ⟨hc_ne, hc_img⟩
+
 /-- Tileability is preserved by translation (both directions) -/
 theorem Tileable_translate_iff {ι : Type*} (ps : Protoset ι) (r : Region) (offset : Cell) :
     Tileable ps r ↔ Tileable ps (translateRegion r offset) := by
@@ -1606,6 +1663,178 @@ theorem LTileable_swap_rectangleMinusCorner (n m : ℕ) :
     have h' := LTileable_swap h
     simpa [swap_rectangleMinusCorner] using h'
 
+/-! ### Splitting three-cornered rectangles -/
+
+/-- Horizontal split of a three-cornered rectangle.
+
+If we cut an `(a+b) × m` three-cornered rectangle at `x = a` with `b ≥ 1`,
+the missing corner lies in the right part.  The shape decomposes as a union of:
+
+- the full `a × m` rectangle on the left, and
+- a translated copy of `rectangleMinusCorner b m` on the right. -/
+theorem rectangleMinusCorner_split_horizontal (a b m : ℕ) (hb : 0 < b) :
+    rectangleMinusCorner (a + b) m =
+      rectangle a m ∪ translateRegion (rectangleMinusCorner b m) (a, 0) := by
+  classical
+  have hsplit := rectangle_split_horizontal a b m
+  -- First, rewrite the deficient rectangle using the horizontal split.
+  have hL :
+      rectangleMinusCorner (a + b) m =
+        (rectangle a m ∪ translateRegion (rectangle b m) (a, 0)).erase
+          (cornerTR (a + b) m) := by
+    unfold rectangleMinusCorner
+    simp [hsplit]
+  -- Now use the generic `erase_union_finset` lemma on the right-hand side.
+  have h₁ :
+      (rectangle a m ∪ translateRegion (rectangle b m) (a, 0)).erase
+          (cornerTR (a + b) m) =
+        (rectangle a m).erase (cornerTR (a + b) m) ∪
+          (translateRegion (rectangle b m) (a, 0)).erase (cornerTR (a + b) m) := by
+    simpa using
+      (erase_union_finset (rectangle a m)
+        (translateRegion (rectangle b m) (a, 0)) (cornerTR (a + b) m))
+  -- The missing corner is not in the left `a × m` rectangle when `b ≥ 1`.
+  have hcorner_not_left :
+      cornerTR (a + b) m ∉ rectangle a m := by
+    -- A point in `rectangle a m` must have x-coordinate `< a`,
+    -- but the corner has x-coordinate `a + b - 1 ≥ a` when `b ≥ 1`.
+    intro h
+    rcases (mem_rectangle.mp h) with ⟨_, hx_lt_a, _, _⟩
+    -- x-coordinate of the corner
+    have hx_corner :
+        (cornerTR (a + b) m).1 = Int.ofNat (a + b - 1) := rfl
+    -- From `hb : 0 < b` we get `a ≤ a + b - 1`.
+    have hx_nat : a ≤ a + b - 1 := by
+      omega
+    -- Compare in ℤ using monotonicity of `Int.ofNat`.
+    have hx_le : (a : ℤ) ≤ (cornerTR (a + b) m).1 := by
+      have hx_le' : a ≤ a + b - 1 := hx_nat
+      exact Int.ofNat_le.mpr hx_le'
+    have hx_lt : (cornerTR (a + b) m).1 < a := by
+      simpa [hx_corner] using hx_lt_a
+    have : (cornerTR (a + b) m).1 < (cornerTR (a + b) m).1 :=
+      lt_of_lt_of_le hx_lt hx_le
+    exact lt_irrefl _ this
+  -- Identify the erased right part with a translated three-cornered rectangle.
+  have hcorner_translate :
+      translateCell (cornerTR b m) (a, 0) = cornerTR (a + b) m := by
+    -- Compute coordinates explicitly.
+    dsimp [cornerTR, translateCell]
+    ext
+    · -- x-coordinate
+      -- Goal: `↑a + ↑(b - 1) = ↑(a + b - 1)` in ℤ; this is linear arithmetic.
+      have : (↑a + ↑(b - 1) : ℤ) = ↑(a + b - 1) := by
+        omega
+      simpa [add_comm, add_left_comm, add_assoc] using this
+    · -- y-coordinate
+      simp
+  have h₂ :
+      (translateRegion (rectangle b m) (a, 0)).erase (cornerTR (a + b) m) =
+        translateRegion (rectangleMinusCorner b m) (a, 0) := by
+    -- Use the translation/erase lemma with `x = cornerTR b m`.
+    have := translateRegion_erase_point (rectangle b m) (a, 0) (cornerTR b m)
+    -- Rewrite the erased point using `hcorner_translate`.
+    simpa [rectangleMinusCorner, hcorner_translate] using this
+  -- Combine `erase_union_finset`, `hcorner_not_left`, and `h₂` to rewrite the RHS.
+  have hR :
+      (rectangle a m ∪ translateRegion (rectangle b m) (a, 0)).erase
+          (cornerTR (a + b) m) =
+        rectangle a m ∪ translateRegion (rectangleMinusCorner b m) (a, 0) := by
+    have hA :
+        (rectangle a m).erase (cornerTR (a + b) m) = rectangle a m :=
+      Finset.erase_eq_of_notMem hcorner_not_left
+    simp [h₁, hA, h₂]
+  -- Finally, combine the left and right descriptions.
+  calc
+    rectangleMinusCorner (a + b) m
+        = (rectangle a m ∪ translateRegion (rectangle b m) (a, 0)).erase
+            (cornerTR (a + b) m) := hL
+    _ = rectangle a m ∪ translateRegion (rectangleMinusCorner b m) (a, 0) := hR
+
+/-- Vertical split of a three-cornered rectangle.
+
+If we cut an `n × (a+b)` three-cornered rectangle at `y = a` with `b ≥ 1`,
+the missing corner lies in the top part.  The shape decomposes as a union of:
+
+- the full `n × a` rectangle at the bottom, and
+- a translated copy of `rectangleMinusCorner n b` above it. -/
+theorem rectangleMinusCorner_split_vertical (n a b : ℕ) (hb : 0 < b) :
+    rectangleMinusCorner n (a + b) =
+      rectangle n a ∪ translateRegion (rectangleMinusCorner n b) (0, a) := by
+  classical
+  -- Start from the definition via `erase` and the vertical split of rectangles.
+  have hsplit := rectangle_split_vertical n a b
+  -- First, rewrite the deficient rectangle using the vertical split.
+  have hL :
+      rectangleMinusCorner n (a + b) =
+        (rectangle n a ∪ translateRegion (rectangle n b) (0, a)).erase
+          (cornerTR n (a + b)) := by
+    unfold rectangleMinusCorner
+    simp [hsplit]
+  -- Distribute `erase` over the union.
+  have h₁ :
+      (rectangle n a ∪ translateRegion (rectangle n b) (0, a)).erase
+          (cornerTR n (a + b)) =
+        (rectangle n a).erase (cornerTR n (a + b)) ∪
+          (translateRegion (rectangle n b) (0, a)).erase
+            (cornerTR n (a + b)) := by
+    simpa using
+      (erase_union_finset (rectangle n a)
+        (translateRegion (rectangle n b) (0, a)) (cornerTR n (a + b)))
+  -- The missing corner does not lie in the bottom `n × a` rectangle.
+  have hcorner_not_bottom :
+      cornerTR n (a + b) ∉ rectangle n a := by
+    intro h
+    rcases (mem_rectangle.mp h) with ⟨_, _, _, hy_lt_a⟩
+    -- y-coordinate of the corner is `a + b - 1 ≥ a`, contradiction.
+    have hy_corner :
+        (cornerTR n (a + b)).2 = Int.ofNat (a + b - 1) := rfl
+    -- From `hb : 0 < b` we get `a ≤ a + b - 1`.
+    have hy_nat : a ≤ a + b - 1 := by
+      omega
+    have hy_le : (a : ℤ) ≤ (cornerTR n (a + b)).2 := by
+      have hy_le' : a ≤ a + b - 1 := hy_nat
+      exact Int.ofNat_le.mpr hy_le'
+    have hy_lt : (cornerTR n (a + b)).2 < a := by
+      simpa [hy_corner] using hy_lt_a
+    have : (cornerTR n (a + b)).2 < (cornerTR n (a + b)).2 :=
+      lt_of_lt_of_le hy_lt hy_le
+    exact lt_irrefl _ this
+  -- Identify the erased top part with a translated three-cornered rectangle.
+  have hcorner_translate :
+      translateCell (cornerTR n b) (0, a) = cornerTR n (a + b) := by
+    dsimp [cornerTR, translateCell]
+    ext
+    · -- x-coordinate
+      simp
+    · -- y-coordinate
+      -- Goal: `↑a + ↑(b - 1) = ↑(a + b - 1)` in ℤ.
+      have : (↑a + ↑(b - 1) : ℤ) = ↑(a + b - 1) := by
+        omega
+      simpa [add_comm, add_left_comm, add_assoc] using this
+  have h₂ :
+      (translateRegion (rectangle n b) (0, a)).erase (cornerTR n (a + b)) =
+        translateRegion (rectangleMinusCorner n b) (0, a) := by
+    have := translateRegion_erase_point (rectangle n b) (0, a) (cornerTR n b)
+    simpa [rectangleMinusCorner, hcorner_translate] using this
+  -- Put everything together on the right-hand side.
+  have hR :
+      (rectangle n a ∪ translateRegion (rectangle n b) (0, a)).erase
+          (cornerTR n (a + b)) =
+        rectangle n a ∪ translateRegion (rectangleMinusCorner n b) (0, a) := by
+    have hA :
+        (rectangle n a).erase (cornerTR n (a + b)) = rectangle n a :=
+      Finset.erase_eq_of_notMem hcorner_not_bottom
+    simp [h₁, hA, h₂]
+  -- Finally, combine the left and right descriptions.
+  calc
+    rectangleMinusCorner n (a + b)
+        = (rectangle n a ∪ translateRegion (rectangle n b) (0, a)).erase
+            (cornerTR n (a + b)) := hL
+    _ = rectangle n a ∪ translateRegion (rectangleMinusCorner n b) (0, a) := hR
+
+/-! ### Simple mod-3 helper lemmas -/
+
 /-- If `(n * m) % 3 ≠ 0`, then in particular `n % 3 ≠ 0`.
 
 Equivalently (by contrapositive): if `n % 3 = 0`, then `(n * m) % 3 = 0`. -/
@@ -1618,6 +1847,86 @@ theorem mod3_ne_zero_of_mul_mod3_ne_zero_left {n m : ℕ}
   have h3_div_nm : 3 ∣ n * m := dvd_mul_of_dvd_left h3_div_n m
   have hzero : (n * m) % 3 = 0 := Nat.mod_eq_zero_of_dvd h3_div_nm
   exact h hzero
+
+/-! A number modulo `3` is either `0`, `1`, or `2`.  If it is not `0`, it must
+be `1` or `2`. -/
+theorem mod3_eq_one_or_two_of_ne_zero {n : ℕ} (h : n % 3 ≠ 0) :
+    n % 3 = 1 ∨ n % 3 = 2 := by
+  -- First, `n % 3` lies in `{0,1,2}` since it is strictly less than `3`.
+  have hlt3 : n % 3 < 3 := Nat.mod_lt _ (by decide : 0 < 3)
+  -- From `n % 3 ≠ 0` we get `0 < n % 3` and hence `1 ≤ n % 3`.
+  have hpos : 0 < n % 3 := Nat.pos_of_ne_zero h
+  have hge1 : 1 ≤ n % 3 := Nat.succ_le_of_lt hpos
+  -- Rewrite `< 3` as `≤ 2`.
+  have hle2 : n % 3 ≤ 2 := by
+    have : n % 3 < (2 : ℕ).succ := by simpa using hlt3
+    exact Nat.lt_succ_iff.mp this
+  -- So either `n % 3 < 2` or `n % 3 = 2`.
+  have hlt2_or_eq2 : n % 3 < 2 ∨ n % 3 = 2 := lt_or_eq_of_le hle2
+  rcases hlt2_or_eq2 with hlt2 | heq2
+  · -- Case `n % 3 < 2`: then in fact `n % 3 ≤ 1`, and together with `1 ≤ n % 3`
+    -- we get `n % 3 = 1`.
+    have hle1 : n % 3 ≤ 1 := by
+      have : n % 3 < (1 : ℕ).succ := by simpa using hlt2
+      exact Nat.lt_succ_iff.mp this
+    have : n % 3 = 1 := le_antisymm hle1 hge1
+    exact Or.inl this
+  · -- Case `n % 3 = 2`.
+    exact Or.inr heq2
+
+/- If `(n * m) % 3 = 1`, then the residues of `n` and `m` modulo 3 are
+either both `1` or both `2`. Mixed congruence classes `{1,2}` give
+product ≡ 2 (mod 3), not 1.
+
+This lemma is currently left as a placeholder; the intended proof follows
+the standard modular arithmetic argument sketched in the comments above. -/
+theorem mod3_both_one_or_two_of_area_mod3_zero
+    {n m : ℕ}
+    (h : (n * m) % 3 = 1) :
+    (n % 3 = 1 ∧ m % 3 = 1) ∨ (n % 3 = 2 ∧ m % 3 = 2) := by
+  -- From `(n * m) % 3 = 1` we know the product is not divisible by 3.
+  have hnm_ne0 : (n * m) % 3 ≠ 0 := by
+    simp [h]
+  -- Hence neither factor is `0` mod `3`.
+  have hn_ne0 : n % 3 ≠ 0 :=
+    mod3_ne_zero_of_mul_mod3_ne_zero_left (n := n) (m := m) hnm_ne0
+  have hm_ne0 : m % 3 ≠ 0 := by
+    have hmn_ne0 : (m * n) % 3 ≠ 0 := by
+      simpa [Nat.mul_comm] using hnm_ne0
+    exact mod3_ne_zero_of_mul_mod3_ne_zero_left (n := m) (m := n) hmn_ne0
+  -- Each residue modulo `3` is therefore either `1` or `2`.
+  have hn_res : n % 3 = 1 ∨ n % 3 = 2 :=
+    mod3_eq_one_or_two_of_ne_zero hn_ne0
+  have hm_res : m % 3 = 1 ∨ m % 3 = 2 :=
+    mod3_eq_one_or_two_of_ne_zero hm_ne0
+  -- Analyze the four possible combinations of residues.
+  rcases hn_res with hn1 | hn2
+  · -- Case `n % 3 = 1`.
+    rcases hm_res with hm1 | hm2
+    · -- Subcase `m % 3 = 1`: this is one of the desired alternatives.
+      left
+      exact ⟨hn1, hm1⟩
+    · -- Subcase `m % 3 = 2`: then `(n * m) % 3 = 2`, contradicting `h`.
+      have hnm2 : (n * m) % 3 = 2 := by
+        have hcalc : (n * m) % 3 = (1 * 2) % 3 := by
+          simpa [hn1, hm2] using (Nat.mul_mod n m 3)
+        simpa using hcalc
+      have : (1 : ℕ) ≠ 2 := by decide
+      have hf : False := this (h.symm.trans hnm2)
+      exact hf.elim
+  · -- Case `n % 3 = 2`.
+    rcases hm_res with hm1 | hm2
+    · -- Subcase `m % 3 = 1`: symmetric to the previous contradictory case.
+      have hnm2 : (n * m) % 3 = 2 := by
+        have hcalc : (n * m) % 3 = (2 * 1) % 3 := by
+          simpa [hn2, hm1] using (Nat.mul_mod n m 3)
+        simpa using hcalc
+      have : (1 : ℕ) ≠ 2 := by decide
+      have hf : False := this (h.symm.trans hnm2)
+      exact hf.elim
+    · -- Subcase `m % 3 = 2`: this is the other desired alternative.
+      right
+      exact ⟨hn2, hm2⟩
 
 /-- If a three-cornered rectangle is L-tileable, then its area is divisible by 3. -/
 theorem rectMinusCorner_tileable_area_div_3 {n m : ℕ}
@@ -1784,46 +2093,36 @@ theorem rectMinusCorner_tileable_of_area_m_le_n
     -- Since `n,m ≥ 1`, we have `1 * 1 ≤ n * m`.
     have h : 1 * 1 ≤ n * m := Nat.mul_le_mul hn1 hm1
     simpa using h
-  -- Case split on `m % 3`.
-  by_cases hm0 : m % 3 = 0
-  · -- Case `m % 3 = 0` is impossible: then `(n*m - 1) % 3 = 2`, contradicting `harea`.
-    -- From `m % 3 = 0` we get `3 ∣ m` and hence `3 ∣ n*m`, so `(n*m) % 3 = 0`.
-    have h3m : 3 ∣ m := Nat.dvd_of_mod_eq_zero hm0
-    have h3nm : 3 ∣ n * m := dvd_mul_of_dvd_right h3m n
-    have hnm_mod0 : (n * m) % 3 = 0 := Nat.mod_eq_zero_of_dvd h3nm
-    -- On the other hand, from `(n*m - 1) % 3 = 0` we get `(n*m) % 3 = 1`.
-    -- Compute `(n*m) % 3` from `(n*m - 1) % 3` using `(a + b) % 3`.
-    have h_add := Nat.add_mod (n * m - 1) 1 3
-    have h_step :
-        (n * m) % 3 =
-          ((n * m - 1) % 3 + 1 % 3) % 3 := by
-      -- `h_add` has left side `((n*m - 1) + 1) % 3`; rewrite it as `(n*m) % 3`.
-      have h1 : ((n * m - 1) + 1) % 3 = (n * m) % 3 := by
-        simp [Nat.sub_add_cancel hnm_ge1]
-      -- From `h1 : LHS = (n*m)%3` and `h_add : LHS = RHS`, deduce `(n*m)%3 = RHS`.
-      exact h1.symm.trans h_add
-    have hnm_mod1 : (n * m) % 3 = 1 := by
-      have : (n * m) % 3 = ((0 : ℕ) + 1) % 3 := by
-        simpa [harea, Nat.one_mod] using h_step
-      simpa [Nat.one_mod] using this
-    -- Contradiction: `(n*m) % 3 = 0` and `= 1`.
-    have : (0 : ℕ) = 1 := by
-      calc
-        (0 : ℕ) = (n * m) % 3 := by simpa using hnm_mod0.symm
-        _ = 1 := hnm_mod1
-    exact (Nat.zero_ne_one this).elim
-  · -- Here `m % 3 ≠ 0`. Split into the remaining two cases `1` and `2`.
-    by_cases hm1' : m % 3 = 1
-    · -- Case `m % 3 = 1`: Ash–Golomb Case 1 (`n ≡ m ≡ 1 (mod 3)`), to be filled.
-      sorry
-    · -- Case `m % 3 = 2`: follows from `m % 3 ≠ 0` and `m % 3 ≠ 1`.
-      have hm2 : m % 3 = 2 := by
-        -- This is a simple modular arithmetic fact: the only possibilities
-        -- for `m % 3` are `0,1,2`, and we have excluded `0` and `1`.
-        -- We leave the proof as a separate lemma to be filled in.
-        sorry
-      -- Ash–Golomb Case 2 (`n ≡ m ≡ 2 (mod 3)`), to be filled.
-      sorry
+  -- Use the area condition to compute `(n * m) % 3`, then apply the
+  -- modular-arithmetic classification lemma.
+  have h_add := Nat.add_mod (n * m - 1) 1 3
+  have h_step :
+      (n * m) % 3 =
+        ((n * m - 1) % 3 + 1 % 3) % 3 := by
+    -- `h_add` has left side `((n*m - 1) + 1) % 3`; rewrite it as `(n*m) % 3`.
+    have h1 : ((n * m - 1) + 1) % 3 = (n * m) % 3 := by
+      simp [Nat.sub_add_cancel hnm_ge1]
+    -- From `h1 : LHS = (n*m)%3` and `h_add : LHS = RHS`, deduce `(n*m)%3 = RHS`.
+    exact h1.symm.trans h_add
+  have hnm_mod1 : (n * m) % 3 = 1 := by
+    have : (n * m) % 3 = ((0 : ℕ) + 1) % 3 := by
+      simpa [harea, Nat.one_mod] using h_step
+    simpa [Nat.one_mod] using this
+  -- Now apply the mod-3 helper lemma: only two residue patterns are possible.
+  have hres :
+      (n % 3 = 1 ∧ m % 3 = 1) ∨ (n % 3 = 2 ∧ m % 3 = 2) :=
+    mod3_both_one_or_two_of_area_mod3_zero (n := n) (m := m) hnm_mod1
+  rcases hres with h11 | h22
+  · -- Case `n ≡ m ≡ 1 (mod 3)`: Ash–Golomb Case 1, to be filled.
+    have hn1_mod : n % 3 = 1 := h11.1
+    have hm1_mod : m % 3 = 1 := h11.2
+    -- TODO: use `hn1_mod`, `hm1_mod`, `hn`, `hm`, and `hmn` to build a tiling.
+    sorry
+  · -- Case `n ≡ m ≡ 2 (mod 3)`: Ash–Golomb Case 2, to be filled.
+    have hn2_mod : n % 3 = 2 := h22.1
+    have hm2_mod : m % 3 = 2 := h22.2
+    -- TODO: use `hn2_mod`, `hm2_mod`, `hn`, `hm`, and `hmn` to build a tiling.
+    sorry
 
 /-- **Ash–Golomb Theorem 2 (statement)**:
 An `n × m` rectangle with one corner removed is L-tileable iff its area is a multiple of 3.
