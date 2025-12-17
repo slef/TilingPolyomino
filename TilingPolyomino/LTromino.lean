@@ -2075,6 +2075,393 @@ theorem tiling_7x7_minus_valid :
 theorem tileable_7x7_minus : LTileable (rectangleMinusCorner 7 7) :=
   ⟨Fin 16, inferInstance, inferInstance, tiling_7x7_minus, tiling_7x7_minus_valid⟩
 
+/-! ### Combining rectangles with three-cornered rectangles -/
+
+/-- The two parts of a vertical split of a three-cornered rectangle are disjoint -/
+theorem rectangleMinusCorner_split_vertical_disjoint (n a b : ℕ) (_hb : 0 < b) :
+    Disjoint (rectangle n a) (translateRegion (rectangleMinusCorner n b) (0, a)) := by
+  rw [Finset.disjoint_iff_ne]
+  intro c hc d hd heq
+  simp only [mem_rectangle] at hc
+  simp only [translateRegion, Finset.mem_image, translateCell, rectangleMinusCorner,
+    Finset.mem_erase] at hd
+  obtain ⟨⟨x', y'⟩, ⟨hd_ne, hd_rect⟩, rfl⟩ := hd
+  simp only [mem_rectangle] at hd_rect
+  -- d = (x' + 0, y' + a), c ∈ rectangle n a, c = d
+  -- c.2 < a but c.2 = y' + a ≥ a (since y' ≥ 0)
+  have hc2 : c.2 < ↑a := hc.2.2.2
+  have hy' : 0 ≤ y' := hd_rect.2.2.1
+  -- From heq: c = ((x', y').1 + 0, (x', y').2 + ↑a) = (x', y' + a)
+  -- So c.2 = y' + a, which follows directly from heq
+  have hd2 : c.2 = y' + ↑a := (congrArg Prod.snd heq).trans (by simp)
+  linarith
+
+/-- The two parts of a horizontal split of a three-cornered rectangle are disjoint -/
+theorem rectangleMinusCorner_split_horizontal_disjoint (a b m : ℕ) (_hb : 0 < b) :
+    Disjoint (rectangle a m) (translateRegion (rectangleMinusCorner b m) (a, 0)) := by
+  rw [Finset.disjoint_iff_ne]
+  intro c hc d hd heq
+  simp only [mem_rectangle] at hc
+  simp only [translateRegion, Finset.mem_image, translateCell, rectangleMinusCorner,
+    Finset.mem_erase] at hd
+  obtain ⟨⟨x', y'⟩, ⟨hd_ne, hd_rect⟩, rfl⟩ := hd
+  simp only [mem_rectangle] at hd_rect
+  -- d = (x' + a, y' + 0), c ∈ rectangle a m, c = d
+  -- c.1 < a but c.1 = x' + a ≥ a (since x' ≥ 0)
+  have hc1 : c.1 < ↑a := hc.2.1
+  have hx' : 0 ≤ x' := hd_rect.1
+  -- From heq: c = ((x', y').1 + ↑a, (x', y').2 + 0) = (x' + a, y')
+  -- So c.1 = x' + a, which follows directly from heq
+  have hd1 : c.1 = x' + ↑a := (congrArg Prod.fst heq).trans (by simp)
+  linarith
+
+/-- If we can tile a rectangle and a translated three-cornered rectangle (vertically adjacent),
+    we can tile their union -/
+theorem LTileable_vertical_union_rect_minus (n a b : ℕ) (hb : 0 < b)
+    (h1 : LTileable (rectangle n a))
+    (h2 : LTileable (rectangleMinusCorner n b)) :
+    LTileable (rectangleMinusCorner n (a + b)) := by
+  rw [rectangleMinusCorner_split_vertical n a b hb]
+  apply Tileable_union lTrominoSet h1
+  · exact LTileable_translate h2 (0, a)
+  · exact rectangleMinusCorner_split_vertical_disjoint n a b hb
+
+/-- If we can tile a rectangle and a translated three-cornered rectangle (horizontally adjacent),
+    we can tile their union -/
+theorem LTileable_horizontal_union_rect_minus (a b m : ℕ) (hb : 0 < b)
+    (h1 : LTileable (rectangle a m))
+    (h2 : LTileable (rectangleMinusCorner b m)) :
+    LTileable (rectangleMinusCorner (a + b) m) := by
+  rw [rectangleMinusCorner_split_horizontal a b m hb]
+  apply Tileable_union lTrominoSet h1
+  · exact LTileable_translate h2 (a, 0)
+  · exact rectangleMinusCorner_split_horizontal_disjoint a b m hb
+
+/-- The 4×7 rectangle with a missing top-right corner is L-tileable. -/
+theorem tileable_4x7_minus : LTileable (rectangleMinusCorner 4 7) := by
+  -- Split vertically: 7 = 3 + 4.
+  have h_rect : LTileable (rectangle 4 3) := by
+    -- 4 = 2 · 2, so 4×3 is an even×3 rectangle.
+    have h := tileable_even_x3 2 (by decide)
+    simpa using h
+  have h_top : LTileable (rectangleMinusCorner 4 4) := tileable_4x4_minus
+  have h_union :
+      LTileable (rectangleMinusCorner 4 (3 + 4)) :=
+    LTileable_vertical_union_rect_minus 4 3 4 (by decide) h_rect h_top
+  simpa using h_union
+
+/-! ### Helper lemmas for the mod 3 = 1 case -/
+
+/-- For `k ≥ 1`, the three-cornered `4 × (3k+1)` rectangle is L-tileable. -/
+theorem tileable_4x_rectMinus_3kplus1 (k : ℕ) (hk : k ≥ 1) :
+    LTileable (rectangleMinusCorner 4 (3 * k + 1)) := by
+  cases k with
+  | zero =>
+      -- Impossible since k ≥ 1
+      cases hk
+  | succ k' =>
+      cases k' with
+      | zero =>
+          -- k = 1: 4×4 minus corner
+          have : 3 * (1 : ℕ) + 1 = 4 := by decide
+          simpa [this] using tileable_4x4_minus
+      | succ k'' =>
+          -- k = k'' + 2 ≥ 2.  Write 3k+1 = 3 + (3(k-1)+1) and split off a 4×3 strip.
+          -- Apply IH to k-1 = succ k''.
+          have ih :
+              LTileable (rectangleMinusCorner 4 (3 * Nat.succ k'' + 1)) :=
+            tileable_4x_rectMinus_3kplus1 (Nat.succ k'') (by omega)
+          -- 4×3 rectangle is tileable since 4 = 2·2 and (2j)×3 is tileable for j ≥ 1.
+          have h_4x3 : LTileable (rectangle 4 3) := by
+            have h4 : 4 = 2 * 2 := by decide
+            have h := tileable_even_x3 2 (by decide)
+            simpa [h4] using h
+          -- Split vertically: height (3k+1) = 3 + (3(k-1)+1)
+          have h_decomp :
+              3 * (Nat.succ (Nat.succ k'')) + 1 =
+                3 + (3 * Nat.succ k'' + 1) := by
+            omega
+          -- Use the vertical-union lemma on three-cornered rectangles with a = 3, b = 3(k-1)+1.
+          have h_union :
+              LTileable (rectangleMinusCorner 4 (3 + (3 * Nat.succ k'' + 1))) :=
+            LTileable_vertical_union_rect_minus
+              (n := 4) (a := 3) (b := 3 * Nat.succ k'' + 1)
+              (by omega) h_4x3 ih
+          -- Rewrite back to 4 × (3k+1)^-.
+          have : LTileable (rectangleMinusCorner 4 (3 * (Nat.succ (Nat.succ k'')) + 1)) := by
+            simpa [h_decomp] using h_union
+          -- Replace k by `Nat.succ (Nat.succ k'')` in the goal.
+          simpa using this
+
+/-- Helper: If n = 3k + 1 with k ≥ 1, and j ≥ 3, then rectangle n (3(j-1)) is tileable. -/
+theorem tileable_rect_mod1_by_mult3
+    (n k j : ℕ) (hn : n ≥ 2) (hk_eq : n = 3 * k + 1) (hj3 : j ≥ 3) :
+    LTileable (rectangle n (3 * (j - 1))) := by
+  rw [rect_tileable_iff]
+  right; right
+  constructor
+  · -- Area divisible by 3
+    simp [hk_eq]
+    ring_nf
+    omega
+  · constructor
+    · exact hn
+    · constructor
+      · -- 3(j-1) ≥ 2 since j ≥ 3
+        omega
+      · constructor
+        · -- ¬(n = 3 ∧ Odd (3(j-1)))
+          intro ⟨hn3, hodd⟩
+          rw [hk_eq] at hn3
+          omega
+        · -- ¬(Odd n ∧ 3(j-1) = 3)
+          intro ⟨_, h3j1_eq_3⟩
+          -- j ≥ 3 and 3(j−1) = 3 is impossible (omega can see the contradiction).
+          have hj_ge3 := hj3
+          have h3eq := h3j1_eq_3
+          omega
+
+/-- If `n = 3k+1` and `m = 3j+1` with `j ≥ 3` and `k ≥ 1`, then
+    the three-cornered `n × m` rectangle is L-tileable. -/
+theorem tileable_rectMinusCorner_mod1_jk_ge
+    (j k : ℕ) (hj3 : j ≥ 3) (hk1 : k ≥ 1) :
+    LTileable (rectangleMinusCorner (3 * k + 1) (3 * j + 1)) := by
+  -- Let n = 3k+1, m = 3j+1.
+  let n := 3 * k + 1
+  let m := 3 * j + 1
+  have hn : n ≥ 2 := by
+    -- n = 3k+1 ≥ 4 when k ≥ 1
+    have : n ≥ 4 := by
+      dsimp [n]
+      omega
+    exact le_trans (by decide : 2 ≤ 4) this
+  have hm : m ≥ 2 := by
+    -- m = 3j+1 ≥ 10 when j ≥ 3
+    dsimp [m]
+    omega
+  -- Bottom part: full rectangle n × 3(j-1).
+  have h_bottom : LTileable (rectangle n (3 * (j - 1))) := by
+    -- Use `tileable_rect_mod1_by_mult3` with n = 3k+1, k = k.
+    have hk_eq : n = 3 * k + 1 := rfl
+    exact tileable_rect_mod1_by_mult3 n k j hn hk_eq hj3
+  -- Top strip: three-cornered 4 × n, then swap.
+  have h_top_base : LTileable (rectangleMinusCorner 4 n) := by
+    -- n = 3k+1, so this matches `tileable_4x_rectMinus_3kplus1`.
+    have hk_eq : n = 3 * k + 1 := rfl
+    have h := tileable_4x_rectMinus_3kplus1 k hk1
+    simpa [hk_eq] using h
+  -- Swap to get n × 4 (three-cornered).
+  have h_top : LTileable (rectangleMinusCorner n 4) :=
+    (LTileable_swap_rectangleMinusCorner 4 n).mp h_top_base
+  -- Combine via vertical split: m = 3(j-1) + 4.
+  have hm_decomp : m = 3 * (j - 1) + 4 := by
+    dsimp [m]
+    omega
+  have h_union : LTileable (rectangleMinusCorner n (3 * (j - 1) + 4)) :=
+    LTileable_vertical_union_rect_minus n (3 * (j - 1)) 4 (by decide) h_bottom h_top
+  -- Rewrite back to height m = 3j+1.
+  have hm_eq : 3 * j + 1 = 3 * (j - 1) + 4 := by
+    omega
+  -- Conclude for `rectangleMinusCorner n m`.
+  have : LTileable (rectangleMinusCorner n m) := by
+    simpa [m, hm_eq] using h_union
+  -- Finally, rewrite n, m in terms of k, j.
+  simpa [n, m] using this
+
+/-- Helper: If n = 3(k-1) + 4 with k-1 ≥ 2, then rectangleMinusCorner n 4 is tileable. -/
+theorem tileable_rectMinusCorner_mod1_width4 (n k : ℕ) (_hn : n ≥ 2)
+    (hn_decomp : n = 3 * (k - 1) + 4) (hk1' : k - 1 ≥ 2) :
+    LTileable (rectangleMinusCorner n 4) := by
+  rw [hn_decomp]
+  -- rectangleMinusCorner (3(k-1) + 4) 4 =
+  --  rectangle (3(k-1)) 4 ∪ translateRegion (rectangleMinusCorner 4 4) (3(k-1), 0)
+  have h_3k1_4 : LTileable (rectangle (3 * (k - 1)) 4) := by
+    rw [rect_tileable_iff]
+    right; right
+    constructor
+    · ring; omega
+    · constructor
+      · omega
+      · constructor
+        · omega
+        · constructor
+          · intro ⟨h, _⟩; omega
+          · intro ⟨_, h⟩; omega
+  have h_4_4 : LTileable (rectangleMinusCorner 4 4) := tileable_4x4_minus
+  exact LTileable_horizontal_union_rect_minus (3 * (k - 1)) 4 4 (by omega) h_3k1_4 h_4_4
+
+/-- Helper: The recurrence case when k ≥ 3 for the mod 3 = 1 case. -/
+theorem tileable_rectMinusCorner_mod1_recurrence_k_ge3
+    (n m k j : ℕ) (_hn : n ≥ 2) (hm : m ≥ 2) (hmn : m ≤ n)
+    (hk_eq : n = 3 * k + 1) (hj_eq : m = 3 * j + 1)
+    (_hk1 : k ≥ 1) (_hj1 : j ≥ 1) (hk3 : k ≥ 3) :
+    LTileable (rectangleMinusCorner n m) := by
+  -- Decompose `n = 3(k-1) + 4` to split off a 4×(3j+1) three-cornered strip horizontally.
+  have hn_decomp : n = 3 * (k - 1) + 4 := by
+    rw [hk_eq]; omega
+  -- `m` has the form 3j+1.
+  have hm_form : m = 3 * j + 1 := hj_eq
+  -- First, tile the left rectangle `3(k-1) × m`.
+  have h_left : LTileable (rectangle (3 * (k - 1)) m) := by
+    -- Use the rectangle classification theorem.
+    have hconds : RectTileableConditions (3 * (k - 1)) m := by
+      right; right
+      constructor
+      · -- Area divisible by 3: 3 ∣ 3*(k-1), hence 3 ∣ (3*(k-1))*m.
+        have hdiv₁ : 3 ∣ 3 * (k - 1) := ⟨k - 1, by ring⟩
+        have hdiv₂ : 3 ∣ (3 * (k - 1)) * m := dvd_mul_of_dvd_left hdiv₁ _
+        exact Nat.mod_eq_zero_of_dvd hdiv₂
+      · constructor
+        · -- 3(k-1) ≥ 2 since k ≥ 3.
+          have hk_minus : k - 1 ≥ 2 := by omega
+          have : 3 * (k - 1) ≥ 6 := by omega
+          exact le_trans (by decide : 2 ≤ 6) this
+        · constructor
+          · -- m ≥ 2 (given).
+            exact hm
+          · constructor
+            · -- ¬(3(k-1) = 3 ∧ Odd m) since 3(k-1) ≥ 6, so 3(k-1) ≠ 3.
+              intro h
+              rcases h with ⟨hn3, _⟩
+              -- From 3(k-1) = 3 and k ≥ 3 we get a contradiction.
+              have hk_ge3 := hk3
+              have h_eq := hn3
+              omega
+            · -- ¬(Odd (3(k-1)) ∧ m = 3) since `m = 3j+1 ≠ 3`.
+              intro h
+              rcases h with ⟨_, hm3⟩
+              -- From `m = 3j+1`, `m` cannot be 3.
+              have hm_ne3 : m ≠ 3 := by
+                intro hm_eq3
+                subst hm_eq3
+                -- 3 = 3j+1 has no solutions in ℕ.
+                have h_eq : 3 = 3 * j + 1 := hm_form
+                have h_int : (3 : ℤ) = 3 * (j : ℤ) + 1 :=
+                  congrArg Int.ofNat h_eq
+                -- Now contradict in ℤ.
+                have := h_int
+                omega
+              exact hm_ne3 hm3
+    -- Turn conditions into tileability.
+    exact (rect_tileable_iff (3 * (k - 1)) m).2 hconds
+  -- Next, tile the right three-cornered strip `4 × (3j+1)`.
+  have h_right : LTileable (rectangleMinusCorner 4 m) := by
+    -- From `m = 3j+1` and `hj1 : j ≥ 1`, we can use the 4×(3k+1) lemma.
+    have hj_ge1 : j ≥ 1 := _hj1
+    -- Rewrite the height to match `tileable_4x_rectMinus_3kplus1`.
+    have : m = 3 * j + 1 := hm_form
+    -- Use the lemma and rewrite.
+    have h := tileable_4x_rectMinus_3kplus1 j hj_ge1
+    simpa [this] using h
+  -- Put the two parts together using the horizontal split of three-cornered rectangles.
+  -- `n = 3(k-1) + 4`, so we can take `a = 3(k-1)`, `b = 4`.
+  have : LTileable (rectangleMinusCorner (3 * (k - 1) + 4) m) :=
+    LTileable_horizontal_union_rect_minus (3 * (k - 1)) 4 m (by decide) h_left h_right
+  -- Rewrite back to `n`.
+  simpa [hn_decomp] using this
+
+/-- The mod 3 = 1 case: if n ≡ m ≡ 1 (mod 3), then rectangleMinusCorner n m is tileable. -/
+theorem tileable_rectMinusCorner_mod1_case
+    (n m : ℕ) (hn : n ≥ 2) (hm : m ≥ 2) (hmn : m ≤ n)
+    (hn1_mod : n % 3 = 1) (hm1_mod : m % 3 = 1) :
+    LTileable (rectangleMinusCorner n m) := by
+  -- Write n = 3k + 1, m = 3j + 1 for some k, j
+  let k := n / 3
+  let j := m / 3
+  have hk_eq : n = 3 * k + 1 := by
+    have hmod_div := Nat.mod_add_div n 3
+    rw [hn1_mod] at hmod_div
+    omega
+  have hj_eq : m = 3 * j + 1 := by
+    have hmod_div := Nat.mod_add_div m 3
+    rw [hm1_mod] at hmod_div
+    omega
+  -- Since n, m ≥ 2, we have k, j ≥ 1
+  have hk1 : k ≥ 1 := by
+    by_contra hlt; push_neg at hlt
+    have hk0 : k = 0 := by omega
+    rw [hk0] at hk_eq
+    omega
+  have hj1 : j ≥ 1 := by
+    by_contra hlt; push_neg at hlt
+    have hj0 : j = 0 := by omega
+    rw [hj0] at hj_eq
+    omega
+  -- Base case: 7×7 (k = 2, j = 2)
+  by_cases hbase : k = 2 ∧ j = 2
+  · -- 7×7 case
+    obtain ⟨hk2, hj2⟩ := hbase
+    have hn7 : n = 7 := by
+      rw [hk2] at hk_eq
+      omega
+    have hm7 : m = 7 := by
+      rw [hj2] at hj_eq
+      omega
+    rw [hn7, hm7]
+    exact tileable_7x7_minus
+  · -- Recurrence: either k ≥ 3 (handled by the k-recursion), or k < 3 (small k).
+    by_cases hk3 : k ≥ 3
+    · -- Large k: use the k-recursion lemma.
+      exact tileable_rectMinusCorner_mod1_recurrence_k_ge3 n m k j hn hm hmn hk_eq hj_eq hk1 hj1 hk3
+    · -- Small k: k = 1 or 2. Handle by jk-lemma and small explicit cases.
+      have hk_le2 : k ≤ 2 := by omega
+      have hk_cases : k = 1 ∨ k = 2 := by omega
+      rcases hk_cases with hk1' | hk2'
+      · -- k = 1, so n = 4
+        have hn4 : n = 4 := by
+          have : n = 3 * 1 + 1 := by simpa [hk1'] using hk_eq
+          simpa using this
+        subst hn4
+        -- Now m = 3j+1, j ≥ 1. Split on j.
+        by_cases hj3 : j ≥ 3
+        · -- j ≥ 3: use the jk-lemma with (j,k) = (j,1)
+          have h := tileable_rectMinusCorner_mod1_jk_ge j 1 hj3 (by decide)
+          -- n = 3*1+1 = 4, m = 3j+1
+          have hm_form : m = 3 * j + 1 := hj_eq
+          have hk_form : (4 : ℕ) = 3 * 1 + 1 := by decide
+          simpa [hk_form, hm_form] using h
+        · -- j < 3, so j = 1 or 2 (since j ≥ 1)
+          have hj_le2 : j ≤ 2 := by omega
+          have hj_cases : j = 1 ∨ j = 2 := by omega
+          rcases hj_cases with hj1' | hj2'
+          · -- j = 1: m = 4, use 4×4 minus-corner
+            have hm4 : m = 4 := by
+              -- m = 3*1+1 = 4
+              simpa [hj1'] using hj_eq
+            -- Rewrite the goal to `rectangleMinusCorner 4 4`.
+            simpa [hm4] using tileable_4x4_minus
+          · -- j = 2: m = 7, use 4×7 minus-corner
+            have hm7 : m = 7 := by
+              -- m = 3*2+1 = 7
+              simpa [hj2'] using hj_eq
+            simpa [hm7] using tileable_4x7_minus
+      · -- k = 2, so n = 7 (and we are not in the base (2,2) case)
+        have hn7 : n = 7 := by
+          have : n = 3 * 2 + 1 := by simpa [hk2'] using hk_eq
+          simpa using this
+        subst hn7
+        -- Now m = 3j+1, j ≥ 1, and j ≠ 2 (since (k,j) ≠ (2,2)).
+        have hj_ne2 : j ≠ 2 := by
+          intro hj2'
+          apply hbase
+          exact ⟨hk2', hj2'⟩
+        by_cases hj3 : j ≥ 3
+        · -- j ≥ 3: use the jk-lemma with (j,k) = (j,2)
+          have h := tileable_rectMinusCorner_mod1_jk_ge j 2 hj3 (by decide)
+          have hm_form : m = 3 * j + 1 := hj_eq
+          have hk_form : (7 : ℕ) = 3 * 2 + 1 := by decide
+          simpa [hk_form, hm_form] using h
+        · -- j < 3, so j = 1 (since j ≥ 1 and j ≠ 2)
+          have hj1' : j = 1 := by omega
+          -- Then m = 4; use 7×4 minus-corner via symmetry from 4×7.
+          have hm4 : m = 4 := by
+            -- m = 3*1+1 = 4
+            simpa [hj1'] using hj_eq
+          have h := tileable_4x7_minus
+          have h' : LTileable (rectangleMinusCorner 7 4) :=
+            (LTileable_swap_rectangleMinusCorner 4 7).1 h
+          simpa [hm4] using h'
+
 /-- Sufficiency direction assuming `m ≤ n` (Ash–Golomb Theorem 2, one-sided).
 
 If `n,m ≥ 2`, `m ≤ n`, and the deficient rectangle area `(n*m - 1)` is divisible
@@ -2113,11 +2500,8 @@ theorem rectMinusCorner_tileable_of_area_m_le_n
       (n % 3 = 1 ∧ m % 3 = 1) ∨ (n % 3 = 2 ∧ m % 3 = 2) :=
     mod3_both_one_or_two_of_area_mod3_zero (n := n) (m := m) hnm_mod1
   rcases hres with h11 | h22
-  · -- Case `n ≡ m ≡ 1 (mod 3)`: Ash–Golomb Case 1, to be filled.
-    have hn1_mod : n % 3 = 1 := h11.1
-    have hm1_mod : m % 3 = 1 := h11.2
-    -- TODO: use `hn1_mod`, `hm1_mod`, `hn`, `hm`, and `hmn` to build a tiling.
-    sorry
+  · -- Case `n ≡ m ≡ 1 (mod 3)`: use the helper lemma
+    exact tileable_rectMinusCorner_mod1_case n m hn hm hmn h11.1 h11.2
   · -- Case `n ≡ m ≡ 2 (mod 3)`: Ash–Golomb Case 2, to be filled.
     have hn2_mod : n % 3 = 2 := h22.1
     have hm2_mod : m % 3 = 2 := h22.2
