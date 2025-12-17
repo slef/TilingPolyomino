@@ -1503,20 +1503,354 @@ theorem rect_tileable_iff (n m : ℕ) :
     LTileable (rectangle n m) ↔ RectTileableConditions n m :=
   ⟨conditions_of_rect_tileable n m, rect_tileable_of_conditions n m⟩
 
-/-! ## Visualization
+/-! ## Deficient Rectangles (Three-Cornered) -/
 
-The 3×2 rectangle with our tiling:
+/-- The top-right corner cell of an `n × m` rectangle (0-based coordinates). -/
+def cornerTR (n m : ℕ) : Cell :=
+  (Int.ofNat (n - 1), Int.ofNat (m - 1))
 
-```
-  y
-  ↑
-  1 │ A · B B
-    │
-  0 │ A A B
-    └──────→ x
-      0 1 2
+/-- A three-cornered `n × m` rectangle: `rectangle n m` with its top-right corner removed.
 
-  A = tile 0 (L-tromino at origin, no rotation)
-  B = tile 1 (L-tromino at (2,1), rotated 180°)
-```
+We implement this as `erase` of the top-right corner from the full rectangle, so
+cardinality lemmas are immediate from `Finset.card_erase`. -/
+def rectangleMinusCorner (n m : ℕ) : Region :=
+  (rectangle n m).erase (cornerTR n m)
+
+/-- The top-right corner is indeed in the rectangle when `n,m ≥ 1`. -/
+theorem cornerTR_mem_rectangle {n m : ℕ} (hn : n ≥ 1) (hm : m ≥ 1) :
+    cornerTR n m ∈ rectangle n m := by
+  -- Reduce to linear arithmetic in ℤ and discharge with `omega`.
+  have hineq :
+      0 ≤ (cornerTR n m).1 ∧ (cornerTR n m).1 < n ∧
+      0 ≤ (cornerTR n m).2 ∧ (cornerTR n m).2 < m := by
+    dsimp [cornerTR]
+    omega
+  exact (mem_rectangle.mpr hineq)
+
+/-- Cardinality of a three-cornered rectangle: one less than the full rectangle. -/
+theorem rectangleMinusCorner_card {n m : ℕ} (hn : n ≥ 1) (hm : m ≥ 1) :
+    (rectangleMinusCorner n m).card = n * m - 1 := by
+  have hcorner : cornerTR n m ∈ rectangle n m :=
+    cornerTR_mem_rectangle hn hm
+  -- `erase` removes exactly one element from the rectangle.
+  simp [rectangleMinusCorner, rectangle_card, hcorner]
+
+/-- Swapping the top-right corner of an `n × m` rectangle gives the
+top-right corner of the `m × n` rectangle. -/
+theorem swapCell_cornerTR (n m : ℕ) :
+    swapCell (cornerTR n m) = cornerTR m n := by
+  simp [cornerTR, swapCell]
+
+/-- Swapping a three-cornered `n × m` rectangle yields the `m × n` one. -/
+theorem swap_rectangleMinusCorner (n m : ℕ) :
+    swapRegion (rectangleMinusCorner n m) = rectangleMinusCorner m n := by
+  -- Work elementwise, using the characterization of `erase` and `swap_rectangle`.
+  unfold rectangleMinusCorner swapRegion
+  -- `swapRegion r = r.image swapCell`
+  ext c
+  constructor
+  · -- → direction
+    intro hc
+    -- `c ∈ image swapCell ((rectangle n m).erase (cornerTR n m))`
+    rcases Finset.mem_image.mp hc with ⟨a, ha_erase, rfl⟩
+    rcases Finset.mem_erase.mp ha_erase with ⟨ha_ne_corner, ha_rect⟩
+    -- `swapCell a` lies in `swapRegion (rectangle n m) = rectangle m n`
+    have h_in_rect_mn : swapCell a ∈ rectangle m n := by
+      -- First, show `swapCell a ∈ swapRegion (rectangle n m)`
+      have h_in_swap : swapCell a ∈ swapRegion (rectangle n m) := by
+        -- membership in `image swapCell (rectangle n m)`
+        exact Finset.mem_image.mpr ⟨a, ha_rect, rfl⟩
+      -- then rewrite using `swap_rectangle`
+      simpa [swap_rectangle] using h_in_swap
+    -- and it is not the swapped corner
+    have h_ne_cornerTR_mn : swapCell a ≠ cornerTR m n := by
+      intro h_eq
+      -- compare with `swapCell (cornerTR n m)` using injectivity
+      have h' : a = cornerTR n m := by
+        apply swapCell_injective
+        simpa [swapCell_cornerTR] using h_eq
+      exact ha_ne_corner h'
+    -- So `swapCell a` lies in `erase (cornerTR m n) (rectangle m n)`.
+    exact Finset.mem_erase.mpr ⟨h_ne_cornerTR_mn, h_in_rect_mn⟩
+  · -- ← direction
+    intro hc
+    -- `c ∈ erase (cornerTR m n) (rectangle m n)`
+    rcases Finset.mem_erase.mp hc with ⟨hc_ne_corner, hc_rect_mn⟩
+    -- Find a preimage `a` in `rectangle n m` with `swapCell a = c`
+    have h_in_swap : c ∈ swapRegion (rectangle n m) := by
+      -- rewrite membership using `swap_rectangle`
+      simpa [swap_rectangle] using hc_rect_mn
+    rcases Finset.mem_image.mp h_in_swap with ⟨a, ha_rect, h_eq⟩
+    subst h_eq
+    -- Show `a ≠ cornerTR n m`
+    have ha_ne_corner : a ≠ cornerTR n m := by
+      intro h_eq
+      -- Then `swapCell a = swapCell (cornerTR n m) = cornerTR m n`,
+      -- contradicting `hc_ne_corner`.
+      have : swapCell a = cornerTR m n := by
+        simp [h_eq, swapCell_cornerTR]
+      exact hc_ne_corner this
+    -- Thus `swapCell a` lies in the image of the erased rectangle.
+    exact Finset.mem_image.mpr
+      ⟨a, Finset.mem_erase.mpr ⟨ha_ne_corner, ha_rect⟩, rfl⟩
+
+/-- L-tileability of three-cornered rectangles is symmetric in the dimensions. -/
+theorem LTileable_swap_rectangleMinusCorner (n m : ℕ) :
+    LTileable (rectangleMinusCorner n m) ↔
+      LTileable (rectangleMinusCorner m n) := by
+  constructor
+  · intro h
+    have h' := LTileable_swap h
+    simpa [swap_rectangleMinusCorner] using h'
+  · intro h
+    have h' := LTileable_swap h
+    simpa [swap_rectangleMinusCorner] using h'
+
+/-- If `(n * m) % 3 ≠ 0`, then in particular `n % 3 ≠ 0`.
+
+Equivalently (by contrapositive): if `n % 3 = 0`, then `(n * m) % 3 = 0`. -/
+theorem mod3_ne_zero_of_mul_mod3_ne_zero_left {n m : ℕ}
+    (h : (n * m) % 3 ≠ 0) :
+    n % 3 ≠ 0 := by
+  intro hn0
+  -- From `n % 3 = 0` we get `3 ∣ n`, hence `3 ∣ n * m`, so `(n * m) % 3 = 0`.
+  have h3_div_n : 3 ∣ n := Nat.dvd_of_mod_eq_zero hn0
+  have h3_div_nm : 3 ∣ n * m := dvd_mul_of_dvd_left h3_div_n m
+  have hzero : (n * m) % 3 = 0 := Nat.mod_eq_zero_of_dvd h3_div_nm
+  exact h hzero
+
+/-- If a three-cornered rectangle is L-tileable, then its area is divisible by 3. -/
+theorem rectMinusCorner_tileable_area_div_3 {n m : ℕ}
+    (hn : n ≥ 1) (hm : m ≥ 1)
+    (h : LTileable (rectangleMinusCorner n m)) :
+    (n * m - 1) % 3 = 0 := by
+  have hcard : (rectangleMinusCorner n m).card % 3 = 0 := by
+    simpa using h.area_div_3
+  simpa [rectangleMinusCorner_card hn hm] using hcard
+
+/-- A tiling of the 2×2 rectangle with its top-right corner removed. -/
+def tiling_2x2_minus : TileSet lTrominoSet Unit :=
+  mkTileSet lTrominoSet Unit (fun _ => mkPlacedTile () 0 0 0)
+
+theorem tiling_2x2_minus_valid :
+    tiling_2x2_minus.Valid (rectangleMinusCorner 2 2) := by
+  decide
+
+/-- The 2×2 rectangle with a missing top-right corner is L-tileable. -/
+theorem tileable_2x2_minus : LTileable (rectangleMinusCorner 2 2) :=
+  ⟨Unit, inferInstance, inferInstance, tiling_2x2_minus, tiling_2x2_minus_valid⟩
+
+/-- Explicit tiling of the 4×4 rectangle with its top-right corner removed.
+This is the `2² × 2²` deficiency-1 square used in Ash–Golomb's Theorem 2. -/
+def tiling_4x4_minus : TileSet lTrominoSet (Fin 5) := ⟨![
+  ⟨(), (0, 0), 0⟩,  -- bottom-left quadrant
+  ⟨(), (3, 0), 1⟩,  -- bottom-right quadrant
+  ⟨(), (0, 3), 3⟩,  -- top-left quadrant
+  ⟨(), (2, 2), 0⟩,  -- top-right quadrant (except the missing corner)
+  ⟨(), (1, 1), 0⟩   -- central tromino
+]⟩
+
+theorem tiling_4x4_minus_valid :
+    tiling_4x4_minus.Valid (rectangleMinusCorner 4 4) := by
+  decide
+
+/-- The 4×4 rectangle with a missing top-right corner is L-tileable. -/
+theorem tileable_4x4_minus : LTileable (rectangleMinusCorner 4 4) :=
+  ⟨Fin 5, inferInstance, inferInstance, tiling_4x4_minus, tiling_4x4_minus_valid⟩
+
+/-- Explicit tiling of the 5×5 rectangle with its top-right corner removed.
+
+We follow the Ash–Golomb decomposition:
+- a 2×3 rectangle `A` at the bottom-left,
+- a 3×2 rectangle `B` at the bottom-right,
+- and four L-trominoes near the top boundary.
+
+The eight tiles (0–7) are:
+- tiles 0–1: a copy of `tiling_2x3` covering `A = {(x,y) | x ∈ {0,1}, y ∈ {0,1,2}}`,
+- tiles 2–3: a tiling of `B = {(x,y) | x ∈ {2,3,4}, y ∈ {0,1}}`,
+- tiles 4–7: the four L-trominoes:
+  - `T₁ = {(0,3),(0,4),(1,4)}`,
+  - `T₂ = {(1,3),(2,3),(2,2)}`,
+  - `T₃ = {(2,4),(3,4),(3,3)}`,
+  - `T₄ = {(3,2),(4,2),(4,3)}`.
 -/
+def tiling_5x5_minus : TileSet lTrominoSet (Fin 8) := ⟨![
+  -- A: 2×3 rectangle at bottom-left (copy of tiling_2x3)
+  ⟨(), (0, 0), 0⟩,
+  ⟨(), (1, 2), 2⟩,
+  -- B: 3×2 rectangle at bottom-right
+  ⟨(), (2, 0), 0⟩,
+  ⟨(), (4, 1), 2⟩,
+  -- T₁: {(0,3),(0,4),(1,4)}
+  ⟨(), (0, 4), 3⟩,
+  -- T₂: {(1,3),(2,3),(2,2)}
+  ⟨(), (2, 3), 2⟩,
+  -- T₃: {(2,4),(3,4),(3,3)}
+  ⟨(), (3, 4), 2⟩,
+  -- T₄: {(3,2),(4,2),(4,3)}
+  ⟨(), (4, 2), 1⟩
+]⟩
+
+theorem tiling_5x5_minus_valid :
+    tiling_5x5_minus.Valid (rectangleMinusCorner 5 5) := by
+  decide
+
+/-- The 5×5 rectangle with a missing top-right corner is L-tileable. -/
+theorem tileable_5x5_minus : LTileable (rectangleMinusCorner 5 5) :=
+  ⟨Fin 8, inferInstance, inferInstance, tiling_5x5_minus, tiling_5x5_minus_valid⟩
+
+/-- Explicit tiling of the 7×7 rectangle with its top-right corner removed.
+
+We use the user-specified partition of `R(7,7)⁻` into 16 disjoint L-trominoes,
+converted to 0-based coordinates.
+
+In 0-based `(x,y)` coordinates (with `0 ≤ x,y ≤ 6`, missing `(6,6)`), the 16
+L-trominoes are:
+- `T₁  = {(0,0),(0,1),(1,1)}`
+- `T₂  = {(1,0),(2,0),(2,1)}`
+- `T₃  = {(0,2),(0,3),(1,3)}`
+- `T₄  = {(1,2),(2,2),(2,3)}`
+- `T₅  = {(0,4),(1,4),(1,5)}`
+- `T₆  = {(0,5),(0,6),(1,6)}`
+- `T₇  = {(2,6),(3,5),(3,6)}`
+- `T₈  = {(2,4),(2,5),(3,4)}`
+- `T₉  = {(3,0),(4,0),(4,1)}`
+- `T₁₀ = {(3,1),(3,2),(4,2)}`
+- `T₁₁ = {(3,3),(4,3),(4,4)}`
+- `T₁₂ = {(4,5),(4,6),(5,6)}`
+- `T₁₃ = {(5,0),(6,0),(6,1)}`
+- `T₁₄ = {(5,1),(5,2),(6,2)}`
+- `T₁₅ = {(5,3),(6,3),(6,4)}`
+- `T₁₆ = {(5,4),(5,5),(6,5)}`.
+-/
+def tiling_7x7_minus : TileSet lTrominoSet (Fin 16) := ⟨![
+  -- T₁
+  ⟨(), (0, 1), 3⟩,
+  -- T₂
+  ⟨(), (2, 0), 1⟩,
+  -- T₃
+  ⟨(), (0, 3), 3⟩,
+  -- T₄
+  ⟨(), (2, 2), 1⟩,
+  -- T₅
+  ⟨(), (1, 4), 1⟩,
+  -- T₆
+  ⟨(), (0, 6), 3⟩,
+  -- T₇
+  ⟨(), (3, 6), 2⟩,
+  -- T₈
+  ⟨(), (2, 4), 0⟩,
+  -- T₉
+  ⟨(), (4, 0), 1⟩,
+  -- T₁₀
+  ⟨(), (3, 2), 3⟩,
+  -- T₁₁
+  ⟨(), (4, 3), 1⟩,
+  -- T₁₂
+  ⟨(), (4, 6), 3⟩,
+  -- T₁₃
+  ⟨(), (6, 0), 1⟩,
+  -- T₁₄
+  ⟨(), (5, 2), 3⟩,
+  -- T₁₅
+  ⟨(), (6, 3), 1⟩,
+  -- T₁₆
+  ⟨(), (5, 5), 3⟩
+]⟩
+
+theorem tiling_7x7_minus_valid :
+    tiling_7x7_minus.Valid (rectangleMinusCorner 7 7) := by
+  decide
+
+/-- The 7×7 rectangle with a missing top-right corner is L-tileable. -/
+theorem tileable_7x7_minus : LTileable (rectangleMinusCorner 7 7) :=
+  ⟨Fin 16, inferInstance, inferInstance, tiling_7x7_minus, tiling_7x7_minus_valid⟩
+
+/-- Sufficiency direction assuming `m ≤ n` (Ash–Golomb Theorem 2, one-sided).
+
+If `n,m ≥ 2`, `m ≤ n`, and the deficient rectangle area `(n*m - 1)` is divisible
+by `3`, then `rectangleMinusCorner n m` is L-tileable.
+
+This lemma corresponds to the `m ≤ n` branch of the main theorem, where
+the full Ash–Golomb case analysis (mod 3) will be carried out. -/
+theorem rectMinusCorner_tileable_of_area_m_le_n
+    (n m : ℕ) (hn : n ≥ 2) (hm : m ≥ 2) (hmn : m ≤ n)
+    (harea : (n * m - 1) % 3 = 0) :
+    LTileable (rectangleMinusCorner n m) := by
+  -- `n,m ≥ 2` implies `1 ≤ n * m`, used to rewrite `(n*m - 1) + 1`.
+  have hn1 : 1 ≤ n := le_trans (by decide : 1 ≤ 2) hn
+  have hm1 : 1 ≤ m := le_trans (by decide : 1 ≤ 2) hm
+  have hnm_ge1 : 1 ≤ n * m := by
+    -- Since `n,m ≥ 1`, we have `1 * 1 ≤ n * m`.
+    have h : 1 * 1 ≤ n * m := Nat.mul_le_mul hn1 hm1
+    simpa using h
+  -- Case split on `m % 3`.
+  by_cases hm0 : m % 3 = 0
+  · -- Case `m % 3 = 0` is impossible: then `(n*m - 1) % 3 = 2`, contradicting `harea`.
+    -- From `m % 3 = 0` we get `3 ∣ m` and hence `3 ∣ n*m`, so `(n*m) % 3 = 0`.
+    have h3m : 3 ∣ m := Nat.dvd_of_mod_eq_zero hm0
+    have h3nm : 3 ∣ n * m := dvd_mul_of_dvd_right h3m n
+    have hnm_mod0 : (n * m) % 3 = 0 := Nat.mod_eq_zero_of_dvd h3nm
+    -- On the other hand, from `(n*m - 1) % 3 = 0` we get `(n*m) % 3 = 1`.
+    -- Compute `(n*m) % 3` from `(n*m - 1) % 3` using `(a + b) % 3`.
+    have h_add := Nat.add_mod (n * m - 1) 1 3
+    have h_step :
+        (n * m) % 3 =
+          ((n * m - 1) % 3 + 1 % 3) % 3 := by
+      -- `h_add` has left side `((n*m - 1) + 1) % 3`; rewrite it as `(n*m) % 3`.
+      have h1 : ((n * m - 1) + 1) % 3 = (n * m) % 3 := by
+        simp [Nat.sub_add_cancel hnm_ge1]
+      -- From `h1 : LHS = (n*m)%3` and `h_add : LHS = RHS`, deduce `(n*m)%3 = RHS`.
+      exact h1.symm.trans h_add
+    have hnm_mod1 : (n * m) % 3 = 1 := by
+      have : (n * m) % 3 = ((0 : ℕ) + 1) % 3 := by
+        simpa [harea, Nat.one_mod] using h_step
+      simpa [Nat.one_mod] using this
+    -- Contradiction: `(n*m) % 3 = 0` and `= 1`.
+    have : (0 : ℕ) = 1 := by
+      calc
+        (0 : ℕ) = (n * m) % 3 := by simpa using hnm_mod0.symm
+        _ = 1 := hnm_mod1
+    exact (Nat.zero_ne_one this).elim
+  · -- Here `m % 3 ≠ 0`. Split into the remaining two cases `1` and `2`.
+    by_cases hm1' : m % 3 = 1
+    · -- Case `m % 3 = 1`: Ash–Golomb Case 1 (`n ≡ m ≡ 1 (mod 3)`), to be filled.
+      sorry
+    · -- Case `m % 3 = 2`: follows from `m % 3 ≠ 0` and `m % 3 ≠ 1`.
+      have hm2 : m % 3 = 2 := by
+        -- This is a simple modular arithmetic fact: the only possibilities
+        -- for `m % 3` are `0,1,2`, and we have excluded `0` and `1`.
+        -- We leave the proof as a separate lemma to be filled in.
+        sorry
+      -- Ash–Golomb Case 2 (`n ≡ m ≡ 2 (mod 3)`), to be filled.
+      sorry
+
+/-- **Ash–Golomb Theorem 2 (statement)**:
+An `n × m` rectangle with one corner removed is L-tileable iff its area is a multiple of 3.
+
+We assume `n,m ≥ 2` so the shape is non-degenerate. -/
+theorem rectMinusCorner_tileable_iff (n m : ℕ) (hn : n ≥ 2) (hm : m ≥ 2) :
+    LTileable (rectangleMinusCorner n m) ↔ (n * m - 1) % 3 = 0 := by
+  constructor
+  · -- Necessity: tileable ⇒ area divisible by 3
+    intro h
+    exact rectMinusCorner_tileable_area_div_3 (by omega) (by omega) h
+  · -- Sufficiency: area divisible by 3 ⇒ tileable.
+    intro harea
+    -- Without loss of generality, assume `m ≤ n`. If not, we can swap the axes:
+    -- L-tileability of `rectangleMinusCorner` is invariant under swapping x,y.
+    by_cases hmn : m ≤ n
+    · -- Main branch: `m ≤ n`
+      exact rectMinusCorner_tileable_of_area_m_le_n n m hn hm hmn harea
+    · -- Symmetric branch: `¬(m ≤ n)` i.e. `n < m`.
+      -- Use symmetry: first obtain a tiling for `rectangleMinusCorner m n`
+      -- (where `n ≤ m` holds), then swap back.
+      have hnm : n ≤ m := Nat.le_of_lt (Nat.lt_of_not_ge hmn)
+      -- Area condition is symmetric in `n` and `m`.
+      have harea' : (m * n - 1) % 3 = 0 := by
+        simpa [Nat.mul_comm] using harea
+      -- Apply the one-sided lemma to the swapped pair `(m,n)`.
+      have h_swapped : LTileable (rectangleMinusCorner m n) :=
+        rectMinusCorner_tileable_of_area_m_le_n m n hm hn hnm harea'
+      -- Transport the tiling back using symmetry of three-cornered rectangles.
+      exact (LTileable_swap_rectangleMinusCorner m n).mp h_swapped
