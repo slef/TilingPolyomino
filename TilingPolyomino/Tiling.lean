@@ -411,6 +411,87 @@ theorem Tileable_union {ι : Type*} (ps : Protoset ι)
       · exact ⟨Sum.inl i1, hi1⟩
       · exact ⟨Sum.inr i2, hi2⟩
 
+/-- Finite union of pairwise-disjoint tileable regions is tileable. -/
+theorem Tileable_biUnion {ι : Type*} (ps : Protoset ι)
+    {ιₜ : Type*} [Fintype ιₜ]
+    (Rk : ιₜ → Region)
+    (hTile : ∀ k : ιₜ, Tileable ps (Rk k))
+    (hdisj : ∀ i j : ιₜ, i ≠ j → Disjoint (Rk i) (Rk j)) :
+    Tileable ps (Finset.univ.biUnion Rk) := by
+  classical
+  -- Prove the more general statement for an arbitrary finite set of indices.
+  have h_general :
+      ∀ (s : Finset ιₜ), Tileable ps (s.biUnion Rk) := by
+    intro s
+    refine
+      s.induction
+        (by
+          -- Empty union is the empty region.
+          simpa using (empty_tileable ps))
+        ?step
+    intro a s ha hIH
+    -- `Rk a` is tileable by assumption.
+    have hTa : Tileable ps (Rk a) := hTile a
+    -- The union over `s` is tileable by the induction hypothesis.
+    have hTs : Tileable ps (s.biUnion Rk) := hIH
+    -- `Rk a` is disjoint from the union over `s`, using pairwise disjointness.
+    have hdisj_as :
+        Disjoint (Rk a) (s.biUnion Rk) := by
+      -- Unfold disjointness via pointwise inequality.
+      rw [Finset.disjoint_iff_ne]
+      intro c hc d hd hcd
+      -- `d` lies in some `Rk j` for `j ∈ s`.
+      rcases Finset.mem_biUnion.mp hd with ⟨j, hj_s, hdj⟩
+      -- Since `a ∉ s`, we know `a ≠ j`.
+      have hne : a ≠ j := by
+        intro h_eq
+        subst h_eq
+        exact ha hj_s
+      -- Use disjointness of `Rk a` and `Rk j`.
+      have hdisj_aj := hdisj a j hne
+      exact Finset.disjoint_iff_ne.mp hdisj_aj c hc d hdj hcd
+    -- Apply the two-region union lemma.
+    have h_union : Tileable ps (Rk a ∪ s.biUnion Rk) :=
+      Tileable_union ps hTa hTs hdisj_as
+    -- Show that this union is exactly the biUnion over `insert a s`.
+    have h_eq :
+        (insert a s).biUnion Rk =
+          Rk a ∪ s.biUnion Rk := by
+      ext c
+      constructor
+      · intro hc
+        rcases Finset.mem_biUnion.mp hc with ⟨j, hj_ins, hcj⟩
+        by_cases hj : j = a
+        · subst hj
+          -- `c ∈ Rk a`, hence `c ∈ Rk a ∪ s.biUnion Rk`
+          exact Finset.mem_union.mpr (Or.inl hcj)
+        · -- `j ≠ a`, so `j ∈ s`
+          have hj_s : j ∈ s := by
+            -- Remove the `a`-case from membership in `insert a s`.
+            simpa [Finset.mem_insert, hj] using hj_ins
+          have hcS : c ∈ s.biUnion Rk :=
+            Finset.mem_biUnion.mpr ⟨j, hj_s, hcj⟩
+          exact Finset.mem_union.mpr (Or.inr hcS)
+      · intro hc
+        rcases Finset.mem_union.mp hc with hc_a | hc_s
+        · -- `c ∈ Rk a`
+          apply Finset.mem_biUnion.mpr
+          refine ⟨a, ?_, hc_a⟩
+          simp [Finset.mem_insert]
+        · -- `c ∈ s.biUnion Rk`
+          rcases Finset.mem_biUnion.mp hc_s with ⟨j, hj_s, hcj⟩
+          apply Finset.mem_biUnion.mpr
+          refine ⟨j, ?_, hcj⟩
+          -- `j` is in `insert a s` but distinct from `a` since `a ∉ s`.
+          have : j ≠ a := by
+            intro h_eq
+            subst h_eq
+            exact ha hj_s
+          simp [Finset.mem_insert, hj_s, this]
+    simpa [h_eq] using h_union
+  -- Specialize the general statement to `Finset.univ`.
+  simpa using h_general Finset.univ
+
 /-- Translating by offset and then by `-offset` gives the original region -/
 theorem translateRegion_neg (r : Region) (offset : Cell) :
     translateRegion (translateRegion r offset) (-offset.1, -offset.2) = r := by
@@ -511,6 +592,165 @@ def mkTileSet {ι : Type*} (ps : Protoset ι) (ιₜ : Type*)
 def mkPlacedTile {ι : Type*} (i : ι) (x y : ℤ) (r : Fin 4) :
     PlacedTile ι :=
   ⟨i, (x, y), r⟩
+
+/- ## Generic Placement Enumeration -/
+
+/-- A placed tile is contained in a region if all its cells are in the region -/
+def PlacedTile.containedIn {ι : Type*} (ps : Protoset ι)
+    (pt : PlacedTile ι) (r : Region) : Prop :=
+  pt.cells ps ⊆ r
+
+instance {ι : Type*} (ps : Protoset ι)
+    (pt : PlacedTile ι) (r : Region) :
+    Decidable (pt.containedIn ps r) :=
+  inferInstanceAs (Decidable (pt.cells ps ⊆ r))
+
+/-- A placed tile covers a cell if the cell is in its cells -/
+def PlacedTile.coversCell {ι : Type*} (ps : Protoset ι)
+    (pt : PlacedTile ι) (c : Cell) : Prop :=
+  c ∈ pt.cells ps
+
+instance {ι : Type*} (ps : Protoset ι)
+    (pt : PlacedTile ι) (c : Cell) :
+    Decidable (pt.coversCell ps c) :=
+  inferInstanceAs (Decidable (c ∈ pt.cells ps))
+
+/-- All placements of a single prototile that cover a given target cell.
+For each cell `c` in the prototile and each rotation `r`, the unique
+translation that maps `rotateCell c r` to `target` is:
+`target - rotateCell c r`. -/
+def allPlacementsCoveringProto {ι : Type*}
+    (i : ι) (proto : Prototile) (target : Cell) :
+    List (PlacedTile ι) :=
+  proto.cells.flatMap fun baseCell =>
+    (List.finRange 4).map fun r =>
+      let rotated := rotateCell baseCell r
+      ⟨i, (target.1 - rotated.1, target.2 - rotated.2), r⟩
+
+/-- All placements from a protoset that cover a given target cell -/
+def allPlacementsCovering {ι : Type*}
+    (ps : Protoset ι) (indices : List ι) (target : Cell) :
+    List (PlacedTile ι) :=
+  indices.flatMap fun i => allPlacementsCoveringProto i (ps i) target
+
+/-- Every placement produced by `allPlacementsCoveringProto`
+actually covers the target -/
+theorem allPlacementsCoveringProto_covers {ι : Type*}
+    (ps : Protoset ι) (i : ι) (target : Cell) (pt : PlacedTile ι)
+    (hpt : pt ∈ allPlacementsCoveringProto i (ps i) target) :
+    pt.coversCell ps target := by
+  simp only [allPlacementsCoveringProto, List.mem_flatMap, List.mem_map,
+    List.mem_finRange, true_and] at hpt
+  obtain ⟨baseCell, hbase, r, rfl⟩ := hpt
+  simp only [PlacedTile.coversCell, PlacedTile.cells, Finset.mem_image,
+    translateCell]
+  refine ⟨rotateCell baseCell r, ?_, ?_⟩
+  · simp only [rotateProto, Finset.mem_image]
+    exact ⟨baseCell, Prototile.mem_coe (ps i) baseCell |>.mpr hbase, rfl⟩
+  · ext <;> ring
+
+/-- `allPlacementsCoveringProto` is complete: any placement with index `i`
+covering `target` is in the list. -/
+theorem allPlacementsCoveringProto_complete {ι : Type*}
+    (ps : Protoset ι) (i : ι) (target : Cell) (pt : PlacedTile ι)
+    (hidx : pt.index = i) (hcover : pt.coversCell ps target) :
+    pt ∈ allPlacementsCoveringProto i (ps i) target := by
+  simp only [PlacedTile.coversCell, PlacedTile.cells] at hcover
+  simp only [Finset.mem_image, translateCell] at hcover
+  obtain ⟨rotatedCell, hrot, htrans⟩ := hcover
+  simp only [rotateProto, Finset.mem_image] at hrot
+  obtain ⟨origCell, horig, rfl⟩ := hrot
+  simp only [allPlacementsCoveringProto, List.mem_flatMap, List.mem_map,
+    List.mem_finRange, true_and]
+  rw [hidx] at horig
+  rw [(ps i).mem_coe] at horig
+  refine ⟨origCell, horig, pt.rotation, ?_⟩
+  rw [Prod.mk.injEq] at htrans
+  obtain ⟨htx, hty⟩ := htrans
+  obtain ⟨idx, trans, rot⟩ := pt
+  simp only at hidx htx hty; subst hidx
+  simp only [PlacedTile.mk.injEq, true_and]
+  refine ⟨?_, trivial⟩
+  ext <;> omega
+
+/-! Placements covering a cell and contained in a region -/
+def placementsCoveringIn {ι : Type*} (ps : Protoset ι)
+    (indices : List ι) (target : Cell) (region : Region) :
+    List (PlacedTile ι) :=
+  (allPlacementsCovering ps indices target).filter
+    fun pt => pt.containedIn ps region
+
+
+/- ## Protoset Refinement -/
+
+variable {ιA ιB : Type*}
+
+/-- `psA` refines `psB` if every rotated prototile of `psB` is tileable by `psA`. -/
+def Refines (psA : Protoset ιA) (psB : Protoset ιB) : Prop :=
+  ∀ (j : ιB) (r : Fin 4), Tileable psA (rotateProto (psB j) r)
+
+/-- If `psA` refines `psB` and `psB` tiles `R`, then `psA` tiles `R`.
+
+Conceptually: replace each `psB`-tile in a tiling of `R` by a `psA`-tiling of
+that tile's shape, using refinement. -/
+theorem Tileable_refine
+    (psA : Protoset ιA) (psB : Protoset ιB) (R : Region)
+    (hAB : Refines psA psB) (hBR : Tileable psB R) :
+    Tileable psA R := by
+  classical
+  -- Unpack a concrete tiling of `R` by `psB`.
+  obtain ⟨ιₜB, hFB, hDB, tB, hBvalid⟩ := hBR
+  letI : Fintype ιₜB := hFB
+  letI : DecidableEq ιₜB := hDB
+  -- The region covered by the `k`-th tile in the `psB`-tiling.
+  let Rk : ιₜB → Region := fun k => tB.cellsAt k
+  -- Each such region is tileable by `psA`, using refinement and translation.
+  have hTileA : ∀ k : ιₜB, Tileable psA (Rk k) := by
+    intro k
+    -- The placed `psB`-tile at index `k`.
+    let pt := tB k
+    -- `psA` tiles the rotated prototile of `pt`.
+    have h_shape :
+        Tileable psA (rotateProto (psB pt.index) pt.rotation) :=
+      hAB pt.index pt.rotation
+    -- Translate this tiling to the actual position of `pt`.
+    have h_translated :
+        Tileable psA
+          (translateRegion
+            (rotateProto (psB pt.index) pt.rotation)
+            pt.translation) :=
+      Tileable_translate psA h_shape pt.translation
+    -- The region `Rk k` is exactly this translated rotated prototile.
+    have h_eq :
+        Rk k =
+          translateRegion
+            (rotateProto (psB pt.index) pt.rotation)
+            pt.translation := by
+      -- Unfold definitions.
+      unfold Rk TileSet.cellsAt pt
+      -- `PlacedTile.cells` is defined as `translateRegion` of the rotated prototile.
+      simp [PlacedTile.cells, translateRegion]
+    simpa [h_eq] using h_translated
+  -- Regions corresponding to distinct tiles in the `psB`-tiling are disjoint.
+  have hdisjA :
+      ∀ i j : ιₜB, i ≠ j → Disjoint (Rk i) (Rk j) := by
+    intro i j hij
+    -- This is exactly the pairwise disjointness from validity of `tB`.
+    have h := hBvalid.disjoint_tiles i j hij
+    simpa [Rk, TileSet.cellsAt] using h
+  -- The union of all these regions is `R` (since `tB` is a tiling of `R`).
+  have h_union :
+      Tileable psA (Finset.univ.biUnion Rk) :=
+    Tileable_biUnion psA Rk hTileA hdisjA
+  -- `tB.coveredCells` is exactly this union.
+  have h_cov :
+      Finset.univ.biUnion Rk = tB.coveredCells := by
+    rfl
+  -- Rewrite using the fact that `tB` covers `R`.
+  have hA_R : Tileable psA tB.coveredCells := by
+    simpa [h_cov] using h_union
+  simpa [hBvalid.covers] using hA_R
+
 
 /- ## Rectangle Definition and Tilings -/
 
@@ -648,92 +888,3 @@ theorem Tileable_vertical_union {ι : Type*} (ps : Protoset ι) (n a b : ℕ)
   apply Tileable_union ps h1
   · exact Tileable_translate ps h2 (0, a)
   · exact rectangle_split_vertical_disjoint n a b
-
-
-
-/- ## Generic Placement Enumeration -/
-
-/-- A placed tile is contained in a region if all its cells are in the region -/
-def PlacedTile.containedIn {ι : Type*} (ps : Protoset ι)
-    (pt : PlacedTile ι) (r : Region) : Prop :=
-  pt.cells ps ⊆ r
-
-instance {ι : Type*} (ps : Protoset ι)
-    (pt : PlacedTile ι) (r : Region) :
-    Decidable (pt.containedIn ps r) :=
-  inferInstanceAs (Decidable (pt.cells ps ⊆ r))
-
-/-- A placed tile covers a cell if the cell is in its cells -/
-def PlacedTile.coversCell {ι : Type*} (ps : Protoset ι)
-    (pt : PlacedTile ι) (c : Cell) : Prop :=
-  c ∈ pt.cells ps
-
-instance {ι : Type*} (ps : Protoset ι)
-    (pt : PlacedTile ι) (c : Cell) :
-    Decidable (pt.coversCell ps c) :=
-  inferInstanceAs (Decidable (c ∈ pt.cells ps))
-
-/-- All placements of a single prototile that cover a given target cell.
-For each cell `c` in the prototile and each rotation `r`, the unique
-translation that maps `rotateCell c r` to `target` is:
-`target - rotateCell c r`. -/
-def allPlacementsCoveringProto {ι : Type*}
-    (i : ι) (proto : Prototile) (target : Cell) :
-    List (PlacedTile ι) :=
-  proto.cells.flatMap fun baseCell =>
-    (List.finRange 4).map fun r =>
-      let rotated := rotateCell baseCell r
-      ⟨i, (target.1 - rotated.1, target.2 - rotated.2), r⟩
-
-/-- All placements from a protoset that cover a given target cell -/
-def allPlacementsCovering {ι : Type*}
-    (ps : Protoset ι) (indices : List ι) (target : Cell) :
-    List (PlacedTile ι) :=
-  indices.flatMap fun i => allPlacementsCoveringProto i (ps i) target
-
-/-- Every placement produced by `allPlacementsCoveringProto`
-actually covers the target -/
-theorem allPlacementsCoveringProto_covers {ι : Type*}
-    (ps : Protoset ι) (i : ι) (target : Cell) (pt : PlacedTile ι)
-    (hpt : pt ∈ allPlacementsCoveringProto i (ps i) target) :
-    pt.coversCell ps target := by
-  simp only [allPlacementsCoveringProto, List.mem_flatMap, List.mem_map,
-    List.mem_finRange, true_and] at hpt
-  obtain ⟨baseCell, hbase, r, rfl⟩ := hpt
-  simp only [PlacedTile.coversCell, PlacedTile.cells, Finset.mem_image,
-    translateCell]
-  refine ⟨rotateCell baseCell r, ?_, ?_⟩
-  · simp only [rotateProto, Finset.mem_image]
-    exact ⟨baseCell, Prototile.mem_coe (ps i) baseCell |>.mpr hbase, rfl⟩
-  · ext <;> ring
-
-/-- `allPlacementsCoveringProto` is complete: any placement with index `i`
-covering `target` is in the list. -/
-theorem allPlacementsCoveringProto_complete {ι : Type*}
-    (ps : Protoset ι) (i : ι) (target : Cell) (pt : PlacedTile ι)
-    (hidx : pt.index = i) (hcover : pt.coversCell ps target) :
-    pt ∈ allPlacementsCoveringProto i (ps i) target := by
-  simp only [PlacedTile.coversCell, PlacedTile.cells] at hcover
-  simp only [Finset.mem_image, translateCell] at hcover
-  obtain ⟨rotatedCell, hrot, htrans⟩ := hcover
-  simp only [rotateProto, Finset.mem_image] at hrot
-  obtain ⟨origCell, horig, rfl⟩ := hrot
-  simp only [allPlacementsCoveringProto, List.mem_flatMap, List.mem_map,
-    List.mem_finRange, true_and]
-  rw [hidx] at horig
-  rw [(ps i).mem_coe] at horig
-  refine ⟨origCell, horig, pt.rotation, ?_⟩
-  rw [Prod.mk.injEq] at htrans
-  obtain ⟨htx, hty⟩ := htrans
-  obtain ⟨idx, trans, rot⟩ := pt
-  simp only at hidx htx hty; subst hidx
-  simp only [PlacedTile.mk.injEq, true_and]
-  refine ⟨?_, trivial⟩
-  ext <;> omega
-
-/-! Placements covering a cell and contained in a region -/
-def placementsCoveringIn {ι : Type*} (ps : Protoset ι)
-    (indices : List ι) (target : Cell) (region : Region) :
-    List (PlacedTile ι) :=
-  (allPlacementsCovering ps indices target).filter
-    fun pt => pt.containedIn ps region
