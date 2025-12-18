@@ -1555,7 +1555,11 @@ theorem conditions_of_rect_tileable (n m : ℕ) (h : LTileable (rectangle n m)) 
     obtain ⟨k, rfl⟩ := hnodd
     exact not_tileable_odd_by_3 k h
 
-/-- **Main Theorem**: Complete characterization of L-tileable rectangles -/
+/-- **Main Theorem**: Complete characterization of L-tileable rectangles.
+
+This result corresponds to the characterization of tromino-tilable rectangles due to
+P. Chu and R. Johnsonbaugh,
+*Tiling Boards with Trominoes*, *Journal of Recreational Mathematics* **18** (1985), 188–193. -/
 theorem rect_tileable_iff (n m : ℕ) :
     LTileable (rectangle n m) ↔ RectTileableConditions n m :=
   ⟨conditions_of_rect_tileable n m, rect_tileable_of_conditions n m⟩
@@ -2711,7 +2715,7 @@ theorem tileable_rectMinusCorner_mod2_case
         subst hm5'
         simpa using tileable_5x5_minus
 
-/-- Sufficiency direction assuming `m ≤ n` (Ash–Golomb Theorem 2, one-sided).
+/-- Sufficiency direction assuming `m ≤ n` (Ash–Golomb Theorem 2 / "DOG-EARED RECTANGLE THEOREM", one-sided).
 
 If `n,m ≥ 2`, `m ≤ n`, and the deficient rectangle area `(n*m - 1)` is divisible
 by `3`, then `rectangleMinusCorner n m` is L-tileable.
@@ -2757,7 +2761,9 @@ theorem rectMinusCorner_tileable_of_area_m_le_n
     -- Use the mod 2 helper lemma.
     exact tileable_rectMinusCorner_mod2_case n m hn hm hmn hn2_mod hm2_mod
 
-/-- **Ash–Golomb Theorem 2 (statement)**:
+/-- **Ash–Golomb Theorem 2 (statement)** (called the **DOG-EARED RECTANGLE THEOREM**
+in the published paper):
+
 An `n × m` rectangle with one corner removed is L-tileable iff its area is a multiple of 3.
 
 We assume `n,m ≥ 2` so the shape is non-degenerate. -/
