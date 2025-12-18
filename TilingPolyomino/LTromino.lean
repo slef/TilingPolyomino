@@ -14,28 +14,6 @@ import TilingPolyomino.Tiling
 import Mathlib.Tactic
 
 
-
-
-
-/-- If we can tile two horizontally adjacent rectangles, we can tile their union -/
-theorem Tileable_horizontal_union {ι : Type*} (ps : Protoset ι) (a b m : ℕ)
-    (h1 : Tileable ps (rectangle a m)) (h2 : Tileable ps (rectangle b m)) :
-    Tileable ps (rectangle (a + b) m) := by
-  rw [rectangle_split_horizontal]
-  apply Tileable_union ps h1
-  · exact Tileable_translate ps h2 (a, 0)
-  · exact rectangle_split_horizontal_disjoint a b m
-
-/-- If we can tile two vertically adjacent rectangles, we can tile their union -/
-theorem Tileable_vertical_union {ι : Type*} (ps : Protoset ι) (n a b : ℕ)
-    (h1 : Tileable ps (rectangle n a)) (h2 : Tileable ps (rectangle n b)) :
-    Tileable ps (rectangle n (a + b)) := by
-  rw [rectangle_split_vertical]
-  apply Tileable_union ps h1
-  · exact Tileable_translate ps h2 (0, a)
-  · exact rectangle_split_vertical_disjoint n a b
-
-
 /- ## L-Tromino Protoset
 
 The L-tromino is a single prototile that looks like:
