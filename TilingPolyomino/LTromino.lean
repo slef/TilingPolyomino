@@ -897,6 +897,13 @@ theorem rect_tileable_iff (n m : ℕ) :
 def cornerTR (n m : ℕ) : Cell :=
   (Int.ofNat (n - 1), Int.ofNat (m - 1))
 
+/-- The cell immediately to the left of the top-right corner of an `n × m`
+rectangle (0-based coordinates).
+
+In coordinates: `(n-2, m-1)`.  This is only meaningful when `n ≥ 2`. -/
+def cornerTR2 (n m : ℕ) : Cell :=
+  (Int.ofNat (n - 2), Int.ofNat (m - 1))
+
 /-- A three-cornered `n × m` rectangle: `rectangle n m` with its top-right corner removed.
 
 We implement this as `erase` of the top-right corner from the full rectangle, so
@@ -915,6 +922,16 @@ theorem cornerTR_mem_rectangle {n m : ℕ} (hn : n ≥ 1) (hm : m ≥ 1) :
     omega
   exact (mem_rectangle.mpr hineq)
 
+/-- The cell `cornerTR2` is in the rectangle `rectangle n m` when `n ≥ 2` and `m ≥ 1`. -/
+theorem cornerTR2_mem_rectangle {n m : ℕ} (hn : n ≥ 2) (hm : m ≥ 1) :
+    cornerTR2 n m ∈ rectangle n m := by
+  have hineq :
+      0 ≤ (cornerTR2 n m).1 ∧ (cornerTR2 n m).1 < n ∧
+      0 ≤ (cornerTR2 n m).2 ∧ (cornerTR2 n m).2 < m := by
+    dsimp [cornerTR2]
+    omega
+  exact (mem_rectangle.mpr hineq)
+
 /-- Cardinality of a three-cornered rectangle: one less than the full rectangle. -/
 theorem rectangleMinusCorner_card {n m : ℕ} (hn : n ≥ 1) (hm : m ≥ 1) :
     (rectangleMinusCorner n m).card = n * m - 1 := by
@@ -922,6 +939,41 @@ theorem rectangleMinusCorner_card {n m : ℕ} (hn : n ≥ 1) (hm : m ≥ 1) :
     cornerTR_mem_rectangle hn hm
   -- `erase` removes exactly one element from the rectangle.
   simp [rectangleMinusCorner, rectangle_card, hcorner]
+
+/-- A rectangle `n × m` with both the top-right corner and the square
+immediately to its left removed. -/
+def rectangleMinus2Corner (n m : ℕ) : Region :=
+  ((rectangle n m).erase (cornerTR n m)).erase (cornerTR2 n m)
+
+/-- Cardinality of a rectangle with two adjacent top boundary squares removed. -/
+theorem rectangleMinus2Corner_card {n m : ℕ} (hn : n ≥ 2) (hm : m ≥ 1) :
+    (rectangleMinus2Corner n m).card = n * m - 2 := by
+  have hcorner : cornerTR n m ∈ rectangle n m :=
+    cornerTR_mem_rectangle (by omega) hm
+  have hcorner2 : cornerTR2 n m ∈ rectangle n m :=
+    cornerTR2_mem_rectangle hn hm
+  -- After removing `cornerTR`, `cornerTR2` is still in the set.
+  have hcorner2' : cornerTR2 n m ∈ (rectangle n m).erase (cornerTR n m) := by
+    have hneq : cornerTR2 n m ≠ cornerTR n m := by
+      intro h
+      have hf := congrArg Prod.fst h
+      dsimp [cornerTR2, cornerTR] at hf
+      have : n - 2 = n - 1 := Int.ofNat.inj hf
+      omega
+    exact Finset.mem_erase.mpr ⟨hneq, hcorner2⟩
+  -- Erase twice and compute the card.
+  have hcard1 :
+      ((rectangle n m).erase (cornerTR n m)).card = (rectangle n m).card - 1 := by
+    simp [rectangle_card, hcorner]
+  have hcard2 :
+      (rectangleMinus2Corner n m).card =
+        ((rectangle n m).erase (cornerTR n m)).card - 1 := by
+    simp [rectangleMinus2Corner, hcorner2']
+  -- Put the two steps together.
+  have : (rectangleMinus2Corner n m).card =
+      (rectangle n m).card - 2 := by
+    omega
+  simpa [rectangle_card] using this
 
 /-- Swapping the top-right corner of an `n × m` rectangle gives the
 top-right corner of the `m × n` rectangle. -/
@@ -1258,6 +1310,57 @@ theorem mod3_both_one_or_two_of_area_mod3_zero
     · -- Subcase `m % 3 = 2`: this is the other desired alternative.
       right
       exact ⟨hn2, hm2⟩
+
+/-- If `(n * m) % 3 = 2`, then modulo `3` the residues of `n` and `m` are
+`1` and `2` in some order. -/
+theorem mod3_one_two_or_two_one_of_area_mod3_two
+    {n m : ℕ} (h : (n * m) % 3 = 2) :
+    (n % 3 = 1 ∧ m % 3 = 2) ∨ (n % 3 = 2 ∧ m % 3 = 1) := by
+  -- From `(n * m) % 3 = 2` we know the product is not divisible by 3.
+  have hnm_ne0 : (n * m) % 3 ≠ 0 := by
+    simp [h]
+  -- Hence neither factor is `0` mod `3`.
+  have hn_ne0 : n % 3 ≠ 0 :=
+    mod3_ne_zero_of_mul_mod3_ne_zero_left (n := n) (m := m) hnm_ne0
+  have hm_ne0 : m % 3 ≠ 0 := by
+    have hmn_ne0 : (m * n) % 3 ≠ 0 := by
+      simpa [Nat.mul_comm] using hnm_ne0
+    exact mod3_ne_zero_of_mul_mod3_ne_zero_left (n := m) (m := n) hmn_ne0
+  -- Each residue modulo `3` is therefore either `1` or `2`.
+  have hn_res : n % 3 = 1 ∨ n % 3 = 2 :=
+    mod3_eq_one_or_two_of_ne_zero hn_ne0
+  have hm_res : m % 3 = 1 ∨ m % 3 = 2 :=
+    mod3_eq_one_or_two_of_ne_zero hm_ne0
+  -- Analyze the four possible combinations of residues.
+  rcases hn_res with hn1 | hn2
+  · -- Case `n % 3 = 1`.
+    rcases hm_res with hm1 | hm2
+    · -- Subcase `m % 3 = 1`: then `(n * m) % 3 = 1`, contradicting `h = 2`.
+      have hnm1 : (n * m) % 3 = 1 := by
+        have hcalc : (n * m) % 3 = (1 * 1) % 3 := by
+          simpa [hn1, hm1] using (Nat.mul_mod n m 3)
+        simpa using hcalc
+      -- This contradicts `h : (n * m) % 3 = 2`.
+      have hnm1' : (2 : ℕ) = 1 := by simp [h] at hnm1
+      have hfalse : False := (by decide : (2 : ℕ) ≠ 1) hnm1'
+      exact hfalse.elim
+    · -- Subcase `m % 3 = 2`: this is one of the desired alternatives.
+      left
+      exact ⟨hn1, hm2⟩
+  · -- Case `n % 3 = 2`.
+    rcases hm_res with hm1 | hm2
+    · -- Subcase `m % 3 = 1`: this is the other desired alternative.
+      right
+      exact ⟨hn2, hm1⟩
+    · -- Subcase `m % 3 = 2`: then `(n * m) % 3 = 1`, contradicting `h = 2`.
+      have hnm1 : (n * m) % 3 = 1 := by
+        have hcalc : (n * m) % 3 = (2 * 2) % 3 := by
+          simpa [hn2, hm2] using (Nat.mul_mod n m 3)
+        simpa using hcalc
+      -- This contradicts `h : (n * m) % 3 = 2`.
+      have hnm1' : (2 : ℕ) = 1 := by simp [h] at hnm1
+      have hfalse : False := (by decide : (2 : ℕ) ≠ 1) hnm1'
+      exact hfalse.elim
 
 /-- If a three-cornered rectangle is L-tileable, then its area is divisible by 3. -/
 theorem rectMinusCorner_tileable_area_div_3 {n m : ℕ}
@@ -2120,3 +2223,28 @@ theorem rectMinusCorner_tileable_iff (n m : ℕ) (hn : n ≥ 2) (hm : m ≥ 2) :
         rectMinusCorner_tileable_of_area_m_le_n m n hm hn hnm harea'
       -- Transport the tiling back using symmetry of three-cornered rectangles.
       exact (LTileable_swap_rectangleMinusCorner m n).mp h_swapped
+
+/-- A first two-square deficient base case:
+
+If `n = 3j + 2` and `m = 3k + 1` with `j,k ≥ 1`, then the two-corner-deficient
+rectangle `rectangleMinus2Corner n m` is L-tileable.
+
+Intuitively (following Ash–Golomb, Remark 2), one covers the top two rows
+with a `3j × 2` rectangle and one extra L-tromino near the top-right corner,
+leaving a three-cornered `(3j+2) × (3k-1)` rectangle, which is L-tileable by
+`rectMinusCorner_tileable_iff`.  Formalizing this geometric decomposition
+is left as a TODO. -/
+theorem tileable_rectangleMinus2Corner_3jplus2_3kplus1
+    (j k : ℕ) (hj : j ≥ 1) (hk : k ≥ 1) :
+    LTileable (rectangleMinus2Corner (3 * j + 2) (3 * k + 1)) := by
+  sorry
+
+/-- **Two-square deficient rectangle theorem (statement)**:
+
+If `n * m ≡ 2 [MOD 3]` and we remove a corner square together with the
+boundary square immediately adjacent to it, the remaining region is
+L-tileable. -/
+theorem rectMinus2Corner_tileable_of_area_mod2
+    (n m : ℕ) (hn : n ≥ 3) (hm : m ≥ 3) (hmod : n * m % 3 = 2) :
+    LTileable (rectangleMinus2Corner n m) := by
+  sorry
