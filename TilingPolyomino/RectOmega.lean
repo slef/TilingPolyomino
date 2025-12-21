@@ -66,6 +66,78 @@ macro "rect_omega" : tactic => `(tactic| (
   aesop (add 50% tactic Lean.Elab.Tactic.Omega.omegaDefault)
 ))
 
+/- ## Rectangle Expression DSL -/
+
+/-- Rectangle expression AST for building polyomino-like regions as Boolean
+    expressions over half-open rectangles on ℤ×ℤ, plus translation. -/
+inductive RExp
+  | empty : RExp
+  | rect : (x0 y0 x1 y1 : ℤ) → RExp
+  | union : RExp → RExp → RExp
+  | inter : RExp → RExp → RExp
+  | diff : RExp → RExp → RExp
+  | shift : (dx dy : ℤ) → RExp → RExp
+  deriving Repr, DecidableEq
+
+/-- Semantics: evaluate a rectangle expression to a set of cells. -/
+def RExp.eval : RExp → Set Cell
+  | .empty => ∅
+  | .rect x0 y0 x1 y1 => _root_.rect x0 y0 x1 y1
+  | .union a b => eval a ∪ eval b
+  | .inter a b => eval a ∩ eval b
+  | .diff a b => eval a \ eval b
+  | .shift dx dy e => translate dx dy (eval e)
+
+/-- Convenient constructor for rectangles. -/
+def RExp.r (x0 y0 x1 y1 : ℤ) : RExp := RExp.rect x0 y0 x1 y1
+
+/-- Notation for union. -/
+infixl:65 " ⊔ " => RExp.union
+
+/-- Notation for intersection. -/
+infixl:70 " ⊓ " => RExp.inter
+
+/-- Notation for set difference. -/
+infixl:70 " ⊖ " => RExp.diff
+
+/-- Notation for translation/shift. -/
+notation "⇑[" dx "," dy "]" e => RExp.shift dx dy e
+
+/- ## RExp Simplification Lemmas -/
+
+@[simp] theorem RExp.r_eq (x0 y0 x1 y1 : ℤ) :
+  RExp.r x0 y0 x1 y1 = RExp.rect x0 y0 x1 y1 := rfl
+
+@[simp] theorem RExp.eval_r (x0 y0 x1 y1 : ℤ) :
+  RExp.eval (RExp.r x0 y0 x1 y1) = _root_.rect x0 y0 x1 y1 := rfl
+
+@[simp] theorem RExp.eval_empty : RExp.eval RExp.empty = (∅ : Set Cell) := rfl
+
+@[simp] theorem RExp.eval_rect (x0 y0 x1 y1 : ℤ) :
+  RExp.eval (RExp.rect x0 y0 x1 y1) = _root_.rect x0 y0 x1 y1 := rfl
+
+@[simp] theorem RExp.eval_union (a b : RExp) :
+  RExp.eval (RExp.union a b) = RExp.eval a ∪ RExp.eval b := rfl
+
+@[simp] theorem RExp.eval_inter (a b : RExp) :
+  RExp.eval (RExp.inter a b) = RExp.eval a ∩ RExp.eval b := rfl
+
+@[simp] theorem RExp.eval_diff (a b : RExp) :
+  RExp.eval (RExp.diff a b) = RExp.eval a \ RExp.eval b := rfl
+
+@[simp] theorem RExp.eval_shift (dx dy : ℤ) (e : RExp) :
+  RExp.eval (RExp.shift dx dy e) = translate dx dy (RExp.eval e) := rfl
+
+/- ## RExp Automation Tactic -/
+
+/-- Tactic to prove equalities of `RExp.eval` expressions.
+    Simplifies `RExp.eval` to `Set Cell` expressions, then calls `rect_omega`. -/
+macro "rexp_omega" : tactic => `(tactic| (
+  simp only [RExp.eval_empty, RExp.eval_rect, RExp.eval_r, RExp.eval_union, RExp.eval_inter,
+    RExp.eval_diff, RExp.eval_shift]
+  rect_omega
+))
+
 /- ## Demo Theorems -/
 
 /-- Vertical split: splitting a (2n)×(2m) rectangle vertically vs horizontally.
@@ -96,3 +168,28 @@ theorem translate_rect (x0 y0 x1 y1 dx dy : ℤ) :
     constructor <;> omega
   · intro ⟨hx0, hx1, hy0, hy1⟩
     constructor <;> omega
+
+/- ## RExp Example Theorems -/
+
+/-- Example (A): Vertical split identity expressed with RExp.
+    Splitting a (2n)×(2m) rectangle vertically vs horizontally. -/
+example (n m : ℤ) (hm : 0 ≤ m) :
+  RExp.eval (RExp.r 0 0 n (2*m) ⊔ RExp.r n 0 (2*n) (2*m)) =
+  RExp.eval (RExp.r 0 0 (2*n) m ⊔ RExp.r 0 m (2*n) (2*m)) := by
+  rexp_omega
+
+/-- Example (B): A hole/subtraction example.
+    A 4×4 rectangle with a 2×2 hole in the middle equals the union of four rectangles
+    forming a frame around the hole. -/
+example :
+  RExp.eval (RExp.r 0 0 4 4 ⊖ RExp.r 1 1 3 3) =
+  RExp.eval ((RExp.r 0 0 4 1 ⊔ RExp.r 0 1 1 3) ⊔ (RExp.r 3 1 4 3 ⊔ RExp.r 0 3 4 4)) := by
+  rexp_omega
+
+/-- Example (C): Translation example.
+    Translating a rectangle shifts its bounds by the translation vector. -/
+example (x0 y0 x1 y1 dx dy : ℤ) :
+  RExp.eval (⇑[dx, dy] (RExp.r x0 y0 x1 y1)) =
+    _root_.rect (x0 + dx) (y0 + dy) (x1 + dx) (y1 + dy) := by
+  simp only [RExp.eval_shift, RExp.eval_r]
+  exact translate_rect x0 y0 x1 y1 dx dy
