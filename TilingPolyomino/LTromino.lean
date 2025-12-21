@@ -11,6 +11,7 @@ Main results include:
 -/
 
 import TilingPolyomino.Tiling
+import TilingPolyomino.RectOmega
 import Mathlib.Tactic
 
 
@@ -2224,16 +2225,77 @@ theorem rectMinusCorner_tileable_iff (n m : ℕ) (hn : n ≥ 2) (hm : m ≥ 2) :
       -- Transport the tiling back using symmetry of three-cornered rectangles.
       exact (LTileable_swap_rectangleMinusCorner m n).mp h_swapped
 
-/-- A first two-square deficient base case:
+/-! ### Two-square deficient rectangle base case
+
+A first two-square deficient base case:
 
 If `n = 3j + 2` and `m = 3k + 1` with `j,k ≥ 1`, then the two-corner-deficient
 rectangle `rectangleMinus2Corner n m` is L-tileable.
 
-Intuitively (following Ash–Golomb, Remark 2), one covers the top two rows
-with a `3j × 2` rectangle and one extra L-tromino near the top-right corner,
+Intuitively (following Ash–Golomb, Remark 2), one covers the top two rows with a `3j × 2` rectangle
+(translated by (0,3k-1)) and one extra L-tromino near the top-right corner
+(rotated 180 deg and translated by (3j+1, 3k-1)),
 leaving a three-cornered `(3j+2) × (3k-1)` rectangle, which is L-tileable by
-`rectMinusCorner_tileable_iff`.  Formalizing this geometric decomposition
-is left as a TODO. -/
+`rectMinusCorner_tileable_iff`.
+-/
+
+-- Helper definitions for single L-tromino tilings
+
+/-- The cells of an L-tromino placed at rotation `r` and translation `(tx, ty)`. -/
+def lTrominoCellsAt (tx ty : ℤ) (r : Fin 4) : Finset Cell :=
+  PlacedTile.cells lTrominoSet ⟨(), (tx, ty), r⟩
+
+/-- A tiling consisting of a single L-tromino. -/
+def singleLTrominoTiling (tx ty : ℤ) (r : Fin 4) : TileSet lTrominoSet Unit :=
+  ⟨fun _ => ⟨(), (tx, ty), r⟩⟩
+
+/-- A single L-tromino tiles its own cells. -/
+theorem singleLTromino_valid (tx ty : ℤ) (r : Fin 4) :
+    (singleLTrominoTiling tx ty r).Valid (lTrominoCellsAt tx ty r) := by
+  constructor
+  · intro i j hij; exact absurd (Subsingleton.elim i j) hij
+  · unfold TileSet.coveredCells singleLTrominoTiling TileSet.cellsAt lTrominoCellsAt
+    ext c
+    simp only [Finset.mem_biUnion, Finset.mem_univ, true_and]
+    exact ⟨fun ⟨_, hc⟩ => hc, fun hc => ⟨(), hc⟩⟩
+
+/-- Any single L-tromino region is L-tileable. -/
+theorem LTileable_single_lTromino (tx ty : ℤ) (r : Fin 4) :
+    LTileable (lTrominoCellsAt tx ty r) :=
+  ⟨Unit, inferInstance, inferInstance, singleLTrominoTiling tx ty r,
+    singleLTromino_valid tx ty r⟩
+
+/-- The L-tromino cells for the top-right region in the decomposition. -/
+def topRightLTromino (j k : ℕ) : Finset Cell :=
+  lTrominoCellsAt (3 * j + 1) (3 * k - 1) 2
+
+/-- The L-tromino at the top-right is L-tileable. -/
+theorem LTileable_topRightLTromino (j k : ℕ) :
+    LTileable (topRightLTromino j k) :=
+  LTileable_single_lTromino (3 * j + 1) (3 * k - 1) 2
+
+
+/-- The decomposition of `rectangleMinus2Corner (3j+2) (3k+1)` into three parts:
+1. Bottom: `rectangleMinusCorner (3j+2) (3k-1)`
+2. Top-left: `translateRegion (rectangle (3j) 2) (0, 3k-1)`
+3. Top-right: `topRightLTromino j k` (an L-tromino) -/
+theorem rectangleMinus2Corner_decomp (j k : ℕ) (hj : j ≥ 1) (hk : k ≥ 1) :
+    rectangleMinus2Corner (3 * j + 2) (3 * k + 1) =
+      rectangleMinusCorner (3 * j + 2) (3 * k - 1) ∪
+      translateRegion (rectangle (3 * j) 2) (0, 3 * k - 1) ∪
+      topRightLTromino j k := by
+ sorry
+
+/-- The three parts in the decomposition are pairwise disjoint. -/
+theorem rectangleMinus2Corner_decomp_disjoint (j k : ℕ) (hj : j ≥ 1) (hk : k ≥ 1) :
+    Disjoint (rectangleMinusCorner (3 * j + 2) (3 * k - 1))
+             (translateRegion (rectangle (3 * j) 2) (0, 3 * k - 1)) ∧
+    Disjoint (rectangleMinusCorner (3 * j + 2) (3 * k - 1))
+             (topRightLTromino j k) ∧
+    Disjoint (translateRegion (rectangle (3 * j) 2) (0, 3 * k - 1))
+             (topRightLTromino j k) := by
+  sorry
+
 theorem tileable_rectangleMinus2Corner_3jplus2_3kplus1
     (j k : ℕ) (hj : j ≥ 1) (hk : k ≥ 1) :
     LTileable (rectangleMinus2Corner (3 * j + 2) (3 * k + 1)) := by

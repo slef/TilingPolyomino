@@ -25,11 +25,11 @@ theorem example (n m : ℤ) (hn : 0 ≤ n) (hm : 0 ≤ m) :
 
 import Mathlib.Data.Set.Basic
 import Mathlib.Tactic
+import TilingPolyomino.Tiling
 
 /- ## Basic Definitions -/
 
-/-- A grid cell is a pair of integers -/
-def Cell := ℤ × ℤ
+-- Cell is already defined in TilingPolyomino.Tiling
 
 /-- Half-open rectangle: `rect x0 y0 x1 y1` contains all cells `(x, y)` such that
     `x0 ≤ x < x1` and `y0 ≤ y < y1`. -/
