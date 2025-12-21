@@ -130,12 +130,28 @@ notation "⇑[" dx "," dy "]" e => RExp.shift dx dy e
 
 /- ## RExp Automation Tactic -/
 
+/-- More efficient variant of `rect_omega` that avoids `aesop`'s exponential search.
+    Uses omega directly without aesop's exponential case exploration. -/
+macro "rect_omega_direct" : tactic => `(tactic| (
+  ext p
+  simp only [Set.mem_union, Set.mem_inter, Set.mem_diff, Set.mem_empty_iff_false,
+    mem_rect, mem_translate]
+  omega
+))
+
 /-- Tactic to prove equalities of `RExp.eval` expressions.
     Simplifies `RExp.eval` to `Set Cell` expressions, then calls `rect_omega`. -/
 macro "rexp_omega" : tactic => `(tactic| (
   simp only [RExp.eval_empty, RExp.eval_rect, RExp.eval_r, RExp.eval_union, RExp.eval_inter,
     RExp.eval_diff, RExp.eval_shift]
   rect_omega
+))
+
+/-- More efficient variant of `rexp_omega` that uses `rect_omega_direct` instead. -/
+macro "rexp_omega_direct" : tactic => `(tactic| (
+  simp only [RExp.eval_empty, RExp.eval_rect, RExp.eval_r, RExp.eval_union, RExp.eval_inter,
+    RExp.eval_diff, RExp.eval_shift]
+  rect_omega_direct
 ))
 
 /- ## Demo Theorems -/
@@ -193,3 +209,30 @@ example (x0 y0 x1 y1 dx dy : ℤ) :
     _root_.rect (x0 + dx) (y0 + dy) (x1 + dx) (y1 + dy) := by
   simp only [RExp.eval_shift, RExp.eval_r]
   exact translate_rect x0 y0 x1 y1 dx dy
+
+/-- Example (D): Test case with nested set differences and arithmetic.
+    Tests that the tactic can handle expressions like `3 * j + 2`, `3 * k - 1` without timing out.
+    This tests the same complexity as `rectangleMinus2Corner_decomp_rexp`:
+    - Nested set differences (A ⊖ B ⊖ C)
+    - Arithmetic expressions with multiplication and addition/subtraction
+    - Unions of multiple RExp expressions
+    - Translation operations
+
+    This example shows that a rectangle minus two corners can be expressed as
+    the union of a smaller rectangle-minus-corner, a translated rectangle, and an L-tromino.
+    (This is similar in structure to the actual decomposition theorem.) -/
+example (j k : ℕ) (hj : j ≥ 1) (hk : k ≥ 1) :
+  -- Test the complexity: nested differences with arithmetic
+  RExp.eval (RExp.r 0 0 (3 * j + 2) (3 * k + 1) ⊖
+           RExp.r (3 * j + 1) (3 * k) (3 * j + 2) (3 * k + 1) ⊖
+           RExp.r (3 * j) (3 * k) (3 * j + 1) (3 * k + 1)) =
+  -- Decomposed into: rectangle-minus-corner ∪ translated rectangle ∪ L-tromino
+  RExp.eval (RExp.r 0 0 (3 * j + 2) (3 * k - 1) ⊖
+           RExp.r (3 * j + 1) (3 * k - 2) (3 * j + 2) (3 * k - 1)) ∪
+  RExp.eval (⇑[0, 3 * k - 1] (RExp.r 0 0 (3 * j) 2)) ∪
+  RExp.eval (RExp.r (3 * j) (3 * k - 2) (3 * j + 2) (3 * k) ⊖
+           RExp.r (3 * j) (3 * k - 2) (3 * j + 1) (3 * k - 1)) := by
+  -- To test the tactic: replace `sorry` with `rexp_omega_direct`
+  -- This will test if the tactic can handle the complexity without timing out
+  -- (The equality may or may not be true - this is primarily for performance testing)
+  rexp_omega_direct

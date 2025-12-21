@@ -2275,6 +2275,53 @@ theorem LTileable_topRightLTromino (j k : ℕ) :
   LTileable_single_lTromino (3 * j + 1) (3 * k - 1) 2
 
 
+/- ## RExp Representations for Decomposition -/
+
+/-- RExp representation of `rectangleMinus2Corner n m`.
+    This is a rectangle with two adjacent top-right corner cells removed. -/
+def rectangleMinus2Corner_rexp (n m : ℕ) : RExp :=
+  RExp.r 0 0 n m ⊖
+  RExp.r (n - 1) (m - 1) n m ⊖
+  RExp.r (n - 2) (m - 1) (n - 1) m
+
+/-- RExp representation of `topRightLTromino j k`.
+    This is a 2×2 square minus a 1×1 square, forming an L-tromino shape. -/
+def topRightLTromino_rexp (j k : ℕ) : RExp :=
+  RExp.r (3 * j) (3 * k - 2) (3 * j + 2) (3 * k) ⊖
+  RExp.r (3 * j) (3 * k - 2) (3 * j + 1) (3 * k - 1)
+
+/-- RExp representation of `rectangleMinusCorner n m`.
+    This is a rectangle with its top-right corner removed. -/
+def rectangleMinusCorner_rexp (n m : ℕ) : RExp :=
+  RExp.r 0 0 n m ⊖
+  RExp.r (n - 1) (m - 1) n m
+
+/-- RExp representation of `translateRegion (rectangle (3j) 2) (0, 3k-1)`.
+    This is a 3j×2 rectangle translated up by (0, 3k-1). -/
+def translateRectangle_rexp (j k : ℕ) : RExp :=
+  ⇑[0, 3 * k - 1] (RExp.r 0 0 (3 * j) 2)
+
+/-- Helper lemma: The L-tromino at rotation 2 (180°) has cells (0,0), (0,-1), (-1,0) -/
+theorem lTromino_rotation2_cells :
+    rotateProto lTromino 2 = {(0, 0), (0, -1), (-1, 0)} := by
+  -- Both are finite sets, so we can use decide
+  decide
+
+
+
+/-- The decomposition of `rectangleMinus2Corner (3j+2) (3k+1)` into three parts (as RExp):
+1. Bottom: `rectangleMinusCorner (3j+2) (3k-1)`
+2. Top-left: `translateRegion (rectangle (3j) 2) (0, 3k-1)`
+3. Top-right: `topRightLTromino j k` (an L-tromino) -/
+theorem rectangleMinus2Corner_decomp_rexp (j k : ℕ) (hj : j ≥ 1) (hk : k ≥ 1) :
+    RExp.eval (rectangleMinus2Corner_rexp (3 * j + 2) (3 * k + 1)) =
+      RExp.eval (rectangleMinusCorner_rexp (3 * j + 2) (3 * k - 1)) ∪
+      RExp.eval (translateRectangle_rexp j k) ∪
+      RExp.eval (topRightLTromino_rexp j k) := by
+  simp only [rectangleMinus2Corner_rexp, rectangleMinusCorner_rexp,
+    translateRectangle_rexp, topRightLTromino_rexp]
+  rexp_omega_direct
+
 /-- The decomposition of `rectangleMinus2Corner (3j+2) (3k+1)` into three parts:
 1. Bottom: `rectangleMinusCorner (3j+2) (3k-1)`
 2. Top-left: `translateRegion (rectangle (3j) 2) (0, 3k-1)`
@@ -2284,7 +2331,7 @@ theorem rectangleMinus2Corner_decomp (j k : ℕ) (hj : j ≥ 1) (hk : k ≥ 1) :
       rectangleMinusCorner (3 * j + 2) (3 * k - 1) ∪
       translateRegion (rectangle (3 * j) 2) (0, 3 * k - 1) ∪
       topRightLTromino j k := by
- sorry
+  sorry
 
 /-- The three parts in the decomposition are pairwise disjoint. -/
 theorem rectangleMinus2Corner_decomp_disjoint (j k : ℕ) (hj : j ≥ 1) (hk : k ≥ 1) :
