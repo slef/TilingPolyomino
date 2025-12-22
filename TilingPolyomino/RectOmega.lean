@@ -40,6 +40,19 @@ def rect (x0 y0 x1 y1 : ℤ) : Set Cell :=
 def translate (dx dy : ℤ) (s : Set Cell) : Set Cell :=
   {p : Cell | (p.1 - dx, p.2 - dy) ∈ s}
 
+/-- Inverse rotation: rotating by `r` then by `inverseRot r` gives identity. -/
+@[simp] def inverseRot (r : Fin 4) : Fin 4 :=
+  match r with
+  | 0 => 0
+  | 1 => 3
+  | 2 => 2
+  | 3 => 1
+
+/-- Rotation of a set of cells by a multiple of 90° counterclockwise around the origin.
+    `r : Fin 4` represents rotation by `r * 90°` (0°, 90°, 180°, or 270°). -/
+def rotate (r : Fin 4) (s : Set Cell) : Set Cell :=
+  {p : Cell | rotateCell p (inverseRot r) ∈ s}
+
 /- ## Simplification Lemmas -/
 
 @[simp] theorem mem_rect (x0 y0 x1 y1 : ℤ) (p : Cell) :
@@ -49,6 +62,20 @@ def translate (dx dy : ℤ) (s : Set Cell) : Set Cell :=
 @[simp] theorem mem_translate (dx dy : ℤ) (s : Set Cell) (p : Cell) :
   p ∈ translate dx dy s ↔ (p.1 - dx, p.2 - dy) ∈ s := by
   rfl
+
+@[simp] theorem mem_rotate (r : Fin 4) (s : Set Cell) (p : Cell) :
+  p ∈ rotate r s ↔ rotateCell p (inverseRot r) ∈ s := by
+  rfl
+
+/-- Simplification lemmas for rotateCell. Omega needs concrete arithmetic expressions,
+    so we provide explicit lemmas for each rotation amount. -/
+@[simp] theorem rotateCell_0 (p : Cell) : rotateCell p 0 = p := rfl
+@[simp] theorem rotateCell_1 (p : Cell) : rotateCell p 1 = (-p.2, p.1) := rfl
+@[simp] theorem rotateCell_2 (p : Cell) : rotateCell p 2 = (-p.1, -p.2) := by
+  simp only [rotateCell, rotateCell90]
+@[simp] theorem rotateCell_3 (p : Cell) : rotateCell p 3 = (p.2, -p.1) := by
+  simp only [rotateCell, rotateCell90]
+  ring_nf
 
 /- ## Automation Tactic -/
 
@@ -62,14 +89,15 @@ def translate (dx dy : ℤ) (s : Set Cell) : Set Cell :=
 macro "rect_omega" : tactic => `(tactic| (
   ext p
   simp only [Set.mem_union, Set.mem_inter, Set.mem_diff, Set.mem_empty_iff_false,
-    mem_rect, mem_translate]
+    mem_rect, mem_translate, mem_rotate, inverseRot, rotateCell_0, rotateCell_1,
+    rotateCell_2, rotateCell_3]
   aesop (add 50% tactic Lean.Elab.Tactic.Omega.omegaDefault)
 ))
 
 /- ## Rectangle Expression DSL -/
 
 /-- Rectangle expression AST for building polyomino-like regions as Boolean
-    expressions over half-open rectangles on ℤ×ℤ, plus translation. -/
+    expressions over half-open rectangles on ℤ×ℤ, plus translation and rotation. -/
 inductive RExp
   | empty : RExp
   | rect : (x0 y0 x1 y1 : ℤ) → RExp
@@ -77,6 +105,7 @@ inductive RExp
   | inter : RExp → RExp → RExp
   | diff : RExp → RExp → RExp
   | shift : (dx dy : ℤ) → RExp → RExp
+  | rotate : (r : Fin 4) → RExp → RExp
   deriving Repr, DecidableEq
 
 /-- Semantics: evaluate a rectangle expression to a set of cells. -/
@@ -87,6 +116,7 @@ def RExp.eval : RExp → Set Cell
   | .inter a b => eval a ∩ eval b
   | .diff a b => eval a \ eval b
   | .shift dx dy e => translate dx dy (eval e)
+  | .rotate r e => _root_.rotate r (eval e)
 
 /-- Convenient constructor for rectangles. -/
 def RExp.r (x0 y0 x1 y1 : ℤ) : RExp := RExp.rect x0 y0 x1 y1
@@ -102,6 +132,9 @@ infixl:70 " ⊖ " => RExp.diff
 
 /-- Notation for translation/shift. -/
 notation "⇑[" dx "," dy "]" e => RExp.shift dx dy e
+
+/-- Notation for rotation. `↻[r] e` rotates expression `e` by `r * 90°` counterclockwise. -/
+notation "↻[" r "]" e => RExp.rotate r e
 
 /- ## RExp Simplification Lemmas -/
 
@@ -128,6 +161,9 @@ notation "⇑[" dx "," dy "]" e => RExp.shift dx dy e
 @[simp] theorem RExp.eval_shift (dx dy : ℤ) (e : RExp) :
   RExp.eval (RExp.shift dx dy e) = translate dx dy (RExp.eval e) := rfl
 
+@[simp] theorem RExp.eval_rotate (r : Fin 4) (e : RExp) :
+  RExp.eval (RExp.rotate r e) = _root_.rotate r (RExp.eval e) := rfl
+
 /- ## RExp Automation Tactic -/
 
 /-- More efficient variant of `rect_omega` that avoids `aesop`'s exponential search.
@@ -135,7 +171,8 @@ notation "⇑[" dx "," dy "]" e => RExp.shift dx dy e
 macro "rect_omega_direct" : tactic => `(tactic| (
   ext p
   simp only [Set.mem_union, Set.mem_inter, Set.mem_diff, Set.mem_empty_iff_false,
-    mem_rect, mem_translate]
+    mem_rect, mem_translate, mem_rotate, inverseRot, rotateCell_0, rotateCell_1,
+    rotateCell_2, rotateCell_3]
   omega
 ))
 
@@ -143,14 +180,14 @@ macro "rect_omega_direct" : tactic => `(tactic| (
     Simplifies `RExp.eval` to `Set Cell` expressions, then calls `rect_omega`. -/
 macro "rexp_omega" : tactic => `(tactic| (
   simp only [RExp.eval_empty, RExp.eval_rect, RExp.eval_r, RExp.eval_union, RExp.eval_inter,
-    RExp.eval_diff, RExp.eval_shift]
+    RExp.eval_diff, RExp.eval_shift, RExp.eval_rotate]
   rect_omega
 ))
 
 /-- More efficient variant of `rexp_omega` that uses `rect_omega_direct` instead. -/
 macro "rexp_omega_direct" : tactic => `(tactic| (
   simp only [RExp.eval_empty, RExp.eval_rect, RExp.eval_r, RExp.eval_union, RExp.eval_inter,
-    RExp.eval_diff, RExp.eval_shift]
+    RExp.eval_diff, RExp.eval_shift, RExp.eval_rotate]
   rect_omega_direct
 ))
 
@@ -235,4 +272,19 @@ example (j k : ℕ) (hj : j ≥ 1) (hk : k ≥ 1) :
   -- To test the tactic: replace `sorry` with `rexp_omega_direct`
   -- This will test if the tactic can handle the complexity without timing out
   -- (The equality may or may not be true - this is primarily for performance testing)
+  rexp_omega_direct
+
+/-- Example (E): Rotation example.
+    Rotating a rectangle by 180°.
+    A 2×3 rectangle `rect 0 0 2 3` rotated by 180° becomes `rect (-1) (-2) 1 1`.
+
+    The original rectangle contains cells with x ∈ {0, 1} and y ∈ {0, 1, 2}.
+    After 180° rotation (x, y) → (-x, -y), we get cells with x ∈ {-1, 0} and y ∈ {-2, -1, 0},
+    which is exactly `rect (-1) (-2) 1 1` (half-open: -1 ≤ x < 1, -2 ≤ y < 1).
+
+    This example shows that rotation works with `rexp_omega`, proving that
+    a rotated rectangle equals the expected set of cells using the automation tactic. -/
+example :
+  RExp.eval (↻[2] (RExp.r 0 0 2 3)) =
+    _root_.rect (-1) (-2) 1 1 := by
   rexp_omega_direct
