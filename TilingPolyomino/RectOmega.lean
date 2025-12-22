@@ -75,7 +75,8 @@ def reflect (s : Set Cell) : Set Cell :=
   p ∈ reflect s ↔ swapCell p ∈ s := by
   rfl
 
-@[simp] theorem swapCell_def (p : Cell) : swapCell p = (p.2, p.1) := rfl
+/-- Simplification lemma for swapCell. Not marked @[simp] to avoid breaking other proofs. -/
+theorem swapCell_def (p : Cell) : swapCell p = (p.2, p.1) := rfl
 
 /-- Simplification lemmas for rotateCell. Omega needs concrete arithmetic expressions,
     so we provide explicit lemmas for each rotation amount. -/
