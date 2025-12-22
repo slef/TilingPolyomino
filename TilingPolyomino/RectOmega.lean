@@ -53,6 +53,10 @@ def translate (dx dy : ℤ) (s : Set Cell) : Set Cell :=
 def rotate (r : Fin 4) (s : Set Cell) : Set Cell :=
   {p : Cell | rotateCell p (inverseRot r) ∈ s}
 
+/-- Reflection of a set of cells: swaps x and y coordinates (reflection across line y=x). -/
+def reflect (s : Set Cell) : Set Cell :=
+  {p : Cell | swapCell p ∈ s}
+
 /- ## Simplification Lemmas -/
 
 @[simp] theorem mem_rect (x0 y0 x1 y1 : ℤ) (p : Cell) :
@@ -66,6 +70,12 @@ def rotate (r : Fin 4) (s : Set Cell) : Set Cell :=
 @[simp] theorem mem_rotate (r : Fin 4) (s : Set Cell) (p : Cell) :
   p ∈ rotate r s ↔ rotateCell p (inverseRot r) ∈ s := by
   rfl
+
+@[simp] theorem mem_reflect (s : Set Cell) (p : Cell) :
+  p ∈ reflect s ↔ swapCell p ∈ s := by
+  rfl
+
+@[simp] theorem swapCell_def (p : Cell) : swapCell p = (p.2, p.1) := rfl
 
 /-- Simplification lemmas for rotateCell. Omega needs concrete arithmetic expressions,
     so we provide explicit lemmas for each rotation amount. -/
@@ -89,15 +99,15 @@ def rotate (r : Fin 4) (s : Set Cell) : Set Cell :=
 macro "rect_omega" : tactic => `(tactic| (
   ext p
   simp only [Set.mem_union, Set.mem_inter, Set.mem_diff, Set.mem_empty_iff_false,
-    mem_rect, mem_translate, mem_rotate, inverseRot, rotateCell_0, rotateCell_1,
-    rotateCell_2, rotateCell_3]
+    mem_rect, mem_translate, mem_rotate, mem_reflect, inverseRot, rotateCell_0, rotateCell_1,
+    rotateCell_2, rotateCell_3, swapCell_def]
   aesop (add 50% tactic Lean.Elab.Tactic.Omega.omegaDefault)
 ))
 
 /- ## Rectangle Expression DSL -/
 
 /-- Rectangle expression AST for building polyomino-like regions as Boolean
-    expressions over half-open rectangles on ℤ×ℤ, plus translation and rotation. -/
+    expressions over half-open rectangles on ℤ×ℤ, plus translation, rotation, and reflection. -/
 inductive RExp
   | empty : RExp
   | rect : (x0 y0 x1 y1 : ℤ) → RExp
@@ -106,6 +116,7 @@ inductive RExp
   | diff : RExp → RExp → RExp
   | shift : (dx dy : ℤ) → RExp → RExp
   | rotate : (r : Fin 4) → RExp → RExp
+  | reflect : RExp → RExp
   deriving Repr, DecidableEq
 
 /-- Semantics: evaluate a rectangle expression to a set of cells. -/
@@ -117,6 +128,7 @@ def RExp.eval : RExp → Set Cell
   | .diff a b => eval a \ eval b
   | .shift dx dy e => translate dx dy (eval e)
   | .rotate r e => _root_.rotate r (eval e)
+  | .reflect e => _root_.reflect (eval e)
 
 /-- Convenient constructor for rectangles. -/
 def RExp.r (x0 y0 x1 y1 : ℤ) : RExp := RExp.rect x0 y0 x1 y1
@@ -135,6 +147,9 @@ notation "⇑[" dx "," dy "]" e => RExp.shift dx dy e
 
 /-- Notation for rotation. `↻[r] e` rotates expression `e` by `r * 90°` counterclockwise. -/
 notation "↻[" r "]" e => RExp.rotate r e
+
+/-- Notation for reflection. `↔ e` reflects expression `e` across the line y=x (swaps x and y). -/
+notation "↔" e => RExp.reflect e
 
 /- ## RExp Simplification Lemmas -/
 
@@ -164,6 +179,9 @@ notation "↻[" r "]" e => RExp.rotate r e
 @[simp] theorem RExp.eval_rotate (r : Fin 4) (e : RExp) :
   RExp.eval (RExp.rotate r e) = _root_.rotate r (RExp.eval e) := rfl
 
+@[simp] theorem RExp.eval_reflect (e : RExp) :
+  RExp.eval (RExp.reflect e) = _root_.reflect (RExp.eval e) := rfl
+
 /- ## RExp Automation Tactic -/
 
 /-- More efficient variant of `rect_omega` that avoids `aesop`'s exponential search.
@@ -171,8 +189,8 @@ notation "↻[" r "]" e => RExp.rotate r e
 macro "rect_omega_direct" : tactic => `(tactic| (
   ext p
   simp only [Set.mem_union, Set.mem_inter, Set.mem_diff, Set.mem_empty_iff_false,
-    mem_rect, mem_translate, mem_rotate, inverseRot, rotateCell_0, rotateCell_1,
-    rotateCell_2, rotateCell_3]
+    mem_rect, mem_translate, mem_rotate, mem_reflect, inverseRot, rotateCell_0, rotateCell_1,
+    rotateCell_2, rotateCell_3, swapCell_def]
   omega
 ))
 
@@ -180,14 +198,14 @@ macro "rect_omega_direct" : tactic => `(tactic| (
     Simplifies `RExp.eval` to `Set Cell` expressions, then calls `rect_omega`. -/
 macro "rexp_omega" : tactic => `(tactic| (
   simp only [RExp.eval_empty, RExp.eval_rect, RExp.eval_r, RExp.eval_union, RExp.eval_inter,
-    RExp.eval_diff, RExp.eval_shift, RExp.eval_rotate]
+    RExp.eval_diff, RExp.eval_shift, RExp.eval_rotate, RExp.eval_reflect]
   rect_omega
 ))
 
 /-- More efficient variant of `rexp_omega` that uses `rect_omega_direct` instead. -/
 macro "rexp_omega_direct" : tactic => `(tactic| (
   simp only [RExp.eval_empty, RExp.eval_rect, RExp.eval_r, RExp.eval_union, RExp.eval_inter,
-    RExp.eval_diff, RExp.eval_shift, RExp.eval_rotate]
+    RExp.eval_diff, RExp.eval_shift, RExp.eval_rotate, RExp.eval_reflect]
   rect_omega_direct
 ))
 
@@ -287,4 +305,19 @@ example (j k : ℕ) (hj : j ≥ 1) (hk : k ≥ 1) :
 example :
   RExp.eval (↻[2] (RExp.r 0 0 2 3)) =
     _root_.rect (-1) (-2) 1 1 := by
+  rexp_omega_direct
+
+/-- Example (F): Reflection example.
+    Reflecting a rectangle across the line y=x swaps its dimensions.
+    A 2×3 rectangle `rect 0 0 2 3` reflected becomes `rect 0 0 3 2`.
+
+    The original rectangle contains cells with x ∈ {0, 1} and y ∈ {0, 1, 2}.
+    After reflection (x, y) → (y, x), we get cells with x ∈ {0, 1, 2} and y ∈ {0, 1},
+    which is exactly `rect 0 0 3 2` (half-open: 0 ≤ x < 3, 0 ≤ y < 2).
+
+    This example shows that reflection works with `rexp_omega`, proving that
+    a reflected rectangle equals the expected set of cells using the automation tactic. -/
+example :
+  RExp.eval (↔ (RExp.r 0 0 2 3)) =
+    _root_.rect 0 0 3 2 := by
   rexp_omega_direct
