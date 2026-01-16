@@ -941,6 +941,93 @@ theorem rectangleMinusCorner_card {n m : ℕ} (hn : n ≥ 1) (hm : m ≥ 1) :
   -- `erase` removes exactly one element from the rectangle.
   simp [rectangleMinusCorner, rectangle_card, hcorner]
 
+/-- RExp representation of `rectangleMinusCorner n m`.
+    This is a rectangle with its top-right corner removed. -/
+def rectangleMinusCorner_rexp (n m : ℕ) : RExp :=
+  RExp.r 0 0 n m ⊖
+  RExp.r (n - 1) (m - 1) n m
+
+/-- The Finset `rectangle n m` equals the Set `rect 0 0 n m` when coerced to Set. -/
+theorem rectangle_eq_rect_coe (n m : ℕ) :
+    (rectangle n m : Set Cell) = rect 0 0 (↑n) (↑m) := by
+  ext c
+  simp only [Finset.mem_coe, mem_rectangle, mem_rect]
+
+/-- The RExp evaluation of `rectangleMinusCorner_rexp n m` equals the Finset
+    `rectangleMinusCorner n m` when coerced to Set. -/
+theorem rectangleMinusCorner_rexp_eval (n m : ℕ) :
+    RExp.eval (rectangleMinusCorner_rexp n m) = (rectangleMinusCorner n m : Set Cell) := by
+  -- Both sides are "rectangle minus corner cell"
+  simp only [rectangleMinusCorner_rexp, RExp.eval_diff, RExp.eval_r, rectangleMinusCorner]
+  rw [← rectangle_eq_rect_coe]
+  ext c
+  simp only [Set.mem_diff, Finset.mem_coe, Finset.mem_erase, mem_rectangle, cornerTR, mem_rect]
+  constructor
+  · intro ⟨⟨h1, h2, h3, h4⟩, h5⟩
+    refine ⟨?_, h1, h2, h3, h4⟩
+    intro heq
+    apply h5
+    cases heq
+    have hn : n ≥ 1 := by omega
+    have hm : m ≥ 1 := by omega
+    simp only [Int.ofNat_eq_natCast]
+    omega
+  · intro ⟨hne, h1, h2, h3, h4⟩
+    refine ⟨⟨h1, h2, h3, h4⟩, ?_⟩
+    intro ⟨h5, h6, h7, h8⟩
+    apply hne
+    have hx : c.1 = Int.ofNat (n - 1) := by
+      simp only [Int.ofNat_eq_natCast] at h5 h6 ⊢
+      have hn : n ≥ 1 := by omega
+      omega
+    have hy : c.2 = Int.ofNat (m - 1) := by
+      simp only [Int.ofNat_eq_natCast] at h7 h8 ⊢
+      have hm : m ≥ 1 := by omega
+      omega
+    ext <;> assumption
+
+/-- Reflecting (swapping x and y) a rectangle-minus-corner swaps the dimensions. -/
+theorem swap_rectangleMinusCorner_rexp (n m : ℕ) :
+    RExp.eval (↔ (rectangleMinusCorner_rexp n m)) =
+      RExp.eval (rectangleMinusCorner_rexp m n) := by
+  unfold rectangleMinusCorner_rexp
+  rexp_omega_direct
+
+/-- The Finset `swapRegion r` coerced to Set equals `reflect` of `r` coerced to Set. -/
+theorem swapRegion_eq_reflect_coe (r : Region) :
+    (swapRegion r : Set Cell) = reflect (r : Set Cell) := by
+  ext c
+  simp only [Finset.mem_coe, swapRegion, Finset.mem_image, mem_reflect]
+  constructor
+  · intro ⟨a, ha, heq⟩
+    rw [← heq]
+    exact ha
+  · intro h
+    exact ⟨swapCell c, h, swapCell_involutive c⟩
+
+/-- Swapping a three-cornered `n × m` rectangle yields the `m × n` one. -/
+theorem swap_rectangleMinusCorner (n m : ℕ) :
+    swapRegion (rectangleMinusCorner n m) = rectangleMinusCorner m n := by
+  by_cases hn : n ≥ 1
+  · by_cases hm : m ≥ 1
+    · -- Convert to Set Cell and use RExp version
+      apply Finset.coe_injective
+      calc (swapRegion (rectangleMinusCorner n m) : Set Cell)
+          = reflect (rectangleMinusCorner n m : Set Cell) := swapRegion_eq_reflect_coe _
+        _ = reflect (RExp.eval (rectangleMinusCorner_rexp n m)) := by
+            rw [rectangleMinusCorner_rexp_eval]
+        _ = RExp.eval (↔ (rectangleMinusCorner_rexp n m)) := by rw [RExp.eval_reflect]
+        _ = RExp.eval (rectangleMinusCorner_rexp m n) := swap_rectangleMinusCorner_rexp n m
+        _ = (rectangleMinusCorner m n : Set Cell) := by rw [← rectangleMinusCorner_rexp_eval]
+    · -- m = 0: both sides are empty
+      have hm0 : m = 0 := by omega
+      subst hm0
+      simp [rectangleMinusCorner, rectangle, swapRegion]
+  · -- n = 0: both sides are empty
+    have hn0 : n = 0 := by omega
+    subst hn0
+    simp [rectangleMinusCorner, rectangle, swapRegion]
+
 /-- A rectangle `n × m` with both the top-right corner and the square
 immediately to its left removed. -/
 def rectangleMinus2Corner (n m : ℕ) : Region :=
@@ -981,59 +1068,6 @@ top-right corner of the `m × n` rectangle. -/
 theorem swapCell_cornerTR (n m : ℕ) :
     swapCell (cornerTR n m) = cornerTR m n := by
   simp [cornerTR, swapCell]
-
-/-- Swapping a three-cornered `n × m` rectangle yields the `m × n` one. -/
-theorem swap_rectangleMinusCorner (n m : ℕ) :
-    swapRegion (rectangleMinusCorner n m) = rectangleMinusCorner m n := by
-  -- Work elementwise, using the characterization of `erase` and `swap_rectangle`.
-  unfold rectangleMinusCorner swapRegion
-  -- `swapRegion r = r.image swapCell`
-  ext c
-  constructor
-  · -- → direction
-    intro hc
-    -- `c ∈ image swapCell ((rectangle n m).erase (cornerTR n m))`
-    rcases Finset.mem_image.mp hc with ⟨a, ha_erase, rfl⟩
-    rcases Finset.mem_erase.mp ha_erase with ⟨ha_ne_corner, ha_rect⟩
-    -- `swapCell a` lies in `swapRegion (rectangle n m) = rectangle m n`
-    have h_in_rect_mn : swapCell a ∈ rectangle m n := by
-      -- First, show `swapCell a ∈ swapRegion (rectangle n m)`
-      have h_in_swap : swapCell a ∈ swapRegion (rectangle n m) := by
-        -- membership in `image swapCell (rectangle n m)`
-        exact Finset.mem_image.mpr ⟨a, ha_rect, rfl⟩
-      -- then rewrite using `swap_rectangle`
-      simpa [swap_rectangle] using h_in_swap
-    -- and it is not the swapped corner
-    have h_ne_cornerTR_mn : swapCell a ≠ cornerTR m n := by
-      intro h_eq
-      -- compare with `swapCell (cornerTR n m)` using injectivity
-      have h' : a = cornerTR n m := by
-        apply swapCell_injective
-        simpa [swapCell_cornerTR] using h_eq
-      exact ha_ne_corner h'
-    -- So `swapCell a` lies in `erase (cornerTR m n) (rectangle m n)`.
-    exact Finset.mem_erase.mpr ⟨h_ne_cornerTR_mn, h_in_rect_mn⟩
-  · -- ← direction
-    intro hc
-    -- `c ∈ erase (cornerTR m n) (rectangle m n)`
-    rcases Finset.mem_erase.mp hc with ⟨hc_ne_corner, hc_rect_mn⟩
-    -- Find a preimage `a` in `rectangle n m` with `swapCell a = c`
-    have h_in_swap : c ∈ swapRegion (rectangle n m) := by
-      -- rewrite membership using `swap_rectangle`
-      simpa [swap_rectangle] using hc_rect_mn
-    rcases Finset.mem_image.mp h_in_swap with ⟨a, ha_rect, h_eq⟩
-    subst h_eq
-    -- Show `a ≠ cornerTR n m`
-    have ha_ne_corner : a ≠ cornerTR n m := by
-      intro h_eq
-      -- Then `swapCell a = swapCell (cornerTR n m) = cornerTR m n`,
-      -- contradicting `hc_ne_corner`.
-      have : swapCell a = cornerTR m n := by
-        simp [h_eq, swapCell_cornerTR]
-      exact hc_ne_corner this
-    -- Thus `swapCell a` lies in the image of the erased rectangle.
-    exact Finset.mem_image.mpr
-      ⟨a, Finset.mem_erase.mpr ⟨ha_ne_corner, ha_rect⟩, rfl⟩
 
 /-- L-tileability of three-cornered rectangles is symmetric in the dimensions. -/
 theorem LTileable_swap_rectangleMinusCorner (n m : ℕ) :
@@ -2289,12 +2323,6 @@ def rectangleMinus2Corner_rexp (n m : ℕ) : RExp :=
 def topRightLTromino_rexp (j k : ℕ) : RExp :=
   RExp.r (3 * j) (3 * k - 2) (3 * j + 2) (3 * k) ⊖
   RExp.r (3 * j) (3 * k - 2) (3 * j + 1) (3 * k - 1)
-
-/-- RExp representation of `rectangleMinusCorner n m`.
-    This is a rectangle with its top-right corner removed. -/
-def rectangleMinusCorner_rexp (n m : ℕ) : RExp :=
-  RExp.r 0 0 n m ⊖
-  RExp.r (n - 1) (m - 1) n m
 
 /-- RExp representation of `translateRegion (rectangle (3j) 2) (0, 3k-1)`.
     This is a 3j×2 rectangle translated up by (0, 3k-1). -/
