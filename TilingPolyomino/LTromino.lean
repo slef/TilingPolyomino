@@ -2286,6 +2286,65 @@ theorem rectangleMinus2Corner_decomp (j k : ℕ) (hj : j ≥ 1) (hk : k ≥ 1) :
       topRightLTromino j k := by
   sorry
 
+/-- First disjointness: rectangleMinusCorner and translateRectangle don't overlap. -/
+theorem rectangleMinus2Corner_decomp_disjoint_rexp_1 (j k : ℕ) (_hj : j ≥ 1) (hk : k ≥ 1) :
+    RExp.eval (rectangleMinusCorner_rexp (3 * j + 2) (3 * k - 1) ⊓
+               translateRectangle_rexp j k) = ∅ := by
+  -- rectangleMinusCorner has y ∈ [0, 3k-1), translateRectangle has y ∈ [3k-1, 3k+1)
+  -- These ranges don't overlap, so the intersection is empty
+  simp only [rectangleMinusCorner_rexp, translateRectangle_rexp, RExp.eval_inter,
+    RExp.eval_diff, RExp.eval_shift, RExp.eval_r]
+  ext c
+  simp only [Set.mem_inter_iff, Set.mem_diff, mem_rect, Set.mem_empty_iff_false, iff_false]
+  intro ⟨⟨⟨hx1, hy1, hx2, hy2⟩, _⟩, ⟨hx3, hy3, hx4, hy4⟩⟩
+  -- From rectangleMinusCorner: 0 ≤ c.2 < 3k-1
+  -- From translateRectangle: 3k-1 ≤ c.2-0 < 3k-1+2, i.e., 3k-1 ≤ c.2 < 3k+1
+  have : 3 * k ≥ 1 := by omega
+  omega
+
+/-- Second disjointness: rectangleMinusCorner and topRightLTromino don't overlap. -/
+theorem rectangleMinus2Corner_decomp_disjoint_rexp_2 (j k : ℕ) (_hj : j ≥ 1) (hk : k ≥ 1) :
+    RExp.eval (rectangleMinusCorner_rexp (3 * j + 2) (3 * k - 1) ⊓
+               topRightLTromino_rexp j k) = ∅ := by
+  -- rectangleMinusCorner has y ∈ [0, 3k-1)
+  -- topRightLTromino has y ∈ [3k-2, 3k) but with specific x-constraints
+  simp only [rectangleMinusCorner_rexp, topRightLTromino_rexp, RExp.eval_inter,
+    RExp.eval_diff, RExp.eval_r]
+  ext c
+  simp only [Set.mem_inter_iff, Set.mem_diff, mem_rect, Set.mem_empty_iff_false, iff_false]
+  intro ⟨⟨h1, h2⟩, h3, h4⟩
+  -- From rectangleMinusCorner: c in (rect minus corner)
+  -- From topRightLTromino: c in (outer rect minus inner rect)
+  have : 3 * k ≥ 1 := by omega
+  omega
+
+/-- Third disjointness: translateRectangle and topRightLTromino don't overlap. -/
+theorem rectangleMinus2Corner_decomp_disjoint_rexp_3 (j k : ℕ) (_hj : j ≥ 1) (_hk : k ≥ 1) :
+    RExp.eval (translateRectangle_rexp j k ⊓ topRightLTromino_rexp j k) = ∅ := by
+  -- translateRectangle: 0 ≤ x < 3j, 3k-1 ≤ y < 3k+1
+  -- topRightLTromino: 3j ≤ x < 3j+2, 3k-2 ≤ y < 3k
+  -- x-ranges don't overlap
+  simp only [translateRectangle_rexp, topRightLTromino_rexp, RExp.eval_inter,
+    RExp.eval_diff, RExp.eval_shift, RExp.eval_r]
+  ext c
+  simp only [Set.mem_inter_iff, Set.mem_diff, mem_rect, Set.mem_empty_iff_false, iff_false]
+  intro ⟨⟨hx1, hy1, hx2, hy2⟩, ⟨hx3, hy3, hx4, hy4⟩, _⟩
+  -- From translateRectangle: 0 ≤ c.1 < 3j
+  -- From topRightLTromino (outer): 3j ≤ c.1 < 3j+2
+  -- These contradict each other
+  omega
+
+/-- The three parts in the decomposition are pairwise disjoint (RExp version). -/
+theorem rectangleMinus2Corner_decomp_disjoint_rexp (j k : ℕ) (hj : j ≥ 1) (hk : k ≥ 1) :
+    RExp.eval (rectangleMinusCorner_rexp (3 * j + 2) (3 * k - 1) ⊓
+               translateRectangle_rexp j k) = ∅ ∧
+    RExp.eval (rectangleMinusCorner_rexp (3 * j + 2) (3 * k - 1) ⊓
+               topRightLTromino_rexp j k) = ∅ ∧
+    RExp.eval (translateRectangle_rexp j k ⊓ topRightLTromino_rexp j k) = ∅ := by
+  exact ⟨rectangleMinus2Corner_decomp_disjoint_rexp_1 j k hj hk,
+         rectangleMinus2Corner_decomp_disjoint_rexp_2 j k hj hk,
+         rectangleMinus2Corner_decomp_disjoint_rexp_3 j k hj hk⟩
+
 /-- The three parts in the decomposition are pairwise disjoint. -/
 theorem rectangleMinus2Corner_decomp_disjoint (j k : ℕ) (hj : j ≥ 1) (hk : k ≥ 1) :
     Disjoint (rectangleMinusCorner (3 * j + 2) (3 * k - 1))
