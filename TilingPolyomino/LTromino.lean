@@ -993,6 +993,20 @@ theorem swap_rectangleMinusCorner_rexp (n m : ℕ) :
   unfold rectangleMinusCorner_rexp
   rexp_omega_direct
 
+/-- Horizontal split of a rectangle-minus-corner (RExp version). -/
+theorem rectangleMinusCorner_split_horizontal_rexp (a b m : ℕ) (hb : 0 < b) :
+    RExp.eval (rectangleMinusCorner_rexp (a + b) m) =
+      RExp.eval (RExp.r 0 0 a m ⊔ ⇑[a, 0] (rectangleMinusCorner_rexp b m)) := by
+  unfold rectangleMinusCorner_rexp
+  rexp_omega_direct
+
+/-- Vertical split of a rectangle-minus-corner (RExp version). -/
+theorem rectangleMinusCorner_split_vertical_rexp (n a b : ℕ) (hb : 0 < b) :
+    RExp.eval (rectangleMinusCorner_rexp n (a + b)) =
+      RExp.eval (RExp.r 0 0 n a ⊔ ⇑[0, a] (rectangleMinusCorner_rexp n b)) := by
+  unfold rectangleMinusCorner_rexp
+  rexp_omega_direct
+
 /-- The Finset `swapRegion r` coerced to Set equals `reflect` of `r` coerced to Set. -/
 theorem swapRegion_eq_reflect_coe (r : Region) :
     (swapRegion r : Set Cell) = reflect (r : Set Cell) := by
@@ -1004,6 +1018,21 @@ theorem swapRegion_eq_reflect_coe (r : Region) :
     exact ha
   · intro h
     exact ⟨swapCell c, h, swapCell_involutive c⟩
+
+/-- The Finset `translateRegion r offset` coerced to Set equals `translate` of `r`
+    coerced to Set. -/
+theorem translateRegion_eq_translate_coe (r : Region) (offset : Cell) :
+    (translateRegion r offset : Set Cell) = translate offset.1 offset.2 (r : Set Cell) := by
+  ext c
+  simp only [Finset.mem_coe, translateRegion, Finset.mem_image, mem_translate, translateCell]
+  constructor
+  · intro ⟨a, ha, heq⟩
+    rw [← heq]
+    convert ha using 1
+    ext <;> simp
+  · intro h
+    use (c.1 - offset.1, c.2 - offset.2), h
+    ext <;> simp
 
 /-- Swapping a three-cornered `n × m` rectangle yields the `m × n` one. -/
 theorem swap_rectangleMinusCorner (n m : ℕ) :
@@ -1093,81 +1122,27 @@ the missing corner lies in the right part.  The shape decomposes as a union of:
 theorem rectangleMinusCorner_split_horizontal (a b m : ℕ) (hb : 0 < b) :
     rectangleMinusCorner (a + b) m =
       rectangle a m ∪ translateRegion (rectangleMinusCorner b m) (a, 0) := by
-  classical
-  have hsplit := rectangle_split_horizontal a b m
-  -- First, rewrite the deficient rectangle using the horizontal split.
-  have hL :
-      rectangleMinusCorner (a + b) m =
-        (rectangle a m ∪ translateRegion (rectangle b m) (a, 0)).erase
-          (cornerTR (a + b) m) := by
-    unfold rectangleMinusCorner
-    simp [hsplit]
-  -- Now use the generic `erase_union_finset` lemma on the right-hand side.
-  have h₁ :
-      (rectangle a m ∪ translateRegion (rectangle b m) (a, 0)).erase
-          (cornerTR (a + b) m) =
-        (rectangle a m).erase (cornerTR (a + b) m) ∪
-          (translateRegion (rectangle b m) (a, 0)).erase (cornerTR (a + b) m) := by
-    simpa using
-      (erase_union_finset (rectangle a m)
-        (translateRegion (rectangle b m) (a, 0)) (cornerTR (a + b) m))
-  -- The missing corner is not in the left `a × m` rectangle when `b ≥ 1`.
-  have hcorner_not_left :
-      cornerTR (a + b) m ∉ rectangle a m := by
-    -- A point in `rectangle a m` must have x-coordinate `< a`,
-    -- but the corner has x-coordinate `a + b - 1 ≥ a` when `b ≥ 1`.
-    intro h
-    rcases (mem_rectangle.mp h) with ⟨_, hx_lt_a, _, _⟩
-    -- x-coordinate of the corner
-    have hx_corner :
-        (cornerTR (a + b) m).1 = Int.ofNat (a + b - 1) := rfl
-    -- From `hb : 0 < b` we get `a ≤ a + b - 1`.
-    have hx_nat : a ≤ a + b - 1 := by
-      omega
-    -- Compare in ℤ using monotonicity of `Int.ofNat`.
-    have hx_le : (a : ℤ) ≤ (cornerTR (a + b) m).1 := by
-      have hx_le' : a ≤ a + b - 1 := hx_nat
-      exact Int.ofNat_le.mpr hx_le'
-    have hx_lt : (cornerTR (a + b) m).1 < a := by
-      simpa [hx_corner] using hx_lt_a
-    have : (cornerTR (a + b) m).1 < (cornerTR (a + b) m).1 :=
-      lt_of_lt_of_le hx_lt hx_le
-    exact lt_irrefl _ this
-  -- Identify the erased right part with a translated three-cornered rectangle.
-  have hcorner_translate :
-      translateCell (cornerTR b m) (a, 0) = cornerTR (a + b) m := by
-    -- Compute coordinates explicitly.
-    dsimp [cornerTR, translateCell]
-    ext
-    · -- x-coordinate
-      -- Goal: `↑a + ↑(b - 1) = ↑(a + b - 1)` in ℤ; this is linear arithmetic.
-      have : (↑a + ↑(b - 1) : ℤ) = ↑(a + b - 1) := by
-        omega
-      simpa [add_comm, add_left_comm, add_assoc] using this
-    · -- y-coordinate
-      simp
-  have h₂ :
-      (translateRegion (rectangle b m) (a, 0)).erase (cornerTR (a + b) m) =
-        translateRegion (rectangleMinusCorner b m) (a, 0) := by
-    -- Use the translation/erase lemma with `x = cornerTR b m`.
-    have := translateRegion_erase_point (rectangle b m) (a, 0) (cornerTR b m)
-    -- Rewrite the erased point using `hcorner_translate`.
-    simpa [rectangleMinusCorner, hcorner_translate] using this
-  -- Combine `erase_union_finset`, `hcorner_not_left`, and `h₂` to rewrite the RHS.
-  have hR :
-      (rectangle a m ∪ translateRegion (rectangle b m) (a, 0)).erase
-          (cornerTR (a + b) m) =
-        rectangle a m ∪ translateRegion (rectangleMinusCorner b m) (a, 0) := by
-    have hA :
-        (rectangle a m).erase (cornerTR (a + b) m) = rectangle a m :=
-      Finset.erase_eq_of_notMem hcorner_not_left
-    simp [h₁, hA, h₂]
-  -- Finally, combine the left and right descriptions.
-  calc
-    rectangleMinusCorner (a + b) m
-        = (rectangle a m ∪ translateRegion (rectangle b m) (a, 0)).erase
-            (cornerTR (a + b) m) := hL
-    _ = rectangle a m ∪ translateRegion (rectangleMinusCorner b m) (a, 0) := hR
+  apply Finset.coe_injective
+  -- Part 1: rectangle a m
+  have h1 : RExp.eval (RExp.r 0 0 a m) = (rectangle a m : Set Cell) := by
+    rw [RExp.eval_r, ← rectangle_eq_rect_coe]
+  -- Part 2: translateRegion (rectangleMinusCorner b m) (a, 0)
+  have h2 : RExp.eval (⇑[a, 0] (rectangleMinusCorner_rexp b m)) =
+      (translateRegion (rectangleMinusCorner b m) (a, 0) : Set Cell) := by
+    rw [RExp.eval_shift, rectangleMinusCorner_rexp_eval, translateRegion_eq_translate_coe]
+  -- Part 3: union of coercions = coercion of union
+  have h3 : (rectangle a m : Set Cell) ∪
+      (translateRegion (rectangleMinusCorner b m) (a, 0) : Set Cell) =
+      ↑(rectangle a m ∪ translateRegion (rectangleMinusCorner b m) (a, 0)) :=
+    (Finset.coe_union _ _).symm
+  calc (rectangleMinusCorner (a + b) m : Set Cell)
+      = RExp.eval (rectangleMinusCorner_rexp (a + b) m) := by
+        rw [rectangleMinusCorner_rexp_eval]
+    _ = RExp.eval (RExp.r 0 0 a m) ∪ RExp.eval (⇑[a, 0] (rectangleMinusCorner_rexp b m)) :=
+        rectangleMinusCorner_split_horizontal_rexp a b m hb
+    _ = (rectangle a m : Set Cell) ∪
+        (translateRegion (rectangleMinusCorner b m) (a, 0) : Set Cell) := by rw [h1, h2]
+    _ = ↑(rectangle a m ∪ translateRegion (rectangleMinusCorner b m) (a, 0)) := h3
 
 /-- Vertical split of a three-cornered rectangle.
 
@@ -1179,77 +1154,27 @@ the missing corner lies in the top part.  The shape decomposes as a union of:
 theorem rectangleMinusCorner_split_vertical (n a b : ℕ) (hb : 0 < b) :
     rectangleMinusCorner n (a + b) =
       rectangle n a ∪ translateRegion (rectangleMinusCorner n b) (0, a) := by
-  classical
-  -- Start from the definition via `erase` and the vertical split of rectangles.
-  have hsplit := rectangle_split_vertical n a b
-  -- First, rewrite the deficient rectangle using the vertical split.
-  have hL :
-      rectangleMinusCorner n (a + b) =
-        (rectangle n a ∪ translateRegion (rectangle n b) (0, a)).erase
-          (cornerTR n (a + b)) := by
-    unfold rectangleMinusCorner
-    simp [hsplit]
-  -- Distribute `erase` over the union.
-  have h₁ :
-      (rectangle n a ∪ translateRegion (rectangle n b) (0, a)).erase
-          (cornerTR n (a + b)) =
-        (rectangle n a).erase (cornerTR n (a + b)) ∪
-          (translateRegion (rectangle n b) (0, a)).erase
-            (cornerTR n (a + b)) := by
-    simpa using
-      (erase_union_finset (rectangle n a)
-        (translateRegion (rectangle n b) (0, a)) (cornerTR n (a + b)))
-  -- The missing corner does not lie in the bottom `n × a` rectangle.
-  have hcorner_not_bottom :
-      cornerTR n (a + b) ∉ rectangle n a := by
-    intro h
-    rcases (mem_rectangle.mp h) with ⟨_, _, _, hy_lt_a⟩
-    -- y-coordinate of the corner is `a + b - 1 ≥ a`, contradiction.
-    have hy_corner :
-        (cornerTR n (a + b)).2 = Int.ofNat (a + b - 1) := rfl
-    -- From `hb : 0 < b` we get `a ≤ a + b - 1`.
-    have hy_nat : a ≤ a + b - 1 := by
-      omega
-    have hy_le : (a : ℤ) ≤ (cornerTR n (a + b)).2 := by
-      have hy_le' : a ≤ a + b - 1 := hy_nat
-      exact Int.ofNat_le.mpr hy_le'
-    have hy_lt : (cornerTR n (a + b)).2 < a := by
-      simpa [hy_corner] using hy_lt_a
-    have : (cornerTR n (a + b)).2 < (cornerTR n (a + b)).2 :=
-      lt_of_lt_of_le hy_lt hy_le
-    exact lt_irrefl _ this
-  -- Identify the erased top part with a translated three-cornered rectangle.
-  have hcorner_translate :
-      translateCell (cornerTR n b) (0, a) = cornerTR n (a + b) := by
-    dsimp [cornerTR, translateCell]
-    ext
-    · -- x-coordinate
-      simp
-    · -- y-coordinate
-      -- Goal: `↑a + ↑(b - 1) = ↑(a + b - 1)` in ℤ.
-      have : (↑a + ↑(b - 1) : ℤ) = ↑(a + b - 1) := by
-        omega
-      simpa [add_comm, add_left_comm, add_assoc] using this
-  have h₂ :
-      (translateRegion (rectangle n b) (0, a)).erase (cornerTR n (a + b)) =
-        translateRegion (rectangleMinusCorner n b) (0, a) := by
-    have := translateRegion_erase_point (rectangle n b) (0, a) (cornerTR n b)
-    simpa [rectangleMinusCorner, hcorner_translate] using this
-  -- Put everything together on the right-hand side.
-  have hR :
-      (rectangle n a ∪ translateRegion (rectangle n b) (0, a)).erase
-          (cornerTR n (a + b)) =
-        rectangle n a ∪ translateRegion (rectangleMinusCorner n b) (0, a) := by
-    have hA :
-        (rectangle n a).erase (cornerTR n (a + b)) = rectangle n a :=
-      Finset.erase_eq_of_notMem hcorner_not_bottom
-    simp [h₁, hA, h₂]
-  -- Finally, combine the left and right descriptions.
-  calc
-    rectangleMinusCorner n (a + b)
-        = (rectangle n a ∪ translateRegion (rectangle n b) (0, a)).erase
-            (cornerTR n (a + b)) := hL
-    _ = rectangle n a ∪ translateRegion (rectangleMinusCorner n b) (0, a) := hR
+  apply Finset.coe_injective
+  -- Part 1: rectangle n a
+  have h1 : RExp.eval (RExp.r 0 0 n a) = (rectangle n a : Set Cell) := by
+    rw [RExp.eval_r, ← rectangle_eq_rect_coe]
+  -- Part 2: translateRegion (rectangleMinusCorner n b) (0, a)
+  have h2 : RExp.eval (⇑[0, a] (rectangleMinusCorner_rexp n b)) =
+      (translateRegion (rectangleMinusCorner n b) (0, a) : Set Cell) := by
+    rw [RExp.eval_shift, rectangleMinusCorner_rexp_eval, translateRegion_eq_translate_coe]
+  -- Part 3: union of coercions = coercion of union
+  have h3 : (rectangle n a : Set Cell) ∪
+      (translateRegion (rectangleMinusCorner n b) (0, a) : Set Cell) =
+      ↑(rectangle n a ∪ translateRegion (rectangleMinusCorner n b) (0, a)) :=
+    (Finset.coe_union _ _).symm
+  calc (rectangleMinusCorner n (a + b) : Set Cell)
+      = RExp.eval (rectangleMinusCorner_rexp n (a + b)) := by
+        rw [rectangleMinusCorner_rexp_eval]
+    _ = RExp.eval (RExp.r 0 0 n a) ∪ RExp.eval (⇑[0, a] (rectangleMinusCorner_rexp n b)) :=
+        rectangleMinusCorner_split_vertical_rexp n a b hb
+    _ = (rectangle n a : Set Cell) ∪
+        (translateRegion (rectangleMinusCorner n b) (0, a) : Set Cell) := by rw [h1, h2]
+    _ = ↑(rectangle n a ∪ translateRegion (rectangleMinusCorner n b) (0, a)) := h3
 
 /- ### Simple mod-3 helper lemmas -/
 
