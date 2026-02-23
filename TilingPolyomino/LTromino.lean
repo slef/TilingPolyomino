@@ -2512,10 +2512,531 @@ theorem tileable_rectangleMinus2Corner_3jplus2_3kplus1
   rw [Finset.disjoint_union_left]
   exact ⟨hd2, hd3⟩
 
+def rotateRegion90 (r : Region) : Region := r.image rotateCell90
+
+theorem rotateCell90_rotateCell (c : Cell) (r : Fin 4) :
+    rotateCell90 (rotateCell c r) = rotateCell c (r + 1) := by
+  fin_cases r
+  · rfl
+  · rfl
+  · rfl
+  · change rotateCell90 (rotateCell90 (rotateCell90 (rotateCell90 c))) = c
+    simp [rotateCell90]
+
+theorem rotateProto_rotateCell90 (r : Fin 4) :
+    (rotateProto lTromino r).image rotateCell90 = rotateProto lTromino (r + 1) := by
+  ext c
+  simp only [rotateProto, Finset.mem_image]
+  constructor
+  · rintro ⟨a, ⟨b, hb, rfl⟩, rfl⟩
+    use b, hb
+    exact (rotateCell90_rotateCell b r).symm
+  · rintro ⟨b, hb, rfl⟩
+    use rotateCell b r
+    constructor
+    · use b, hb
+    · exact rotateCell90_rotateCell b r
+
+theorem rotateCell90_translateCell (c offset : Cell) :
+    rotateCell90 (translateCell c offset) = translateCell (rotateCell90 c) (rotateCell90 offset) := by
+  simp [rotateCell90, translateCell]
+  omega
+
+theorem LTileable_rotate90 {r : Region} (h : LTileable r) : LTileable (rotateRegion90 r) := by
+  obtain ⟨ιₜ, _, _, t, hvalid⟩ := h
+  let t' : TileSet lTrominoSet ιₜ := ⟨fun i =>
+    ⟨(), rotateCell90 (t.tiles i).translation, (t.tiles i).rotation + 1⟩⟩
+  use ιₜ, inferInstance, inferInstance, t'
+  have cells_eq : ∀ i, t'.cellsAt i = (t.cellsAt i).image rotateCell90 := by
+    intro i
+    simp only [TileSet.cellsAt, PlacedTile.cells, lTrominoSet]
+    ext c
+    simp only [Finset.mem_image]
+    constructor
+    · rintro ⟨a, ha, rfl⟩
+      rw [← rotateProto_rotateCell90] at ha
+      simp only [Finset.mem_image] at ha
+      rcases ha with ⟨b, hb, rfl⟩
+      use translateCell b (t.tiles i).translation
+      constructor
+      · use b, hb
+      · exact rotateCell90_translateCell b (t.tiles i).translation
+    · rintro ⟨a, ⟨b, hb, rfl⟩, rfl⟩
+      have : rotateCell90 b ∈ rotateProto lTromino ((t.tiles i).rotation + 1) := by
+        rw [← rotateProto_rotateCell90]
+        simp only [Finset.mem_image]
+        use b, hb
+      use rotateCell90 b, this
+      exact (rotateCell90_translateCell b (t.tiles i).translation).symm
+  constructor
+  · intro i j hij
+    rw [Finset.disjoint_left]
+    intro c hci hcj
+    rw [cells_eq i, Finset.mem_image] at hci
+    rcases hci with ⟨a, ha, rfl⟩
+    rw [cells_eq j, Finset.mem_image] at hcj
+    rcases hcj with ⟨b, hb, eq⟩
+    have : a = b := by
+      injection eq with e1 e2
+      ext
+      · omega
+      · omega
+    subst this
+    have h_disj := hvalid.disjoint i j hij
+    rw [Finset.disjoint_left] at h_disj
+    exact h_disj ha hb
+  · ext c
+    simp only [TileSet.coveredCells, Finset.mem_biUnion, Finset.mem_univ, true_and]
+    simp only [rotateRegion90, Finset.mem_image]
+    constructor
+    · rintro ⟨i, hc⟩
+      rw [cells_eq i, Finset.mem_image] at hc
+      rcases hc with ⟨a, ha, rfl⟩
+      use a
+      constructor
+      · rw [← hvalid.covers]
+        exact Finset.mem_biUnion.mpr ⟨i, Finset.mem_univ i, ha⟩
+      · rfl
+    · rintro ⟨a, ha, rfl⟩
+      have : a ∈ t.coveredCells := by rw [hvalid.covers]; exact ha
+      rcases Finset.mem_biUnion.mp this with ⟨i, _, hia⟩
+      use i
+      rw [cells_eq i, Finset.mem_image]
+      use a, hia
+
+def piece1_rexp (k : ℕ) : RExp :=
+  RExp.r 0 (3*k+1) 2 (3*k+2) ⊔ RExp.r 0 (3*k) 1 (3*k+1)
+
+def piece2_rexp (k : ℕ) : RExp :=
+  RExp.r 0 0 4 (3*k+1) ⊖ RExp.r 0 (3*k) 1 (3*k+1)
+
+def piece1 (k : ℕ) : Finset Cell := lTrominoCellsAt 0 (3 * ↑k + 1) 3
+def piece2 (k : ℕ) : Finset Cell := rectangle 4 (3 * k + 1) \ {(0, 3 * (k : ℤ))}
+
+theorem piece1_val_rexp (k : ℕ) : (piece1_rexp k).eval = ↑(piece1 k) := by
+  ext ⟨x, y⟩
+  simp only [piece1_rexp, RExp.eval_union, RExp.eval_r, Set.mem_union,
+    piece1, lTrominoCellsAt, PlacedTile.cells, rotateProto, rotateCell, translateCell, Finset.mem_coe,
+    Finset.mem_image, lTrominoSet, lTromino, rotateCell90, Finset.mem_mk,
+    Multiset.mem_coe, List.mem_cons, List.not_mem_nil, or_false]
+  constructor
+  · rintro (⟨hx1, hx2, hy1, hy2⟩ | ⟨hx1, hx2, hy1, hy2⟩)
+    · have hx : x = 0 ∨ x = 1 := by omega
+      have hy : y = 3*k+1 := by omega
+      rcases hx with rfl | rfl
+      · exact ⟨(0,0), ⟨(0,0), by decide, by rfl⟩, by { ext; simp; omega }⟩
+      · exact ⟨(1,0), ⟨(0,1), by decide, by rfl⟩, by { ext; simp; omega }⟩
+    · have hx : x = 0 := by omega
+      have hy : y = 3*k := by omega
+      exact ⟨(0,-1), ⟨(1,0), by decide, by rfl⟩, by { ext; simp; omega }⟩
+  · intro h
+    rcases h with ⟨a, ⟨a1, ha1, rfl⟩, h2⟩
+    simp only [Prod.mk.injEq] at h2
+    rcases h2 with ⟨hx, hy⟩
+    rcases ha1 with rfl | rfl | rfl
+    · left; revert hx hy; simp; omega
+    · left; revert hx hy; simp; omega
+    · right; revert hx hy; simp; omega
+
+theorem piece2_val_rexp (k : ℕ) : (piece2_rexp k).eval = ↑(piece2 k) := by
+  ext ⟨x, y⟩
+  simp only [piece2_rexp, piece2, Prod.mk.injEq, rectangle, Finset.mem_coe, Finset.mem_sdiff,
+    Finset.mem_singleton, Finset.mem_product, Finset.mem_map, Function.Embedding.coeFn_mk,
+    Finset.mem_range, RExp.eval_diff, RExp.eval_r, Set.mem_diff]
+  constructor
+  · rintro ⟨⟨hx1, hx2, hy1, hy2⟩, h2⟩
+    constructor
+    · constructor
+      · have hx_ge : x ≥ 0 := by omega
+        lift x to ℕ using hx_ge
+        exact ⟨x, by omega, rfl⟩
+      · have hy_ge : y ≥ 0 := by omega
+        lift y to ℕ using hy_ge
+        exact ⟨y, by omega, rfl⟩
+    · rintro ⟨rfl, rfl⟩
+      exact h2 ⟨by omega, by omega, by omega, by omega⟩
+  · rintro ⟨⟨⟨ax, hax, rfl⟩, ⟨ay, hay, rfl⟩⟩, h2⟩
+    constructor
+    · exact ⟨by exact Int.natCast_nonneg ax, by zify at hax; omega, by exact Int.natCast_nonneg ay, by zify at hay; omega⟩
+    · rintro ⟨h1, h2_1, h3, h4⟩
+      apply h2
+      constructor
+      · zify at h1 h2_1 ⊢; omega
+      · zify at h3 h4 ⊢; omega
+
+theorem piece2_eq_rotate_rectangleMinusCorner (k : ℕ) :
+    piece2 k = translateRegion (rotateRegion90 (rectangleMinusCorner (3 * k + 1) 4)) (3, 0) := by
+  ext ⟨x, y⟩
+  simp only [piece2, mem_rectangle, rotateRegion90, translateRegion, translateCell, Finset.mem_image, Prod.exists, rectangleMinusCorner, Finset.mem_erase, cornerTR, Finset.mem_sdiff, Finset.mem_singleton, Prod.ext_iff, rotateCell90]
+  have hk_sub : (Int.ofNat (3 * k + 1 - 1)) = 3 * (k : ℤ) := by
+    have : 3 * k + 1 - 1 = 3 * k := by omega
+    rw [this]
+    push_cast
+    rfl
+  have h4_sub : (Int.ofNat (4 - 1)) = 3 := by rfl
+  rw [hk_sub, h4_sub]
+  constructor
+  · rintro ⟨⟨hx1, hx2, hy1, hy2⟩, hnot⟩
+    use x - 3, y
+    constructor
+    · use y, 3 - x
+      constructor
+      · constructor
+        · intro h_eq
+          apply hnot
+          injection h_eq with e1 e2
+          constructor <;> omega
+        · omega
+      · omega
+    · omega
+  · rintro ⟨a, b, ⟨a_1, b_1, ⟨hnot, hbounds⟩, eq1, eq2⟩, eq3, eq4⟩
+    constructor
+    · constructor <;> omega
+    · intro h_eq
+      apply hnot
+      ext <;> omega
+
+theorem tileable_piece2 (k : ℕ) (hk : k ≥ 1) :
+    LTileable (piece2 k) := by
+  rw [piece2_eq_rotate_rectangleMinusCorner k]
+  apply LTileable_translate
+  apply LTileable_rotate90
+  rw [rectMinusCorner_tileable_iff]
+  · have : (3 * k + 1) * 4 - 1 = 12 * k + 3 := by omega
+    rw [this]
+    omega
+  · omega
+  · decide
+
+theorem tileable_rectangleMinus2Corner_4_3kplus2 (k : ℕ) (hk : k ≥ 1) :
+    LTileable (rectangleMinus2Corner 4 (3 * k + 2)) := by
+  have h_decomp : rectangleMinus2Corner 4 (3 * k + 2) = piece1 k ∪ piece2 k := by
+    apply Finset.coe_injective
+    rw [Finset.coe_union, ← piece1_val_rexp, ← piece2_val_rexp]
+    have h1 : (rectangleMinus2Corner_rexp 4 (3 * k + 2)).eval = (rectangleMinus2Corner 4 (3 * k + 2) : Set Cell) := by
+      rw [rectangleMinus2Corner_rexp_eval 4 (3 * k + 2) (by omega) (by omega)]
+    rw [← h1]
+    ext ⟨x, y⟩
+    simp [rectangleMinus2Corner_rexp, piece1_rexp, piece2_rexp]
+    omega
+  have h_disj : Disjoint (piece1 k) (piece2 k) := by
+    rw [Finset.disjoint_left]
+    intro ⟨x, y⟩ h1 h2
+    have h1' : (x, y) ∈ (piece1_rexp k).eval := by rw [piece1_val_rexp]; exact h1
+    have h2' : (x, y) ∈ (piece2_rexp k).eval := by rw [piece2_val_rexp]; exact h2
+    simp [piece1_rexp, piece2_rexp] at h1' h2'
+    omega
+  rw [h_decomp]
+  have h_p1 : LTileable (piece1 k) := by
+    exact LTileable_single_lTromino 0 (3 * k + 1) 3
+  have h_p2 : LTileable (piece2 k) := by
+    exact tileable_piece2 k hk
+  exact Tileable_union lTrominoSet h_p1 h_p2 h_disj
+
+def left_piece_j (j k : ℕ) : Finset Cell := rectangle (3 * (j - 1)) (3 * k + 2)
+def right_piece_j (j k : ℕ) : Finset Cell :=
+  translateRegion (rectangleMinus2Corner 4 (3 * k + 2)) (3 * (j - 1), 0)
+
+theorem decomp_j (j k : ℕ) (hj : j ≥ 2) :
+    rectangleMinus2Corner (3 * j + 1) (3 * k + 2) = left_piece_j j k ∪ right_piece_j j k := by
+  apply Finset.coe_injective
+  rw [Finset.coe_union]
+  have h1 : (rectangleMinus2Corner_rexp (3 * j + 1) (3 * k + 2)).eval = (rectangleMinus2Corner (3 * j + 1) (3 * k + 2) : Set Cell) := by
+    rw [rectangleMinus2Corner_rexp_eval (3 * j + 1) (3 * k + 2) (by omega) (by omega)]
+  have h2 : (RExp.r 0 0 (3 * (j - 1)) (3 * k + 2)).eval = (left_piece_j j k : Set Cell) := by
+    ext ⟨x, y⟩
+    simp only [left_piece_j, rectangle, Finset.mem_coe, Finset.mem_product, Finset.mem_map, Function.Embedding.coeFn_mk, Finset.mem_range, RExp.eval_r]
+    constructor
+    · rintro ⟨hx1, hx2, hy1, hy2⟩
+      constructor
+      · have : x ≥ 0 := by omega
+        lift x to ℕ using this
+        have hj' : (↑(j-1):ℤ) = ↑j-1 := by omega
+        exact ⟨x, by omega, rfl⟩
+      · have : y ≥ 0 := by omega
+        lift y to ℕ using this
+        exact ⟨y, by omega, rfl⟩
+    · rintro ⟨⟨ax, hax, rfl⟩, ⟨ay, hay, rfl⟩⟩
+      have hj' : (↑(j-1):ℤ) = ↑j-1 := by omega
+      have hx : (Int.ofNat ax : ℤ) = ↑ax := rfl
+      have hy : (Int.ofNat ay : ℤ) = ↑ay := rfl
+      exact ⟨by exact Int.natCast_nonneg ax, by omega, by exact Int.natCast_nonneg ay, by omega⟩
+  have h3 : (RExp.shift (3 * (j - 1)) 0 (rectangleMinus2Corner_rexp 4 (3 * k + 2))).eval = (right_piece_j j k : Set Cell) := by
+    rw [RExp.eval_shift]
+    have h4 : (rectangleMinus2Corner_rexp 4 (3 * k + 2)).eval = (rectangleMinus2Corner 4 (3 * k + 2) : Set Cell) := by
+      rw [rectangleMinus2Corner_rexp_eval 4 (3 * k + 2) (by omega) (by omega)]
+    rw [h4]
+    ext ⟨x, y⟩
+    simp only [right_piece_j, translate, translateRegion, translateCell, Finset.mem_coe, Finset.mem_image, Prod.exists, Set.mem_setOf_eq]
+    constructor
+    · intro hx
+      use (x - 3 * (↑j - 1)), y
+      constructor
+      · convert hx using 1; ext <;> simp
+      · ext <;> simp
+    · rintro ⟨a, b, hab, rfl, rfl⟩
+      convert hab using 1
+      ext <;> simp
+  rw [← h1, ← h2, ← h3]
+  ext ⟨x, y⟩
+  have hj' : (↑(j - 1) : ℤ) = ↑j - 1 := by omega
+  simp [rectangleMinus2Corner_rexp, RExp.eval_shift, RExp.eval_diff, Set.mem_union, Set.mem_diff]
+  omega
+
+theorem decomp_j_disj (j k : ℕ) (hj : j ≥ 2) :
+    Disjoint (left_piece_j j k) (right_piece_j j k) := by
+  rw [Finset.disjoint_left]
+  intro ⟨x, y⟩ h1 h2
+  have h_left : x < 3 * (↑j - 1) := by
+    simp only [left_piece_j, rectangle, Finset.mem_product, Finset.mem_map, Function.Embedding.coeFn_mk, Finset.mem_range] at h1
+    rcases h1 with ⟨⟨ax, hax, rfl⟩, _⟩
+    have hj' : (↑(j-1):ℤ) = ↑j-1 := by omega
+    have hx : (Int.ofNat ax : ℤ) = ↑ax := rfl
+    omega
+  have h_right : x ≥ 3 * (↑j - 1) := by
+    simp only [right_piece_j, translateRegion, Finset.mem_image, translateCell, Prod.exists] at h2
+    rcases h2 with ⟨a, b, hab, rfl, rfl⟩
+    have : a ≥ 0 := by
+      have h4 : (a, b) ∈ (rectangleMinus2Corner_rexp 4 (3 * k + 2)).eval := by
+        rw [rectangleMinus2Corner_rexp_eval 4 (3 * k + 2) (by omega) (by omega)]
+        exact hab
+      simp [rectangleMinus2Corner_rexp, RExp.eval_diff] at h4
+      omega
+    omega
+  omega
+
+def pieceA (k : ℕ) : Finset Cell :=
+  swapRegion (rectangleMinus2Corner (3 * k + 2) 4)
+
+def pieceA_rexp (k : ℕ) : RExp :=
+  RExp.r 0 0 4 (3 * k + 2) ⊖ RExp.r 3 (3 * k) 4 (3 * k + 2)
+
+theorem pieceA_val_rexp (k : ℕ) (hk : k ≥ 1) :
+    (pieceA_rexp k).eval = (pieceA k : Set Cell) := by
+  ext ⟨x, y⟩
+  simp only [pieceA_rexp, RExp.eval_diff, RExp.eval_r, Set.mem_diff, pieceA,
+    swapRegion, Finset.mem_coe, Finset.mem_image, rectangleMinus2Corner,
+    Finset.mem_erase, mem_rectangle, mem_rect, cornerTR, cornerTR2, Prod.exists,
+    Int.ofNat_eq_natCast]
+  have hk1 : ((3 * k + 2 - 1 : ℕ) : ℤ) = 3 * k + 1 := by omega
+  have hk2 : ((3 * k + 2 - 2 : ℕ) : ℤ) = 3 * k := by omega
+  have h41 : ((4 - 1 : ℕ) : ℤ) = 3 := by rfl
+  simp only [hk1, hk2, h41]
+  constructor
+  · rintro ⟨⟨hx1, hx2, hy1, hy2⟩, hnot⟩
+    use y, x
+    constructor
+    · constructor
+      · intro h_eq; apply hnot; injection h_eq with e1 e2; subst e1 e2; exact ⟨by omega, by omega, by omega, by omega⟩
+      · constructor
+        · intro h_eq; apply hnot; injection h_eq with e1 e2; subst e1 e2; exact ⟨by omega, by omega, by omega, by omega⟩
+        · exact ⟨by omega, by omega, by omega, by omega⟩
+    · rfl
+  · rintro ⟨a, b, ⟨h1, h2, h3, h4, h5, h6⟩, rfl, rfl⟩
+    refine ⟨⟨by omega, by omega, by omega, by omega⟩, ?_⟩
+    intro h_eq
+    have ha : a = 3 * k ∨ a = 3 * k + 1 := by omega
+    have hb : b = 3 := by omega
+    rcases ha with rfl | rfl
+    · apply h1; ext; rfl; exact hb
+    · apply h2; ext; rfl; exact hb
+
+def pieceB (k : ℕ) : Finset Cell :=
+  lTrominoCellsAt 3 (3 * ↑k + 1) 3
+
+def pieceB_rexp (k : ℕ) : RExp :=
+  RExp.union (RExp.r 3 (3*k+1) 5 (3*k+2)) (RExp.r 3 (3*k) 4 (3*k+1))
+
+theorem pieceB_val_rexp (k : ℕ) :
+    (pieceB_rexp k).eval = (pieceB k : Set Cell) := by
+  ext ⟨x, y⟩
+  simp only [pieceB_rexp, RExp.eval_union, RExp.eval_r, Set.mem_union,
+    pieceB, lTrominoCellsAt, PlacedTile.cells, rotateProto, rotateCell, translateCell, Finset.mem_coe,
+    Finset.mem_image, lTrominoSet, lTromino, rotateCell90, Finset.mem_mk,
+    Multiset.mem_coe, List.mem_cons, List.not_mem_nil, or_false]
+  constructor
+  · rintro (⟨hx1, hx2, hy1, hy2⟩ | ⟨hx1, hx2, hy1, hy2⟩)
+    · have hx : x = 3 ∨ x = 4 := by omega
+      have hy : y = 3*k+1 := by omega
+      rcases hx with rfl | rfl
+      · exact ⟨(0,0), ⟨(0,0), by decide, by rfl⟩, by { ext; simp; omega }⟩
+      · exact ⟨(1,0), ⟨(0,1), by decide, by rfl⟩, by { ext; simp; omega }⟩
+    · have hx : x = 3 := by omega
+      have hy : y = 3*k := by omega
+      exact ⟨(0,-1), ⟨(1,0), by decide, by rfl⟩, by { ext; simp; omega }⟩
+  · intro h
+    rcases h with ⟨a, ⟨a1, ha1, rfl⟩, h2⟩
+    simp only [Prod.mk.injEq] at h2
+    rcases h2 with ⟨hx, hy⟩
+    rcases ha1 with rfl | rfl | rfl
+    · left; revert hx hy; simp; omega
+    · left; revert hx hy; simp; omega
+    · right; revert hx hy; simp; omega
+
+def pieceC (k : ℕ) : Finset Cell :=
+  translateRegion (rectangle 3 (3 * k + 1)) (4, 0)
+
+def pieceC_rexp (k : ℕ) : RExp :=
+  RExp.r 4 0 7 (3 * k + 1)
+
+theorem pieceC_val_rexp (k : ℕ) :
+    (pieceC_rexp k).eval = (pieceC k : Set Cell) := by
+  ext ⟨x, y⟩
+  simp only [pieceC_rexp, RExp.eval_r, pieceC, translateRegion, translateCell,
+    Finset.mem_coe, Finset.mem_image, rectangle, Finset.mem_product,
+    Finset.mem_map, Function.Embedding.coeFn_mk, Finset.mem_range, Prod.exists,
+    rect, Set.mem_setOf_eq]
+  constructor
+  · rintro ⟨hx1, hx2, hy1, hy2⟩
+    use x - 4, y
+    have h1 : x - 4 ≥ 0 := by omega
+    have h2 : y ≥ 0 := by omega
+    exact ⟨⟨⟨Int.toNat (x - 4), by omega, by exact Int.toNat_of_nonneg h1⟩, ⟨Int.toNat y, by omega, by exact Int.toNat_of_nonneg h2⟩⟩, by { ext; simp; omega }⟩
+  · rintro ⟨a, b, ⟨⟨ax, hax, rfl⟩, ⟨ay, hay, rfl⟩⟩, rfl, rfl⟩
+    have hax_z : (Int.ofNat ax : ℤ) = ↑ax := rfl
+    have hay_z : (Int.ofNat ay : ℤ) = ↑ay := rfl
+    exact ⟨by omega, by omega, by omega, by omega⟩
+
+theorem decomp_7_rexp (k : ℕ) (hk : k ≥ 1) :
+    (rectangleMinus2Corner_rexp 7 (3 * k + 2)).eval =
+    (RExp.union (RExp.union (pieceA_rexp k) (pieceB_rexp k)) (pieceC_rexp k)).eval := by
+  ext ⟨x, y⟩
+  simp only [rectangleMinus2Corner_rexp, pieceA_rexp, pieceB_rexp, pieceC_rexp,
+    RExp.eval_union, RExp.eval_diff, RExp.eval_r, Set.mem_union, Set.mem_diff,
+    rect, Set.mem_setOf_eq]
+  omega
+
+theorem decomp_7 (k : ℕ) (hk : k ≥ 1) :
+    rectangleMinus2Corner 7 (3 * k + 2) = pieceA k ∪ pieceB k ∪ pieceC k := by
+  apply Finset.coe_injective
+  rw [Finset.coe_union, Finset.coe_union]
+  have h_eval := decomp_7_rexp k hk
+  rw [rectangleMinus2Corner_rexp_eval 7 (3 * k + 2) (by decide) (by omega)] at h_eval
+  rw [RExp.eval_union, RExp.eval_union, pieceA_val_rexp k hk, pieceB_val_rexp k, pieceC_val_rexp k] at h_eval
+  exact h_eval
+
+theorem decomp_7_disj1 (k : ℕ) (hk : k ≥ 1) :
+    Disjoint (pieceA k) (pieceB k) := by
+  rw [Finset.disjoint_left]
+  intro c h1 h2
+  have h1_rexp : c ∈ (pieceA_rexp k).eval := by rw [pieceA_val_rexp k hk]; exact h1
+  have h2_rexp : c ∈ (pieceB_rexp k).eval := by rw [pieceB_val_rexp k]; exact h2
+  rcases c with ⟨x, y⟩
+  simp only [pieceA_rexp, pieceB_rexp, RExp.eval_union, RExp.eval_diff, RExp.eval_r, Set.mem_union, Set.mem_diff, rect, Set.mem_setOf_eq] at h1_rexp h2_rexp
+  omega
+
+theorem decomp_7_disj2 (k : ℕ) (hk : k ≥ 1) :
+    Disjoint (pieceA k ∪ pieceB k) (pieceC k) := by
+  rw [Finset.disjoint_left]
+  intro c h1 h2
+  have h1_rexp : c ∈ (RExp.union (pieceA_rexp k) (pieceB_rexp k)).eval := by
+    rw [RExp.eval_union, pieceA_val_rexp k hk, pieceB_val_rexp k]
+    exact Finset.mem_union.mp h1
+  have h2_rexp : c ∈ (pieceC_rexp k).eval := by rw [pieceC_val_rexp k]; exact h2
+  rcases c with ⟨x, y⟩
+  simp only [pieceA_rexp, pieceB_rexp, pieceC_rexp, RExp.eval_union, RExp.eval_r,
+    RExp.eval_diff, Set.mem_union, Set.mem_diff, rect, Set.mem_setOf_eq] at h1_rexp h2_rexp
+  omega
+
+theorem tileable_pieceA (k : ℕ) (hk : k ≥ 1) : LTileable (pieceA k) := by
+  have : LTileable (rectangleMinus2Corner (3 * k + 2) (3 * 1 + 1)) := by
+    exact tileable_rectangleMinus2Corner_3jplus2_3kplus1 k 1 hk (by omega)
+  have h2 : 3 * 1 + 1 = 4 := rfl
+  rw [h2] at this
+  exact LTileable_swap this
+
+theorem tileable_pieceB (k : ℕ) : LTileable (pieceB k) := by
+  exact LTileable_single_lTromino 3 (3 * k + 1) 3
+
+theorem tileable_pieceC (k : ℕ) (hk : k ≥ 1) (hk_odd : Odd k) : LTileable (pieceC k) := by
+  apply LTileable_translate
+  rw [rect_tileable_iff]
+  right; right
+  constructor
+  · have : 3 * (3 * k + 1) = 3 * (3 * k + 1) := rfl
+    rw [this]
+    apply Nat.mul_mod_right
+  · constructor
+    · omega
+    · constructor
+      · omega
+      · constructor
+        · intro h; obtain ⟨_, h_odd_cond⟩ := h
+          obtain ⟨j, hj⟩ := hk_odd
+          obtain ⟨i, hi⟩ := h_odd_cond
+          omega
+        · intro h; obtain ⟨_, h_eq⟩ := h
+          omega
+
 theorem tileable_rectangleMinus2Corner_3jplus1_3kplus2
     (j k : ℕ) (hj : j ≥ 1) (hk : k ≥ 1) :
     LTileable (rectangleMinus2Corner (3 * j + 1) (3 * k + 2)) := by
-  sorry
+  obtain rfl | hj2 := eq_or_lt_of_le hj
+  · exact tileable_rectangleMinus2Corner_4_3kplus2 k hk
+  · have hj2_le : 2 ≤ j := hj2
+    obtain rfl | hj3 := eq_or_lt_of_le hj2_le
+    · rcases Nat.even_or_odd k with (h_even | h_odd)
+      · rw [decomp_j 2 k hj2]
+        have h_disj := decomp_j_disj 2 k hj2
+        have h1 : LTileable (left_piece_j 2 k) := by
+          have h1_subst : left_piece_j 2 k = rectangle (3 * (2 - 1)) (3 * k + 2) := rfl
+          rw [h1_subst]
+          rw [rect_tileable_iff]
+          right; right
+          constructor
+          · have : 3 * (2 - 1) * (3 * k + 2) = 3 * ((2 - 1) * (3 * k + 2)) := by ring
+            rw [this]
+            apply Nat.mul_mod_right
+          · constructor
+            · omega
+            · constructor
+              · omega
+              · constructor
+                · intro h; obtain ⟨h1, h2⟩ := h; obtain ⟨i, hi⟩ := h2; obtain ⟨l, rfl⟩ := h_even; omega
+                · intro h; obtain ⟨h1, h2⟩ := h; obtain ⟨i, hi⟩ := h1; omega
+        have h2 : LTileable (right_piece_j 2 k) := by
+          have h2_subst : right_piece_j 2 k = translateRegion (rectangleMinus2Corner 4 (3 * k + 2)) (3 * (2 - 1), 0) := rfl
+          rw [h2_subst]
+          apply LTileable_translate
+          exact tileable_rectangleMinus2Corner_4_3kplus2 k hk
+        exact Tileable_union lTrominoSet h1 h2 h_disj
+      · have h_decomp : rectangleMinus2Corner (3 * 2 + 1) (3 * k + 2) = pieceA k ∪ pieceB k ∪ pieceC k := by
+          have : 3 * 2 + 1 = 7 := rfl
+          rw [this]
+          exact decomp_7 k hk
+        rw [h_decomp]
+        have hA : LTileable (pieceA k) := tileable_pieceA k hk
+        have hB : LTileable (pieceB k) := tileable_pieceB k
+        have hC : LTileable (pieceC k) := tileable_pieceC k hk h_odd
+        have hAB : LTileable (pieceA k ∪ pieceB k) := Tileable_union lTrominoSet hA hB (decomp_7_disj1 k hk)
+        exact Tileable_union lTrominoSet hAB hC (decomp_7_disj2 k hk)
+    · rw [decomp_j j k hj2]
+      have h_disj := decomp_j_disj j k hj2
+      have h1 : LTileable (left_piece_j j k) := by
+        have h1_subst : left_piece_j j k = rectangle (3 * (j - 1)) (3 * k + 2) := rfl
+        rw [h1_subst]
+        rw [rect_tileable_iff]
+        right; right
+        constructor
+        · have : 3 * (j - 1) * (3 * k + 2) = 3 * ((j - 1) * (3 * k + 2)) := by ring
+          rw [this]
+          apply Nat.mul_mod_right
+        · constructor
+          · have h2 : j - 1 ≥ 1 := by omega
+            have h3 : 3 * (j - 1) ≥ 3 * 1 := Nat.mul_le_mul_left 3 h2
+            omega
+          · constructor
+            · omega
+            · constructor
+              · intro h; obtain ⟨h1, h2⟩ := h; obtain ⟨i, hi⟩ := h2; omega
+              · intro h; obtain ⟨h1, h2⟩ := h; obtain ⟨i, hi⟩ := h1; omega
+      have h2 : LTileable (right_piece_j j k) := by
+        have h2_subst : right_piece_j j k = translateRegion (rectangleMinus2Corner 4 (3 * k + 2)) (3 * (j - 1), 0) := rfl
+        rw [h2_subst]
+        apply LTileable_translate
+        exact tileable_rectangleMinus2Corner_4_3kplus2 k hk
+      exact Tileable_union lTrominoSet h1 h2 h_disj
+
 
 /-- **Two-square deficient rectangle theorem (statement)**:
 
