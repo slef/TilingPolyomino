@@ -2628,7 +2628,7 @@ theorem piece1_val_rexp (k : ℕ) : (piece1_rexp k).eval = ↑(piece1 k) := by
       · exact ⟨(1,0), ⟨(0,1), by decide, by rfl⟩, by { ext; simp; omega }⟩
     · have hx : x = 0 := by omega
       have hy : y = 3*k := by omega
-      exact ⟨(0,-1), ⟨(1,0), by decide, by rfl⟩, by { ext; simp; omega }⟩
+      exact ⟨(0,-1), ⟨(1,0), by decide, by rfl⟩, by { simp only [Prod.mk.injEq]; push_cast; omega }⟩
   · intro h
     rcases h with ⟨a, ⟨a1, ha1, rfl⟩, h2⟩
     simp only [Prod.mk.injEq] at h2
@@ -2863,7 +2863,7 @@ theorem pieceB_val_rexp (k : ℕ) :
       · exact ⟨(1,0), ⟨(0,1), by decide, by rfl⟩, by { ext; simp; omega }⟩
     · have hx : x = 3 := by omega
       have hy : y = 3*k := by omega
-      exact ⟨(0,-1), ⟨(1,0), by decide, by rfl⟩, by { ext; simp; omega }⟩
+      exact ⟨(0,-1), ⟨(1,0), by decide, by rfl⟩, by { simp only [Prod.mk.injEq]; push_cast; omega }⟩
   · intro h
     rcases h with ⟨a, ⟨a1, ha1, rfl⟩, h2⟩
     simp only [Prod.mk.injEq] at h2
