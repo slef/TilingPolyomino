@@ -2262,6 +2262,47 @@ theorem lTromino_rotation2_cells :
 
 
 
+theorem topRightLTromino_rexp_eval (j k : ℕ) (_hj : j ≥ 1) (_hk : k ≥ 1) :
+    RExp.eval (topRightLTromino_rexp j k) = (topRightLTromino j k : Set Cell) := by
+  ext c
+  simp only [topRightLTromino_rexp, RExp.eval_diff, RExp.eval_r, topRightLTromino,
+    lTrominoCellsAt, PlacedTile.cells, lTrominoSet, Finset.mem_coe,
+    Finset.mem_image, translateCell, lTromino_rotation2_cells,
+    mem_rect, Set.mem_diff, Finset.mem_insert, Finset.mem_singleton]
+  constructor
+  · rintro ⟨⟨h1, h2, h3, h4⟩, h5⟩
+    have hc1 : c.1 = 3 * ↑j ∨ c.1 = 3 * ↑j + 1 := by omega
+    have hc2 : c.2 = 3 * ↑k - 2 ∨ c.2 = 3 * ↑k - 1 := by omega
+    obtain h_c1 | h_c1 := hc1
+    · obtain h_c2 | h_c2 := hc2
+      · exfalso; apply h5; exact ⟨by omega, by omega, by omega, by omega⟩
+      · use (-1, 0); exact ⟨by right; right; rfl, by ext <;> omega⟩
+    · obtain h_c2 | h_c2 := hc2
+      · use (0, -1); exact ⟨by right; left; rfl, by ext <;> omega⟩
+      · use (0, 0); exact ⟨by left; rfl, by ext <;> omega⟩
+  · rintro ⟨a, ha, rfl⟩
+    rcases ha with rfl | rfl | rfl
+    · exact ⟨⟨by omega, by omega, by omega, by omega⟩, by omega⟩
+    · exact ⟨⟨by omega, by omega, by omega, by omega⟩, by omega⟩
+    · exact ⟨⟨by omega, by omega, by omega, by omega⟩, by omega⟩
+
+theorem rectangleMinus2Corner_rexp_eval (n m : ℕ) (hn : n ≥ 2) (hm : m ≥ 1) :
+    RExp.eval (rectangleMinus2Corner_rexp n m) = (rectangleMinus2Corner n m : Set Cell) := by
+  ext c
+  simp only [rectangleMinus2Corner_rexp, RExp.eval_diff, RExp.eval_r, rectangleMinus2Corner,
+    Finset.mem_coe, Finset.mem_erase, mem_rectangle, mem_rect, cornerTR, cornerTR2,
+    Set.mem_diff]
+  simp only [Int.ofNat_eq_natCast]
+  constructor
+  · rintro ⟨⟨⟨h1, h2, h3, h4⟩, h5⟩, h6⟩
+    refine ⟨?_, ?_, h1, h2, h3, h4⟩
+    · intro heq; apply h6; subst c; exact ⟨by omega, by omega, by omega, by omega⟩
+    · intro heq; apply h5; subst c; exact ⟨by omega, by omega, by omega, by omega⟩
+  · rintro ⟨h1, h2, h3, h4, h5, h6⟩
+    refine ⟨⟨⟨h3, h4, h5, h6⟩, ?_⟩, ?_⟩
+    · intro h7; apply h2; ext <;> omega
+    · intro h7; apply h1; ext <;> omega
+
 /-- The decomposition of `rectangleMinus2Corner (3j+2) (3k+1)` into three parts (as RExp):
 1. Bottom: `rectangleMinusCorner (3j+2) (3k-1)`
 2. Top-left: `translateRegion (rectangle (3j) 2) (0, 3k-1)`
@@ -2284,7 +2325,35 @@ theorem rectangleMinus2Corner_decomp (j k : ℕ) (hj : j ≥ 1) (hk : k ≥ 1) :
       rectangleMinusCorner (3 * j + 2) (3 * k - 1) ∪
       translateRegion (rectangle (3 * j) 2) (0, 3 * k - 1) ∪
       topRightLTromino j k := by
-  sorry
+  apply Finset.coe_injective
+  have h1 : RExp.eval (translateRectangle_rexp j k) =
+      (translateRegion (rectangle (3 * j) 2) (0, 3 * k - 1) : Set Cell) := by
+    rw [translateRectangle_rexp, RExp.eval_shift, RExp.eval_r]
+    have h_rect : rect 0 0 (3 * ↑j) 2 = (rectangle (3 * j) 2 : Set Cell) := by
+      rw [rectangle_eq_rect_coe]
+      simp
+    rw [h_rect, translateRegion_eq_translate_coe]
+  have h2 : (rectangleMinusCorner (3 * j + 2) (3 * k - 1) : Set Cell) ∪
+            (translateRegion (rectangle (3 * j) 2) (0, 3 * k - 1) : Set Cell) ∪
+            (topRightLTromino j k : Set Cell) =
+            ↑(rectangleMinusCorner (3 * j + 2) (3 * k - 1) ∪
+              translateRegion (rectangle (3 * j) 2) (0, 3 * k - 1) ∪
+              topRightLTromino j k) := by
+    rw [Finset.coe_union, Finset.coe_union]
+  calc (rectangleMinus2Corner (3 * j + 2) (3 * k + 1) : Set Cell)
+      = RExp.eval (rectangleMinus2Corner_rexp (3 * j + 2) (3 * k + 1)) := by
+        rw [rectangleMinus2Corner_rexp_eval _ _ (by omega) (by omega)]
+    _ = RExp.eval (rectangleMinusCorner_rexp (3 * j + 2) (3 * k - 1)) ∪
+        RExp.eval (translateRectangle_rexp j k) ∪
+        RExp.eval (topRightLTromino_rexp j k) :=
+        rectangleMinus2Corner_decomp_rexp j k hj hk
+    _ = (rectangleMinusCorner (3 * j + 2) (3 * k - 1) : Set Cell) ∪
+        (translateRegion (rectangle (3 * j) 2) (0, 3 * k - 1) : Set Cell) ∪
+        (topRightLTromino j k : Set Cell) := by
+        rw [rectangleMinusCorner_rexp_eval, h1, topRightLTromino_rexp_eval j k hj hk]
+    _ = ↑(rectangleMinusCorner (3 * j + 2) (3 * k - 1) ∪
+          translateRegion (rectangle (3 * j) 2) (0, 3 * k - 1) ∪
+          topRightLTromino j k) := h2
 
 /-- First disjointness (simple version using rexp_omega): rectangleMinusCorner and
 translateRectangle don't overlap. -/
@@ -2346,11 +2415,106 @@ theorem rectangleMinus2Corner_decomp_disjoint (j k : ℕ) (hj : j ≥ 1) (hk : k
              (topRightLTromino j k) ∧
     Disjoint (translateRegion (rectangle (3 * j) 2) (0, 3 * k - 1))
              (topRightLTromino j k) := by
-  sorry
+  have h1 : RExp.eval (translateRectangle_rexp j k) =
+      (translateRegion (rectangle (3 * j) 2) (0, 3 * k - 1) : Set Cell) := by
+    rw [translateRectangle_rexp, RExp.eval_shift, RExp.eval_r]
+    have h_rect : rect 0 0 (3 * ↑j) 2 = (rectangle (3 * j) 2 : Set Cell) := by
+      rw [rectangle_eq_rect_coe]
+      simp
+    rw [h_rect, translateRegion_eq_translate_coe]
+  have h_rexp := rectangleMinus2Corner_decomp_disjoint_rexp j k hj hk
+  rcases h_rexp with ⟨hd1, hd2, hd3⟩
+  constructor
+  · rw [Finset.disjoint_left]
+    intro a ha1 ha2
+    have ha1_set : a ∈ (rectangleMinusCorner (3 * j + 2) (3 * k - 1) : Set Cell) := ha1
+    have ha2_set : a ∈ (translateRegion (rectangle (3 * j) 2) (0, 3 * k - 1) : Set Cell) := ha2
+    rw [← rectangleMinusCorner_rexp_eval] at ha1_set
+    rw [← h1] at ha2_set
+    have h_inter : a ∈ RExp.eval (rectangleMinusCorner_rexp (3 * j + 2) (3 * k - 1) ⊓ translateRectangle_rexp j k) := by
+      rw [RExp.eval_inter]
+      exact ⟨ha1_set, ha2_set⟩
+    rw [hd1] at h_inter
+    exact h_inter
+  · constructor
+    · rw [Finset.disjoint_left]
+      intro a ha1 ha2
+      have ha1_set : a ∈ (rectangleMinusCorner (3 * j + 2) (3 * k - 1) : Set Cell) := ha1
+      have ha2_set : a ∈ (topRightLTromino j k : Set Cell) := ha2
+      rw [← rectangleMinusCorner_rexp_eval] at ha1_set
+      rw [← topRightLTromino_rexp_eval j k hj hk] at ha2_set
+      have h_inter : a ∈ RExp.eval (rectangleMinusCorner_rexp (3 * j + 2) (3 * k - 1) ⊓ topRightLTromino_rexp j k) := by
+        rw [RExp.eval_inter]
+        exact ⟨ha1_set, ha2_set⟩
+      rw [hd2] at h_inter
+      exact h_inter
+    · rw [Finset.disjoint_left]
+      intro a ha1 ha2
+      have ha1_set : a ∈ (translateRegion (rectangle (3 * j) 2) (0, 3 * k - 1) : Set Cell) := ha1
+      have ha2_set : a ∈ (topRightLTromino j k : Set Cell) := ha2
+      rw [← h1] at ha1_set
+      rw [← topRightLTromino_rexp_eval j k hj hk] at ha2_set
+      have h_inter : a ∈ RExp.eval (translateRectangle_rexp j k ⊓ topRightLTromino_rexp j k) := by
+        rw [RExp.eval_inter]
+        exact ⟨ha1_set, ha2_set⟩
+      rw [hd3] at h_inter
+      exact h_inter
 
 theorem tileable_rectangleMinus2Corner_3jplus2_3kplus1
     (j k : ℕ) (hj : j ≥ 1) (hk : k ≥ 1) :
     LTileable (rectangleMinus2Corner (3 * j + 2) (3 * k + 1)) := by
+  rw [rectangleMinus2Corner_decomp j k hj hk]
+  have h_disj := rectangleMinus2Corner_decomp_disjoint j k hj hk
+  rcases h_disj with ⟨hd1, hd2, hd3⟩
+
+  have h1 : LTileable (rectangleMinusCorner (3 * j + 2) (3 * k - 1)) := by
+    rw [rectMinusCorner_tileable_iff _ _ (by omega) (by omega)]
+    have h_mod : ((3 * j + 2) * (3 * k - 1) - 1) = 3 * (3 * j * k + 2 * k - j - 1) := by
+      have heq : (3 * j + 2) * (3 * k - 1) - 1 + (3 * j + 3) = 3 * (3 * j * k + 2 * k - j - 1) + (3 * j + 3) := calc
+        (3 * j + 2) * (3 * k - 1) - 1 + (3 * j + 3)
+        _ = (3 * j + 2) * (3 * k - 1) + 3 * j + 2 := by
+          have h1 : 1 ≤ 3 * j + 2 := by omega
+          have h2 : 1 ≤ 3 * k - 1 := by omega
+          have h3 : 1 ≤ (3 * j + 2) * (3 * k - 1) := by nlinarith
+          omega
+        _ = (3 * j + 2) * (3 * k - 1) + (3 * j + 2) * 1 := by ring
+        _ = (3 * j + 2) * (3 * k - 1 + 1) := (Nat.mul_add _ _ _).symm
+        _ = (3 * j + 2) * (3 * k) := by
+          have h1 : 1 ≤ 3 * k := by omega
+          congr 1; omega
+        _ = 9 * (j * k) + 6 * k := by ring
+        _ = 3 * (3 * j * k + 2 * k) := by ring
+        _ = 3 * (3 * j * k + 2 * k - j - 1 + (j + 1)) := by
+          have h1 : j ≤ 3 * j * k := by
+            have : 1 ≤ 3 * k := by omega
+            nlinarith
+          have h2 : 1 ≤ 2 * k := by omega
+          have h3 : j + 1 ≤ 3 * j * k + 2 * k := by omega
+          congr 1; omega
+        _ = 3 * (3 * j * k + 2 * k - j - 1) + 3 * (j + 1) := Nat.mul_add _ _ _
+        _ = 3 * (3 * j * k + 2 * k - j - 1) + (3 * j + 3) := by ring
+      omega
+    rw [h_mod]
+    apply Nat.mul_mod_right
+
+  have h2 : LTileable (translateRegion (rectangle (3 * j) 2) (0, 3 * k - 1)) := by
+    apply LTileable_translate
+    exact tileable_mult3_x2 j
+
+  have h3 : LTileable (topRightLTromino j k) := by
+    exact LTileable_single_lTromino (3 * j + 1) (3 * k - 1) 2
+
+  have h_12 : LTileable (rectangleMinusCorner (3 * j + 2) (3 * k - 1) ∪
+                         translateRegion (rectangle (3 * j) 2) (0, 3 * k - 1)) := by
+    apply Tileable_union lTrominoSet h1 h2 hd1
+
+  apply Tileable_union lTrominoSet h_12 h3
+  rw [Finset.disjoint_union_left]
+  exact ⟨hd2, hd3⟩
+
+theorem tileable_rectangleMinus2Corner_3jplus1_3kplus2
+    (j k : ℕ) (hj : j ≥ 1) (hk : k ≥ 1) :
+    LTileable (rectangleMinus2Corner (3 * j + 1) (3 * k + 2)) := by
   sorry
 
 /-- **Two-square deficient rectangle theorem (statement)**:
@@ -2361,4 +2525,43 @@ L-tileable. -/
 theorem rectMinus2Corner_tileable_of_area_mod2
     (n m : ℕ) (hn : n ≥ 3) (hm : m ≥ 3) (hmod : n * m % 3 = 2) :
     LTileable (rectangleMinus2Corner n m) := by
-  sorry
+  have h_cases := mod3_one_two_or_two_one_of_area_mod3_two hmod
+  rcases h_cases with ⟨hn1, hm2⟩ | ⟨hn2, hm1⟩
+  · -- Case 1: n % 3 = 1, m % 3 = 2
+    let j := n / 3
+    let k := m / 3
+    have hj_eq : n = 3 * j + 1 := by
+      have h := Nat.div_add_mod n 3
+      rw [hn1] at h
+      omega
+    have hk_eq : m = 3 * k + 2 := by
+      have h := Nat.div_add_mod m 3
+      rw [hm2] at h
+      omega
+    have hj_ge : j ≥ 1 := by
+      have : 3 * j + 1 ≥ 3 := hj_eq ▸ hn
+      omega
+    have hk_ge : k ≥ 1 := by
+      have : 3 * k + 2 ≥ 3 := hk_eq ▸ hm
+      omega
+    rw [hj_eq, hk_eq]
+    exact tileable_rectangleMinus2Corner_3jplus1_3kplus2 j k hj_ge hk_ge
+  · -- Case 2: n % 3 = 2, m % 3 = 1
+    let j := n / 3
+    let k := m / 3
+    have hj_eq : n = 3 * j + 2 := by
+      have h := Nat.div_add_mod n 3
+      rw [hn2] at h
+      omega
+    have hk_eq : m = 3 * k + 1 := by
+      have h := Nat.div_add_mod m 3
+      rw [hm1] at h
+      omega
+    have hj_ge : j ≥ 1 := by
+      have : 3 * j + 2 ≥ 3 := hj_eq ▸ hn
+      omega
+    have hk_ge : k ≥ 1 := by
+      have : 3 * k + 1 ≥ 3 := hk_eq ▸ hm
+      omega
+    rw [hj_eq, hk_eq]
+    exact tileable_rectangleMinus2Corner_3jplus2_3kplus1 j k hj_ge hk_ge
