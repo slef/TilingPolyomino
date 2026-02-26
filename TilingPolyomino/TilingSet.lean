@@ -666,3 +666,151 @@ theorem setTileable_rect_area_dvd (m n : Nat) (h : SetTileable (rect 0 0 m n) lS
     simp
   rw [h2, h3] at h1
   exact h1
+
+-- ============================================================
+-- Step 8 — Impossibility theorems
+-- ============================================================
+
+-- Helper: every placed copy of lShape contains a cell at (dx, dy)
+private lemma placedCopy_contains_origin_offset (dx dy : ℤ) (r : Fin 4) :
+    (dx, dy) ∈ placedCopy lShape dx dy r := by
+  fin_cases r <;>
+    simp [placedCopy, mem_translate, mem_rotate, lShape, lShape_cells, inverseRot,
+          rotateCell_0, rotateCell_1, rotateCell_2, rotateCell_3,
+          Set.mem_insert_iff, Set.mem_singleton_iff, Prod.mk.injEq]
+
+-- Helper: every placed copy spans ≥ 2 distinct x-values
+private lemma placedCopy_x_span (dx dy : ℤ) (r : Fin 4) :
+    (dx + 1, dy) ∈ placedCopy lShape dx dy r ∨ (dx - 1, dy) ∈ placedCopy lShape dx dy r := by
+  fin_cases r <;>
+    simp [placedCopy, mem_translate, mem_rotate, lShape, lShape_cells, inverseRot,
+          rotateCell_0, rotateCell_1, rotateCell_2, rotateCell_3,
+          Set.mem_insert_iff, Set.mem_singleton_iff, Prod.mk.injEq] <;>
+    omega
+
+/-- No 1×n strip (n ≥ 1) is L-tileable: placed copies always span ≥ 2 x-values -/
+theorem not_setTileable_1xn (n : ℕ) (hn : 1 ≤ n) : ¬ SetTileable (rect 0 0 1 n) lShape := by
+  intro ⟨t⟩
+  -- The region is nonempty, so some tile exists
+  have hcell : ((0 : ℤ), (0 : ℤ)) ∈ rect 0 0 1 (n : ℤ) := by
+    simp only [mem_rect]
+    exact ⟨le_refl _, by norm_num, le_refl _, by exact_mod_cast hn⟩
+  rw [← t.covers, Set.mem_iUnion] at hcell
+  obtain ⟨i, hi⟩ := hcell
+  obtain ⟨dx, dy, r, hrep⟩ := t.is_placed i
+  -- Every cell of tile i is in rect 0 0 1 n
+  have h_sub : ∀ q, q ∈ t.tile i → 0 ≤ q.1 ∧ q.1 < 1 := by
+    intro q hq
+    have hmem : q ∈ rect 0 0 1 (n : ℤ) := by
+      have : q ∈ ⋃ j, t.tile j := Set.mem_iUnion.mpr ⟨i, hq⟩
+      rwa [t.covers] at this
+    simp only [mem_rect] at hmem
+    exact ⟨hmem.1, hmem.2.1⟩
+  rw [hrep] at h_sub
+  -- The piece always contains (dx, dy)
+  have h_base : (dx, dy) ∈ placedCopy lShape dx dy r :=
+    placedCopy_contains_origin_offset dx dy r
+  have hbase := h_sub _ h_base
+  -- The piece also contains (dx+1, dy) or (dx-1, dy)
+  rcases placedCopy_x_span dx dy r with h2 | h2
+  · have := (h_sub _ h2).2; omega
+  · have := (h_sub _ h2).1; omega
+
+/-- Same result for the transposed strip (n×1) -/
+theorem not_setTileable_nx1 (n : ℕ) (hn : 1 ≤ n) : ¬ SetTileable (rect 0 0 n 1) lShape := by
+  intro h
+  have hswap : SetTileable (Set.swapRegion (rect 0 0 n 1)) lShape :=
+    setTileable_swap h
+  have heq : Set.swapRegion (rect 0 0 (n : ℤ) 1) = rect 0 0 1 n := by
+    ext ⟨x, y⟩; simp only [mem_swapRegion, mem_rect]; omega
+  rw [heq] at hswap
+  exact not_setTileable_1xn n hn hswap
+
+-- ============================================================
+-- Step 9 — Biconditional for 2×n rectangles
+-- ============================================================
+
+/-- The empty region is vacuously tileable by any shape -/
+theorem SetTileable.empty (s : Shape) : SetTileable (∅ : Set Cell) s :=
+  ⟨{  ι := Empty
+      tile := Empty.elim
+      covers := by simp
+      disjoint := fun i => i.elim
+      is_placed := fun i => i.elim }⟩
+
+/-- rect with zero height is empty -/
+theorem rect_empty_of_eq (x0 x1 y : ℤ) : rect x0 y x1 y = ∅ := by
+  ext p; simp only [mem_rect, Set.mem_empty_iff_false, iff_false]; omega
+
+/-- 2×n is L-tileable iff 3 ∣ n -/
+theorem setTileable_2xn_iff (n : ℕ) : SetTileable (rect 0 0 2 n) lShape ↔ 3 ∣ n := by
+  constructor
+  · intro h
+    have hdvd := setTileable_rect_area_dvd 2 n h
+    -- hdvd : 3 ∣ 2 * n; since gcd(3,2)=1, conclude 3 ∣ n
+    -- Direct: from 2n = 3k, we get n = 3(n-k) by linear arithmetic
+    rcases hdvd with ⟨k, hk⟩
+    exact ⟨n - k, by omega⟩
+  · rintro ⟨k, hk⟩
+    subst hk
+    rcases Nat.eq_zero_or_pos k with rfl | hk_pos
+    · simp only [Nat.mul_zero, Nat.cast_zero]
+      rw [rect_empty_of_eq]
+      exact SetTileable.empty lShape
+    · exact setTileable_2x_mult3 k hk_pos
+
+-- ============================================================
+-- Step 10 — General 2D inductive families via refine
+-- ============================================================
+
+/-- Any (3a) × (2b) rectangle is L-tileable (a, b ≥ 1).
+    Partition into a×b copies of the 3×2 base tile. -/
+theorem setTileable_mult3_mult2 (a b : ℕ) (ha : 1 ≤ a) (hb : 1 ≤ b) :
+    SetTileable (rect 0 0 (3 * a) (2 * b)) lShape := by
+  apply SetTileable.refine
+    (pieces := fun (p : Fin a × Fin b) =>
+      rect (3 * p.1.val) (2 * p.2.val) (3 * (p.1.val + 1)) (2 * (p.2.val + 1)))
+  · -- cover: ⋃ pieces = rect 0 0 (3a) (2b)
+    ext ⟨x, y⟩
+    simp only [Set.mem_iUnion, mem_rect]
+    constructor
+    · rintro ⟨⟨⟨i, hi⟩, ⟨j, hj⟩⟩, hx1, hx2, hy1, hy2⟩
+      refine ⟨?_, ?_, ?_, ?_⟩ <;> push_cast at * <;> omega
+    · rintro ⟨hx1, hx2, hy1, hy2⟩
+      have hx_nn : 0 ≤ x := by linarith
+      have hy_nn : 0 ≤ y := by linarith
+      have hxq_lt : (x / 3).toNat < a := by
+        apply Nat.cast_lt (α := ℤ).mp
+        rw [Int.toNat_of_nonneg (by omega)]
+        omega
+      have hyq_lt : (y / 2).toNat < b := by
+        apply Nat.cast_lt (α := ℤ).mp
+        rw [Int.toNat_of_nonneg (by omega)]
+        omega
+      refine ⟨⟨⟨(x / 3).toNat, hxq_lt⟩, ⟨(y / 2).toNat, hyq_lt⟩⟩, ?_, ?_, ?_, ?_⟩ <;>
+        rw [Int.toNat_of_nonneg (by omega)] <;> push_cast <;> omega
+  · -- pairwise disjoint
+    intro ⟨⟨i₁, _⟩, ⟨j₁, _⟩⟩ ⟨⟨i₂, _⟩, ⟨j₂, _⟩⟩ hne
+    simp only [Function.onFun, Set.disjoint_iff_inter_eq_empty]
+    ext ⟨x, y⟩
+    simp only [Set.mem_inter_iff, mem_rect, Set.mem_empty_iff_false, iff_false]
+    rintro ⟨⟨hx1, hx2, hy1, hy2⟩, hx1', hx2', hy1', hy2'⟩
+    push_cast at *
+    have heqi : i₁ = i₂ := by omega
+    have heqj : j₁ = j₂ := by omega
+    exact hne (Prod.ext (Fin.ext heqi) (Fin.ext heqj))
+  · intro p; exact rect_finite _ _ _ _
+  · intro ⟨⟨i, _⟩, ⟨j, _⟩⟩
+    have heq : rect (3 * (i : ℤ)) (2 * j) (3 * (i + 1)) (2 * (j + 1))
+             = translate (3 * i) (2 * j) (rect 0 0 3 2) := by
+      ext ⟨x, y⟩; simp only [mem_rect, mem_translate]; push_cast; omega
+    rw [heq]
+    exact setTileable_translate setTileable_3x2 _ _
+
+/-- Any (2a) × (3b) rectangle is L-tileable (a, b ≥ 1) — by swap from mult3_mult2 -/
+theorem setTileable_mult2_mult3 (a b : ℕ) (ha : 1 ≤ a) (hb : 1 ≤ b) :
+    SetTileable (rect 0 0 (2 * a) (3 * b)) lShape := by
+  have h := setTileable_swap (setTileable_mult3_mult2 b a hb ha)
+  have heq : Set.swapRegion (rect 0 0 (3 * b) (2 * a)) = rect 0 0 (2 * a) (3 * b) := by
+    ext ⟨x, y⟩; simp only [mem_swapRegion, mem_rect]; omega
+  rwa [heq] at h
