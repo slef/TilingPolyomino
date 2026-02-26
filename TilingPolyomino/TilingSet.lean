@@ -33,12 +33,12 @@ def SetPlacedTile.cells {ι : Type*} (ps : SetProtoset ι) (pt : SetPlacedTile �
   translate pt.translation.1 pt.translation.2 (rotate pt.rotation (ps pt.index).cells)
 
 /-- An indexed family of placed tiles -/
-structure SetTileSet {ι : Type*} (ps : SetProtoset ι) (ιₜ : Type) where
+structure SetTileSet {ι : Type*} (ps : SetProtoset ι) (ιₜ : Type*) where
   tiles : ιₜ → SetPlacedTile ι
 
 namespace SetTileSet
 
-variable {ι : Type*} {ps : SetProtoset ι} {ιₜ : Type}
+variable {ι : Type*} {ps : SetProtoset ι} {ιₜ : Type*}
 
 def cellsAt (t : SetTileSet ps ιₜ) (i : ιₜ) : Set Cell :=
   (t.tiles i).cells ps
