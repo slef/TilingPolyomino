@@ -5,11 +5,6 @@
       create `NAMING_CONVENTIONS.md`; full coherence audit across all Set files.
 
 ## Up Next
-- [ ] **Generic bridge theorem** (in `TilingSet.lean`):
-      add `toSetPrototile`, `toSetProtoset` conversion functions, then prove
-      `Tileable_iff_set : Tileable ps R ↔ SetTileable (↑R) (toSetProtoset ps)`.
-      Then `LTrominoSetBridge.lean` collapses to a one-liner corollary;
-      `LProtoset_set` becomes `toSetProtoset lTrominoSet`.
 
 ## Backlog
 - [ ] **Proof simplification**: audit every proof in `LTrominoSet.lean` / `TilingSet.lean`,
@@ -23,6 +18,11 @@
       compare line counts for matching theorem sets only.
 
 ## Done
+- [x] **Generic bridge theorem** (`feat/set-tiling`):
+      `ProtosetCompatible` predicate + `placedTile_cells_compat` key lemma +
+      `Tileable_iff_set` in `TilingSet.lean` (generic, works for any protoset).
+      `LTrominoSetBridge.lean` collapsed from 172 → 52 lines via one-liner corollary.
+      `lTrominoSet_compat` proves `LProtoset_set` compatible with `lTrominoSet`.
 - [x] All `sorry`s proved in `LTromino.lean`
 - [x] `rectMinus2Corner_tileable_of_area_mod2` complete
 - [x] Blueprint (`leanblueprint web`) with 288 declarations, dependency graph, TikZ figures
