@@ -38,6 +38,11 @@ theorem LSetPrototile_ncard : LSetPrototile.cells.ncard = 3 := by
     · simp
   · simp
 
+/-- swapRegion of a standard rect is the transposed rect -/
+private lemma swapRegion_rect (a b : ℤ) :
+    Set.swapRegion (rect 0 0 a b) = rect 0 0 b a := by
+  ext ⟨x, y⟩; simp only [mem_swapRegion, mem_rect]; omega
+
 -- ============================================================
 -- Swap rotation: swapRegion commutes with LSetPlacedTile
 -- ============================================================
@@ -87,14 +92,11 @@ theorem LSetTileable_swap {R : Set Cell} (h : SetTileable R LSetProtoset) :
     simp only [SetTileSet.coveredCells, Set.mem_iUnion, hcell, mem_swapRegion]
     constructor
     · rintro ⟨i, hi⟩
-      have hpi : (p.2, p.1) ∈ SetTileSet.cellsAt t i := hi
-      have hpcover : (p.2, p.1) ∈ SetTileSet.coveredCells t := Set.mem_iUnion.mpr ⟨i, hpi⟩
-      have hpR : (p.2, p.1) ∈ R := by rwa [hv.covers] at hpcover
-      exact hpR
+      have hc : (p.2, p.1) ∈ SetTileSet.coveredCells t := Set.mem_iUnion.mpr ⟨i, hi⟩
+      rwa [hv.covers] at hc
     · intro hpR
-      have hpcover : (p.2, p.1) ∈ SetTileSet.coveredCells t := by rwa [hv.covers]
-      rcases Set.mem_iUnion.mp hpcover with ⟨i, hi⟩
-      exact ⟨i, hi⟩
+      have hc : (p.2, p.1) ∈ SetTileSet.coveredCells t := hv.covers ▸ hpR
+      exact Set.mem_iUnion.mp hc
 
 -- ============================================================
 -- Base cases
@@ -157,96 +159,48 @@ theorem LSetTileable_2x2_minus : SetTileable (rect 0 0 2 2 \ {(1, 1)}) LSetProto
 -- ============================================================
 
 theorem LSetTileable_2x6 : SetTileable (rect 0 0 2 6) LSetProtoset := by
-  have ha : SetTileable (rect 0 0 2 3) LSetProtoset := LSetTileable_2x3
-  have hb : SetTileable (rect 0 3 2 6) LSetProtoset := by
-    have h_trans : rect 0 3 2 6 = translate 0 3 (rect 0 0 2 3) := by
-      ext ⟨x, y⟩
-      simp only [mem_rect, mem_translate]
-      omega
-    rw [h_trans]
-    exact setTileable_translate LSetTileable_2x3 0 3
-  exact @SetTileable.vertical_union Unit LSetProtoset 2 3 3 (by omega) (by omega) ha hb
+  have h := LSetTileable_2x3.scale_rect (by norm_num) (by norm_num) 1 2 (by omega) (by omega)
+  convert h using 2 <;> ring
 
 theorem LSetTileable_6x2 : SetTileable (rect 0 0 6 2) LSetProtoset := by
-  have h := LSetTileable_swap LSetTileable_2x6
-  have h_eq : Set.swapRegion (rect 0 0 2 6) = rect 0 0 6 2 := by
-    ext ⟨x, y⟩
-    simp only [mem_swapRegion, mem_rect]
-    omega
-  rw [h_eq] at h
-  exact h
+  have h := LSetTileable_3x2.scale_rect (by norm_num) (by norm_num) 2 1 (by omega) (by omega)
+  convert h using 2 <;> ring
 
 theorem LSetTileable_3x4 : SetTileable (rect 0 0 3 4) LSetProtoset := by
-  have ha : SetTileable (rect 0 0 3 2) LSetProtoset := LSetTileable_3x2
-  have hb : SetTileable (rect 0 2 3 4) LSetProtoset := by
-    have h_trans : rect 0 2 3 4 = translate 0 2 (rect 0 0 3 2) := by
-      ext ⟨x, y⟩
-      simp only [mem_rect, mem_translate]
-      omega
-    rw [h_trans]
-    exact setTileable_translate LSetTileable_3x2 0 2
-  exact @SetTileable.vertical_union Unit LSetProtoset 3 2 2 (by omega) (by omega) ha hb
+  have h := LSetTileable_3x2.scale_rect (by norm_num) (by norm_num) 1 2 (by omega) (by omega)
+  convert h using 2 <;> ring
 
 theorem LSetTileable_3x6 : SetTileable (rect 0 0 3 6) LSetProtoset := by
-  have ha : SetTileable (rect 0 0 3 2) LSetProtoset := LSetTileable_3x2
-  have hb : SetTileable (rect 0 2 3 6) LSetProtoset := by
-    have h_trans : rect 0 2 3 6 = translate 0 2 (rect 0 0 3 4) := by
-      ext ⟨x, y⟩
-      simp only [mem_rect, mem_translate]
-      omega
-    rw [h_trans]
-    exact setTileable_translate LSetTileable_3x4 0 2
-  exact @SetTileable.vertical_union Unit LSetProtoset 3 2 4 (by omega) (by omega) ha hb
+  have h := LSetTileable_3x2.scale_rect (by norm_num) (by norm_num) 1 3 (by omega) (by omega)
+  convert h using 2 <;> ring
 
 theorem LSetTileable_6x3 : SetTileable (rect 0 0 6 3) LSetProtoset := by
-  have h := LSetTileable_swap LSetTileable_3x6
-  have h_eq : Set.swapRegion (rect 0 0 3 6) = rect 0 0 6 3 := by
-    ext ⟨x, y⟩
-    simp only [mem_swapRegion, mem_rect]
-    omega
-  rw [h_eq] at h
-  exact h
+  have h := LSetTileable_2x3.scale_rect (by norm_num) (by norm_num) 3 1 (by omega) (by omega)
+  convert h using 2 <;> ring
 
 theorem LSetTileable_6x6 : SetTileable (rect 0 0 6 6) LSetProtoset := by
-  have ha : SetTileable (rect 0 0 6 3) LSetProtoset := LSetTileable_6x3
-  have hb : SetTileable (rect 0 3 6 6) LSetProtoset := by
-    have h_trans : rect 0 3 6 6 = translate 0 3 (rect 0 0 6 3) := by
-      ext ⟨x, y⟩
-      simp only [mem_rect, mem_translate]
-      omega
-    rw [h_trans]
-    exact setTileable_translate LSetTileable_6x3 0 3
-  exact @SetTileable.vertical_union Unit LSetProtoset 6 3 3 (by omega) (by omega) ha hb
+  have h := LSetTileable_2x3.scale_rect (by norm_num) (by norm_num) 3 2 (by omega) (by omega)
+  convert h using 2 <;> ring
 
 theorem LSetTileable_2x_mult3 (k : ℕ) (hk : 1 ≤ k) :
     SetTileable (rect 0 0 2 (3 * k)) LSetProtoset := by
   have h := LSetTileable_2x3.scale_rect (by norm_num) (by norm_num) 1 k (by omega) hk
-  convert h using 2 <;> push_cast <;> ring
+  convert h using 2 <;> ring
 
 theorem LSetTileable_3x_even (k : ℕ) (hk : 1 ≤ k) :
     SetTileable (rect 0 0 3 (2 * k)) LSetProtoset := by
   have h := LSetTileable_3x2.scale_rect (by norm_num) (by norm_num) 1 k (by omega) hk
-  convert h using 2 <;> push_cast <;> ring
+  convert h using 2 <;> ring
 
 theorem LSetTileable_mult3_x_2 (k : Nat) (hk : 1 ≤ k) :
     SetTileable (rect 0 0 (3 * k) 2) LSetProtoset := by
-  have h := LSetTileable_swap (LSetTileable_2x_mult3 k hk)
-  have h_eq : Set.swapRegion (rect 0 0 2 (3 * k)) = rect 0 0 (3 * k) 2 := by
-    ext ⟨x, y⟩
-    simp only [mem_swapRegion, mem_rect]
-    omega
-  rw [h_eq] at h
-  exact h
+  have h := LSetTileable_3x2.scale_rect (by norm_num) (by norm_num) k 1 hk (by omega)
+  convert h using 2 <;> ring
 
 theorem LSetTileable_even_x_3 (k : Nat) (hk : 1 ≤ k) :
     SetTileable (rect 0 0 (2 * k) 3) LSetProtoset := by
-  have h := LSetTileable_swap (LSetTileable_3x_even k hk)
-  have h_eq : Set.swapRegion (rect 0 0 3 (2 * k)) = rect 0 0 (2 * k) 3 := by
-    ext ⟨x, y⟩
-    simp only [mem_swapRegion, mem_rect]
-    omega
-  rw [h_eq] at h
-  exact h
+  have h := LSetTileable_2x3.scale_rect (by norm_num) (by norm_num) k 1 hk (by omega)
+  convert h using 2 <;> ring
 
 theorem LSetTileable_6x_of_ge2 (k : Nat) (hk : 2 ≤ k) :
     SetTileable (rect 0 0 6 k) LSetProtoset := by
@@ -277,13 +231,7 @@ theorem LSetTileable_6x_of_ge2 (k : Nat) (hk : 2 ≤ k) :
 
 theorem LSetTileable_kx6_of_ge2 (k : Nat) (hk : 2 ≤ k) :
     SetTileable (rect 0 0 k 6) LSetProtoset := by
-  have h := LSetTileable_swap (LSetTileable_6x_of_ge2 k hk)
-  have h_eq : Set.swapRegion (rect 0 0 6 k) = rect 0 0 k 6 := by
-    ext ⟨x, y⟩
-    simp only [mem_swapRegion, mem_rect]
-    omega
-  rw [h_eq] at h
-  exact h
+  simpa [swapRegion_rect] using LSetTileable_swap (LSetTileable_6x_of_ge2 k hk)
 
 -- ============================================================
 -- Area divisibility
@@ -352,14 +300,7 @@ theorem not_LSetTileable_1xn (n : ℕ) (hn : 1 ≤ n) : ¬ SetTileable (rect 0 0
 /-- Same result for the transposed strip (n×1) -/
 theorem not_LSetTileable_nx1 (n : ℕ) (hn : 1 ≤ n) : ¬ SetTileable (rect 0 0 n 1) LSetProtoset := by
   intro h
-  have hswap : SetTileable (Set.swapRegion (rect 0 0 n 1)) LSetProtoset :=
-    LSetTileable_swap h
-  have heq : Set.swapRegion (rect 0 0 (n : ℤ) 1) = rect 0 0 1 n := by
-    ext ⟨x, y⟩
-    simp only [mem_swapRegion, mem_rect]
-    omega
-  rw [heq] at hswap
-  exact not_LSetTileable_1xn n hn hswap
+  exact not_LSetTileable_1xn n hn (swapRegion_rect n 1 ▸ LSetTileable_swap h)
 
 -- ============================================================
 -- 3×(2k+1) Impossibility
@@ -588,7 +529,7 @@ theorem LSetTileable_nx3_iff (n : ℕ) : SetTileable (rect 0 0 n 3) LSetProtoset
 theorem LSetTileable_mult3_mult2 (a b : ℕ) (ha : 1 ≤ a) (hb : 1 ≤ b) :
     SetTileable (rect 0 0 (3 * a) (2 * b)) LSetProtoset := by
   have h := LSetTileable_3x2.scale_rect (by norm_num) (by norm_num) a b ha hb
-  convert h using 2 <;> push_cast <;> ring
+  convert h using 2 <;> ring
 
 /-- Any (2a) × (3b) rectangle is L-tileable (a, b ≥ 1) -/
 theorem LSetTileable_mult2_mult3 (a b : ℕ) (ha : 1 ≤ a) (hb : 1 ≤ b) :
@@ -628,16 +569,11 @@ theorem LSetTileable_odd_x_6 (n : ℕ) (hn_odd : n % 2 = 1) (hn_ge : 3 ≤ n) :
 /-- 6×n is L-tileable for all odd n ≥ 3 (by swap) -/
 theorem LSetTileable_6x_odd (n : ℕ) (hn_odd : n % 2 = 1) (hn_ge : 3 ≤ n) :
     SetTileable (rect 0 0 6 n) LSetProtoset := by
-  have h := LSetTileable_swap (LSetTileable_odd_x_6 n hn_odd hn_ge)
-  have h_eq : Set.swapRegion (rect 0 0 (n : ℤ) 6) = rect 0 0 6 (n : ℤ) := by
-    ext ⟨x, y⟩
-    simp only [mem_swapRegion, mem_rect]
-    omega
-  rwa [h_eq] at h
+  simpa [swapRegion_rect] using LSetTileable_swap (LSetTileable_odd_x_6 n hn_odd hn_ge)
 
 /-- n × (6k) is L-tileable for odd n ≥ 3 and k ≥ 1 -/
 theorem LSetTileable_odd_x_mult6 (n k : ℕ) (hn_odd : n % 2 = 1) (hn_ge : 3 ≤ n) (hk : 1 ≤ k) :
     SetTileable (rect 0 0 n (6 * k)) LSetProtoset := by
   have hn_pos : (0:ℤ) < n := by exact_mod_cast (show 0 < n by omega)
   have h := (LSetTileable_odd_x_6 n hn_odd hn_ge).scale_rect hn_pos (by norm_num) 1 k (by omega) hk
-  convert h using 2 <;> push_cast <;> ring
+  convert h using 2 <;> ring
