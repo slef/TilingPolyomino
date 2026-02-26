@@ -445,6 +445,177 @@ theorem not_setTileable_nx1 (n : ℕ) (hn : 1 ≤ n) : ¬ SetTileable (rect 0 0 
   exact not_setTileable_1xn n hn hswap
 
 -- ============================================================
+-- 3×(2k+1) Impossibility
+-- ============================================================
+
+/-- ncard of any lPlacedCopy is 3 -/
+private lemma lPlacedCopy_ncard (dx dy : ℤ) (r : Fin 4) :
+    (lPlacedCopy dx dy r).ncard = 3 := by
+  have heq : lPlacedCopy dx dy r = SetPlacedTile.cells lProtoset ⟨(), (dx, dy), r⟩ := by
+    simp [lPlacedCopy]
+  rw [heq, SetPlacedTile.cells_ncard_eq]
+  simp [lProtoset, lSetPrototile_ncard]
+
+/-- lPlacedCopy is always finite -/
+private lemma lPlacedCopy_finite (dx dy : ℤ) (r : Fin 4) :
+    (lPlacedCopy dx dy r).Finite := by
+  have heq : lPlacedCopy dx dy r = SetPlacedTile.cells lProtoset ⟨(), (dx, dy), r⟩ := by
+    simp [lPlacedCopy]
+  rw [heq]; exact SetPlacedTile.cells_finite _
+
+/-- A single L-tromino cannot contain both (0,0) and (2,0): x-span is at most 1 -/
+private lemma lPlacedCopy_not_cover_x02 (dx dy : ℤ) (r : Fin 4)
+    (h0 : ((0 : ℤ), (0 : ℤ)) ∈ lPlacedCopy dx dy r)
+    (h2 : ((2 : ℤ), (0 : ℤ)) ∈ lPlacedCopy dx dy r) : False := by
+  fin_cases r <;>
+    simp only [lPlacedCopy_eq, mem_translate, mem_rotate, lShape_cells, inverseRot,
+      rotateCell_0, rotateCell_1, rotateCell_2, rotateCell_3,
+      Set.mem_insert_iff, Set.mem_singleton_iff, Prod.mk.injEq] at h0 h2 <;>
+    omega
+
+/-- A tile containing (0,0) with all cells y ≥ 0 must have all cells y < 2 -/
+private lemma lPlacedCopy_ybnd_of_cover_00 (dx dy : ℤ) (r : Fin 4)
+    (h00 : ((0 : ℤ), (0 : ℤ)) ∈ lPlacedCopy dx dy r)
+    (q : Cell) (hq : q ∈ lPlacedCopy dx dy r) (hq_nn : (0 : ℤ) ≤ q.2) : q.2 < 2 := by
+  fin_cases r <;>
+    simp only [lPlacedCopy_eq, mem_translate, mem_rotate, lShape_cells, inverseRot,
+      rotateCell_0, rotateCell_1, rotateCell_2, rotateCell_3,
+      Set.mem_insert_iff, Set.mem_singleton_iff, Prod.mk.injEq] at h00 hq <;>
+    omega
+
+/-- A tile containing (2,0) with all cells y ≥ 0 must have all cells y < 2 -/
+private lemma lPlacedCopy_ybnd_of_cover_20 (dx dy : ℤ) (r : Fin 4)
+    (h20 : ((2 : ℤ), (0 : ℤ)) ∈ lPlacedCopy dx dy r)
+    (q : Cell) (hq : q ∈ lPlacedCopy dx dy r) (hq_nn : (0 : ℤ) ≤ q.2) : q.2 < 2 := by
+  fin_cases r <;>
+    simp only [lPlacedCopy_eq, mem_translate, mem_rotate, lShape_cells, inverseRot,
+      rotateCell_0, rotateCell_1, rotateCell_2, rotateCell_3,
+      Set.mem_insert_iff, Set.mem_singleton_iff, Prod.mk.injEq] at h20 hq <;>
+    omega
+
+/-- A 3×(2k+1) rectangle is not L-tileable (Set framework) -/
+theorem not_setTileable_3x_odd (k : ℕ) : ¬ SetTileable (rect 0 0 3 (2*k+1)) lProtoset := by
+  induction k with
+  | zero =>
+    -- rect 0 0 3 (2*0+1) = rect 0 0 3 1 = rect 0 0 3 1 (cast is (1:ℤ))
+    norm_cast
+    exact not_setTileable_nx1 3 (by omega)
+  | succ k' ih =>
+    -- The goal has form: ¬ SetTileable (rect 0 0 3 (2 * ↑(k'+1) + 1)) lProtoset
+    -- Rewrite to: ¬ SetTileable (rect 0 0 3 (2 * ↑k' + 3)) lProtoset
+    have hgoal : (2 : ℤ) * ↑(k' + 1) + 1 = 2 * (k' : ℤ) + 3 := by push_cast; omega
+    rw [hgoal]
+    intro ⟨ιₜ, hft, t, hv⟩
+    haveI : Fintype ιₜ := hft
+    haveI : DecidableEq ιₜ := Classical.decEq _
+    -- (0,0) and (2,0) are in the rectangle
+    have h00_in : ((0 : ℤ), (0 : ℤ)) ∈ rect 0 0 3 (2 * (k' : ℤ) + 3) := by
+      simp only [mem_rect]; omega
+    have h20_in : ((2 : ℤ), (0 : ℤ)) ∈ rect 0 0 3 (2 * (k' : ℤ) + 3) := by
+      simp only [mem_rect]; omega
+    -- Get the tiles covering each corner
+    rw [← hv.covers, SetTileSet.coveredCells, Set.mem_iUnion] at h00_in h20_in
+    obtain ⟨i, hi⟩ := h00_in
+    obtain ⟨j, hj⟩ := h20_in
+    -- Express tiles as lPlacedCopy
+    let dxi := (t.tiles i).translation.1
+    let dyi := (t.tiles i).translation.2
+    let ri  := (t.tiles i).rotation
+    let dxj := (t.tiles j).translation.1
+    let dyj := (t.tiles j).translation.2
+    let rj  := (t.tiles j).rotation
+    have hi_eq : t.cellsAt i = lPlacedCopy dxi dyi ri := by
+      simp [SetTileSet.cellsAt, lPlacedCopy, dxi, dyi, ri]
+    have hj_eq : t.cellsAt j = lPlacedCopy dxj dyj rj := by
+      simp [SetTileSet.cellsAt, lPlacedCopy, dxj, dyj, rj]
+    -- Use ▸ to transport membership through the cellsAt equations
+    have hi' : ((0 : ℤ), (0 : ℤ)) ∈ lPlacedCopy dxi dyi ri := hi_eq ▸ hi
+    have hj' : ((2 : ℤ), (0 : ℤ)) ∈ lPlacedCopy dxj dyj rj := hj_eq ▸ hj
+    -- i ≠ j: one tile can't cover both corners (x-span ≤ 1)
+    have hij : i ≠ j := by
+      intro heq; subst heq
+      -- After j := i, dxj/dyj/rj become dxi/dyi/ri (let-bindings)
+      exact lPlacedCopy_not_cover_x02 dxi dyi ri hi' hj'
+    -- Tiles i and j are disjoint (from validity)
+    have hdisj : Disjoint (lPlacedCopy dxi dyi ri) (lPlacedCopy dxj dyj rj) := by
+      rw [← hi_eq, ← hj_eq]; exact hv.disjoint i j hij
+    -- Helper: any cell of tile i is in rect 0 0 3 (2k'+3)
+    have hi_sub_full : ∀ q, q ∈ lPlacedCopy dxi dyi ri →
+        q ∈ rect 0 0 3 (2 * (k' : ℤ) + 3) := by
+      intro q hq
+      have hcell : q ∈ t.cellsAt i := hi_eq ▸ hq
+      have hmem : q ∈ SetTileSet.coveredCells t :=
+        Set.mem_iUnion.mpr ⟨i, hcell⟩
+      rwa [hv.covers] at hmem
+    -- Helper: any cell of tile j is in rect 0 0 3 (2k'+3)
+    have hj_sub_full : ∀ q, q ∈ lPlacedCopy dxj dyj rj →
+        q ∈ rect 0 0 3 (2 * (k' : ℤ) + 3) := by
+      intro q hq
+      have hcell : q ∈ t.cellsAt j := hj_eq ▸ hq
+      have hmem : q ∈ SetTileSet.coveredCells t :=
+        Set.mem_iUnion.mpr ⟨j, hcell⟩
+      rwa [hv.covers] at hmem
+    -- Tile i ⊆ rect 0 0 3 2
+    have hi_sub_3x2 : lPlacedCopy dxi dyi ri ⊆ rect 0 0 3 2 := by
+      intro q hq
+      have hfull := hi_sub_full q hq
+      simp only [mem_rect] at hfull ⊢
+      exact ⟨hfull.1, hfull.2.1, hfull.2.2.1,
+        lPlacedCopy_ybnd_of_cover_00 dxi dyi ri hi' q hq hfull.2.2.1⟩
+    -- Tile j ⊆ rect 0 0 3 2
+    have hj_sub_3x2 : lPlacedCopy dxj dyj rj ⊆ rect 0 0 3 2 := by
+      intro q hq
+      have hfull := hj_sub_full q hq
+      simp only [mem_rect] at hfull ⊢
+      exact ⟨hfull.1, hfull.2.1, hfull.2.2.1,
+        lPlacedCopy_ybnd_of_cover_20 dxj dyj rj hj' q hq hfull.2.2.1⟩
+    -- The union of tiles i and j equals rect 0 0 3 2
+    have hunion_eq : lPlacedCopy dxi dyi ri ∪ lPlacedCopy dxj dyj rj = rect 0 0 3 2 := by
+      have h_union_card : (lPlacedCopy dxi dyi ri ∪ lPlacedCopy dxj dyj rj).ncard = 6 := by
+        rw [Set.ncard_union_eq hdisj (lPlacedCopy_finite _ _ _) (lPlacedCopy_finite _ _ _),
+            lPlacedCopy_ncard, lPlacedCopy_ncard]; rfl
+      have h_rect_card : (rect 0 0 3 (2 : ℤ)).ncard = 6 := by
+        simp [rect_ncard]
+      -- eq_of_subset_of_ncard_le (h : s ⊆ t) : t = s
+      -- With s = union, t = rect: gives rect = union; then .symm gives union = rect
+      have h_rect_eq_union : rect 0 0 3 2 = lPlacedCopy dxi dyi ri ∪ lPlacedCopy dxj dyj rj :=
+        Set.eq_of_subset_of_ncard_le (Set.union_subset hi_sub_3x2 hj_sub_3x2)
+          (by linarith) (rect_finite _ _ _ _)
+      exact h_rect_eq_union.symm
+    -- The remaining region after removing tiles i and j is tileable
+    have hS : t.cellsAt i ∪ t.cellsAt j = rect 0 0 3 2 := by
+      rw [hi_eq, hj_eq]; exact hunion_eq
+    have h_remain : SetTileable (rect 0 0 3 (2 * (k' : ℤ) + 3) \ rect 0 0 3 2) lProtoset :=
+      SetTileable.remove_two t hv i j hij hS
+    -- The remaining region equals translate 0 2 (rect 0 0 3 (2*k'+1))
+    have h_diff_eq : rect 0 0 3 (2 * (k' : ℤ) + 3) \ rect 0 0 3 2 =
+        translate 0 2 (rect 0 0 3 (2 * (k' : ℤ) + 1)) := by
+      ext ⟨x, y⟩
+      simp only [Set.mem_diff, mem_rect, mem_translate]
+      constructor
+      · rintro ⟨⟨hx1, hx2, hy1, hy2⟩, hnotmem⟩
+        push_neg at hnotmem
+        -- hnotmem : 0 ≤ x → x < 3 → 0 ≤ y → 2 ≤ y
+        have hy2' : 2 ≤ y := hnotmem hx1 hx2 hy1
+        simp only [sub_zero]
+        exact ⟨hx1, hx2, by linarith, by linarith⟩
+      · rintro ⟨hx1, hx2, hy1, hy2⟩
+        simp only [sub_zero] at *
+        refine ⟨⟨hx1, hx2, by linarith, by linarith⟩, ?_⟩
+        simp only [not_and, not_lt]
+        intro _ _ _; linarith
+    rw [h_diff_eq] at h_remain
+    -- Translate back to get SetTileable (rect 0 0 3 (2*k'+1))
+    have h_back : SetTileable (rect 0 0 3 (2 * (k' : ℤ) + 1)) lProtoset := by
+      have h := h_remain.translate 0 (-2)
+      have h_eq : translate 0 (-2) (translate 0 2 (rect 0 0 3 (2 * (k' : ℤ) + 1))) =
+          rect 0 0 3 (2 * (k' : ℤ) + 1) := by
+        ext ⟨x, y⟩; simp only [mem_translate, mem_rect]; omega
+      rwa [h_eq] at h
+    -- Contradict the IH (cast: 2 * ↑k' + 1 = 2 * (k':ℤ) + 1 definitionally)
+    exact ih h_back
+
+-- ============================================================
 -- 2×n biconditional
 -- ============================================================
 
