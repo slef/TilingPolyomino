@@ -598,3 +598,71 @@ theorem setTileable_3x_even (k : ℕ) (hk : 1 ≤ k) :
       omega
     rw [h_trans]
     exact setTileable_translate setTileable_3x2 0 (2 * i.val)
+theorem lShape_cells_ncard : lShape.cells.ncard = 3 := by
+  dsimp [lShape, lShape_cells]
+  rw [Set.ncard_insert_of_notMem]
+  · rw [Set.ncard_insert_of_notMem]
+    · rw [Set.ncard_singleton]
+    · simp
+  · simp
+
+theorem setTileable_mult3_x_2 (k : Nat) (hk : 1 ≤ k) : SetTileable (rect 0 0 (3*k) 2) lShape := by
+  have h := setTileable_swap (setTileable_2x_mult3 k hk)
+  have h_eq : Set.swapRegion (rect 0 0 2 (3*k)) = rect 0 0 (3*k) 2 := by
+    ext ⟨x, y⟩
+    simp only [mem_swapRegion, mem_rect]
+    omega
+  rw [h_eq] at h
+  exact h
+
+theorem setTileable_even_x_3 (k : Nat) (hk : 1 <= k) : SetTileable (rect 0 0 (2*k) 3) lShape := by
+  have h := setTileable_swap (setTileable_3x_even k hk)
+  have h_eq : Set.swapRegion (rect 0 0 3 (2*k)) = rect 0 0 (2*k) 3 := by
+    ext ⟨x, y⟩
+    simp only [mem_swapRegion, mem_rect]
+    omega
+  rw [h_eq] at h
+  exact h
+
+theorem setTileable_6x_of_ge2 (k : Nat) (hk : 2 ≤ k) : SetTileable (rect 0 0 6 k) lShape := by
+  induction' k using Nat.strong_induction_on with n ih
+  rcases eq_or_lt_of_le hk with rfl | hn2
+  · exact setTileable_6x2
+  · rcases eq_or_lt_of_le (show 3 ≤ n from hn2) with rfl | hn3
+    · exact setTileable_6x3
+    · have hn_ge_4 : 4 ≤ n := hn3
+      have h_prev_nat : SetTileable (rect 0 0 6 (n - 2 : Nat)) lShape := ih (n - 2) (by omega) (by omega)
+      have h_prev : SetTileable (rect 0 0 6 (n - 2 : ℤ)) lShape := by
+        have h_eq : ((n - 2 : Nat) : ℤ) = (n : ℤ) - 2 := by omega
+        exact h_eq ▸ h_prev_nat
+      have h_2 : SetTileable (rect 0 (n - 2 : ℤ) 6 n) lShape := by
+        have h_trans : rect 0 (n - 2 : ℤ) 6 n = translate 0 (n - 2 : ℤ) (rect 0 0 6 2) := by
+          ext ⟨x, y⟩
+          simp only [mem_rect, mem_translate]
+          omega
+        rw [h_trans]
+        exact setTileable_translate setTileable_6x2 0 (n - 2 : ℤ)
+      have h_union := @SetTileable.vertical_union 6 (n - 2 : ℤ) 2 (by omega) (by omega) h_prev (by
+        have h_eq : (n - 2 : ℤ) + 2 = (n : ℤ) := by omega
+        exact h_eq.symm ▸ h_2)
+      have h_eq : (n - 2 : ℤ) + 2 = n := by omega
+      rw [h_eq] at h_union
+      exact h_union
+
+theorem setTileable_kx6_of_ge2 (k : Nat) (hk : 2 <= k) : SetTileable (rect 0 0 k 6) lShape := by
+  have h := setTileable_swap (setTileable_6x_of_ge2 k hk)
+  have h_eq : Set.swapRegion (rect 0 0 6 k) = rect 0 0 k 6 := by
+    ext ⟨x, y⟩
+    simp only [mem_swapRegion, mem_rect]
+    omega
+  rw [h_eq] at h
+  exact h
+
+theorem setTileable_rect_area_dvd (m n : Nat) (h : SetTileable (rect 0 0 m n) lShape) : 3 ∣ m * n := by
+  have h1 := SetTileable.ncard_dvd (rect_finite 0 0 m n) h
+  have h2 : lShape.cells.ncard = 3 := lShape_cells_ncard
+  have h3 : (rect 0 0 (m : ℤ) (n : ℤ)).ncard = m * n := by
+    rw [rect_ncard]
+    simp
+  rw [h2, h3] at h1
+  exact h1
