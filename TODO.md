@@ -18,6 +18,12 @@
       compare line counts for matching theorem sets only.
 
 ## Done
+- [x] **Canonical conversion + simplified bridge** (`feat/set-tiling`):
+      Added `SetPrototile.ext`, `toSetPrototile`, `toSetProtoset`, `toSetProtoset_compat`,
+      and `Tileable_iff_toSet` (2-arg, no manual compat proof) to `TilingSet.lean`.
+      `LTrominoSetBridge.lean` refactored: `LProtoset_set_eq_toSet` + `Tileable_iff_toSet`
+      replace `lTrominoSet_compat`; bridge proves `LProtoset_set = toSetProtoset lTrominoSet`.
+      Line counts: TilingSet 633→675, Bridge 52→59. 0 sorries.
 - [x] **Generic bridge theorem** (`feat/set-tiling`):
       `ProtosetCompatible` predicate + `placedTile_cells_compat` key lemma +
       `Tileable_iff_set` in `TilingSet.lean` (generic, works for any protoset).
