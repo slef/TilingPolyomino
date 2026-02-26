@@ -217,99 +217,13 @@ theorem setTileable_6x6 : SetTileable (rect 0 0 6 6) lProtoset := by
 
 theorem setTileable_2x_mult3 (k : ℕ) (hk : 1 ≤ k) :
     SetTileable (rect 0 0 2 (3 * k)) lProtoset := by
-  have _ := hk
-  apply SetTileable.refine_partition
-    (pieces := fun (i : Fin k) => rect 0 (3 * (i.val : ℤ)) 2 (3 * (i.val + 1 : ℤ)))
-  · ext ⟨x, y⟩
-    simp only [Set.mem_iUnion, mem_rect]
-    constructor
-    · rintro ⟨i, hx1, hx2, hy1, hy2⟩
-      have hi : (i.val : ℤ) < (k : ℤ) := Nat.cast_lt (α := ℤ).mpr i.isLt
-      exact ⟨hx1, hx2, by omega, by omega⟩
-    · rintro ⟨hx1, hx2, hy1, hy2⟩
-      have hk_pos : 0 < (k : ℤ) := by omega
-      let q := y / 3
-      have hq_pos : 0 ≤ q := by omega
-      have hq_lt : q < (k : ℤ) := by omega
-      have h1 : q.toNat < k := by
-        apply Nat.cast_lt (α := ℤ).mp
-        rw [Int.toNat_of_nonneg hq_pos]
-        exact hq_lt
-      use ⟨q.toNat, h1⟩
-      have h_q_val : ((q.toNat : ℕ) : ℤ) = q := Int.toNat_of_nonneg hq_pos
-      refine ⟨hx1, hx2, ?_, ?_⟩
-      · rw [h_q_val]
-        omega
-      · rw [h_q_val]
-        omega
-  · intro i j hij
-    dsimp [Function.onFun]
-    rw [Set.disjoint_iff_inter_eq_empty]
-    ext ⟨x, y⟩
-    simp only [Set.mem_inter_iff, mem_rect, Set.mem_empty_iff_false, iff_false]
-    rintro ⟨⟨_, _, hy1, hy2⟩, ⟨_, _, hy3, hy4⟩⟩
-    have h_neq : (i.val : ℤ) ≠ (j.val : ℤ) := by
-      intro h
-      apply hij
-      ext
-      exact Nat.cast_inj.mp h
-    omega
-  · intro i
-    have h_trans : rect 0 (3 * (i.val : ℤ)) 2 (3 * (i.val + 1 : ℤ)) =
-        translate 0 (3 * (i.val : ℤ)) (rect 0 0 2 3) := by
-      ext ⟨x, y⟩
-      simp only [mem_rect, mem_translate]
-      omega
-    rw [h_trans]
-    exact setTileable_translate setTileable_2x3 0 (3 * i.val)
+  have h := setTileable_2x3.scale_rect (by norm_num) (by norm_num) 1 k (by omega) hk
+  convert h using 2 <;> push_cast <;> ring
 
 theorem setTileable_3x_even (k : ℕ) (hk : 1 ≤ k) :
     SetTileable (rect 0 0 3 (2 * k)) lProtoset := by
-  have _ := hk
-  apply SetTileable.refine_partition
-    (pieces := fun (i : Fin k) => rect 0 (2 * (i.val : ℤ)) 3 (2 * (i.val + 1 : ℤ)))
-  · ext ⟨x, y⟩
-    simp only [Set.mem_iUnion, mem_rect]
-    constructor
-    · rintro ⟨i, hx1, hx2, hy1, hy2⟩
-      have hi : (i.val : ℤ) < (k : ℤ) := Nat.cast_lt (α := ℤ).mpr i.isLt
-      exact ⟨hx1, hx2, by omega, by omega⟩
-    · rintro ⟨hx1, hx2, hy1, hy2⟩
-      have hk_pos : 0 < (k : ℤ) := by omega
-      let q := y / 2
-      have hq_pos : 0 ≤ q := by omega
-      have hq_lt : q < (k : ℤ) := by omega
-      have h1 : q.toNat < k := by
-        apply Nat.cast_lt (α := ℤ).mp
-        rw [Int.toNat_of_nonneg hq_pos]
-        exact hq_lt
-      use ⟨q.toNat, h1⟩
-      have h_q_val : ((q.toNat : ℕ) : ℤ) = q := Int.toNat_of_nonneg hq_pos
-      refine ⟨hx1, hx2, ?_, ?_⟩
-      · rw [h_q_val]
-        omega
-      · rw [h_q_val]
-        omega
-  · intro i j hij
-    dsimp [Function.onFun]
-    rw [Set.disjoint_iff_inter_eq_empty]
-    ext ⟨x, y⟩
-    simp only [Set.mem_inter_iff, mem_rect, Set.mem_empty_iff_false, iff_false]
-    rintro ⟨⟨_, _, hy1, hy2⟩, ⟨_, _, hy3, hy4⟩⟩
-    have h_neq : (i.val : ℤ) ≠ (j.val : ℤ) := by
-      intro h
-      apply hij
-      ext
-      exact Nat.cast_inj.mp h
-    omega
-  · intro i
-    have h_trans : rect 0 (2 * (i.val : ℤ)) 3 (2 * (i.val + 1 : ℤ)) =
-        translate 0 (2 * (i.val : ℤ)) (rect 0 0 3 2) := by
-      ext ⟨x, y⟩
-      simp only [mem_rect, mem_translate]
-      omega
-    rw [h_trans]
-    exact setTileable_translate setTileable_3x2 0 (2 * i.val)
+  have h := setTileable_3x2.scale_rect (by norm_num) (by norm_num) 1 k (by omega) hk
+  convert h using 2 <;> push_cast <;> ring
 
 theorem setTileable_mult3_x_2 (k : Nat) (hk : 1 ≤ k) :
     SetTileable (rect 0 0 (3 * k) 2) lProtoset := by
@@ -637,43 +551,8 @@ theorem setTileable_2xn_iff (n : ℕ) : SetTileable (rect 0 0 2 n) lProtoset ↔
 /-- Any (3a) × (2b) rectangle is L-tileable (a, b ≥ 1) -/
 theorem setTileable_mult3_mult2 (a b : ℕ) (ha : 1 ≤ a) (hb : 1 ≤ b) :
     SetTileable (rect 0 0 (3 * a) (2 * b)) lProtoset := by
-  apply SetTileable.refine_partition
-    (pieces := fun (p : Fin a × Fin b) =>
-      rect (3 * p.1.val) (2 * p.2.val) (3 * (p.1.val + 1)) (2 * (p.2.val + 1)))
-  · ext ⟨x, y⟩
-    simp only [Set.mem_iUnion, mem_rect]
-    constructor
-    · rintro ⟨⟨⟨i, hi⟩, ⟨j, hj⟩⟩, hx1, hx2, hy1, hy2⟩
-      refine ⟨?_, ?_, ?_, ?_⟩ <;> push_cast at * <;> omega
-    · rintro ⟨hx1, hx2, hy1, hy2⟩
-      have hxq_lt : (x / 3).toNat < a := by
-        apply Nat.cast_lt (α := ℤ).mp
-        rw [Int.toNat_of_nonneg (by omega)]
-        omega
-      have hyq_lt : (y / 2).toNat < b := by
-        apply Nat.cast_lt (α := ℤ).mp
-        rw [Int.toNat_of_nonneg (by omega)]
-        omega
-      refine ⟨⟨⟨(x / 3).toNat, hxq_lt⟩, ⟨(y / 2).toNat, hyq_lt⟩⟩, ?_, ?_, ?_, ?_⟩ <;>
-        rw [Int.toNat_of_nonneg (by omega)] <;> push_cast <;> omega
-  · intro ⟨⟨i₁, _⟩, ⟨j₁, _⟩⟩ ⟨⟨i₂, _⟩, ⟨j₂, _⟩⟩ hne
-    simp only [Function.onFun, Set.disjoint_iff_inter_eq_empty]
-    ext ⟨x, y⟩
-    simp only [Set.mem_inter_iff, mem_rect, Set.mem_empty_iff_false, iff_false]
-    rintro ⟨⟨hx1, hx2, hy1, hy2⟩, hx1', hx2', hy1', hy2'⟩
-    push_cast at *
-    have heqi : i₁ = i₂ := by omega
-    have heqj : j₁ = j₂ := by omega
-    exact hne (Prod.ext (Fin.ext heqi) (Fin.ext heqj))
-  · intro ⟨⟨i, _⟩, ⟨j, _⟩⟩
-    have heq : rect (3 * (i : ℤ)) (2 * j) (3 * (i + 1)) (2 * (j + 1))
-             = translate (3 * i) (2 * j) (rect 0 0 3 2) := by
-      ext ⟨x, y⟩
-      simp only [mem_rect, mem_translate]
-      push_cast
-      omega
-    rw [heq]
-    exact setTileable_translate setTileable_3x2 _ _
+  have h := setTileable_3x2.scale_rect (by norm_num) (by norm_num) a b ha hb
+  convert h using 2 <;> push_cast <;> ring
 
 /-- Any (2a) × (3b) rectangle is L-tileable (a, b ≥ 1) -/
 theorem setTileable_mult2_mult3 (a b : ℕ) (ha : 1 ≤ a) (hb : 1 ≤ b) :
@@ -723,47 +602,6 @@ theorem setTileable_6x_odd (n : ℕ) (hn_odd : n % 2 = 1) (hn_ge : 3 ≤ n) :
 /-- n × (6k) is L-tileable for odd n ≥ 3 and k ≥ 1 -/
 theorem setTileable_odd_x_mult6 (n k : ℕ) (hn_odd : n % 2 = 1) (hn_ge : 3 ≤ n) (hk : 1 ≤ k) :
     SetTileable (rect 0 0 n (6 * k)) lProtoset := by
-  apply SetTileable.refine_partition
-    (pieces := fun (i : Fin k) => rect 0 (6 * (i.val : ℤ)) (n : ℤ) (6 * (i.val + 1 : ℤ)))
-  · ext ⟨x, y⟩
-    simp only [Set.mem_iUnion, mem_rect]
-    constructor
-    · rintro ⟨i, hx1, hx2, hy1, hy2⟩
-      have hi : (i.val : ℤ) < (k : ℤ) := Nat.cast_lt (α := ℤ).mpr i.isLt
-      exact ⟨hx1, hx2, by omega, by omega⟩
-    · rintro ⟨hx1, hx2, hy1, hy2⟩
-      let q := y / 6
-      have hq_pos : 0 ≤ q := Int.ediv_nonneg (by omega) (by omega)
-      have hq_lt : q < (k : ℤ) := by
-        simp only [show q = y / 6 from rfl]
-        omega
-      have h_qnat_lt : q.toNat < k := by
-        apply Nat.cast_lt (α := ℤ).mp
-        rw [Int.toNat_of_nonneg hq_pos]
-        exact hq_lt
-      have h_q_val : ((q.toNat : ℕ) : ℤ) = q := Int.toNat_of_nonneg hq_pos
-      refine ⟨⟨q.toNat, h_qnat_lt⟩, hx1, hx2, ?_, ?_⟩
-      · rw [h_q_val]
-        linarith [Int.mul_ediv_add_emod y 6, Int.emod_nonneg y (show (6 : ℤ) ≠ 0 by omega)]
-      · rw [h_q_val]
-        linarith [Int.mul_ediv_add_emod y 6, Int.emod_lt_of_pos y (show (0 : ℤ) < 6 by omega)]
-  · intro i j hij
-    dsimp [Function.onFun]
-    rw [Set.disjoint_iff_inter_eq_empty]
-    ext ⟨x, y⟩
-    simp only [Set.mem_inter_iff, mem_rect, Set.mem_empty_iff_false, iff_false]
-    rintro ⟨⟨_, _, hy1, hy2⟩, ⟨_, _, hy3, hy4⟩⟩
-    have h_neq : (i.val : ℤ) ≠ (j.val : ℤ) := by
-      intro h
-      apply hij
-      ext
-      exact Nat.cast_inj.mp h
-    omega
-  · intro i
-    have h_trans : rect 0 (6 * (i.val : ℤ)) (n : ℤ) (6 * (i.val + 1 : ℤ)) =
-        translate 0 (6 * (i.val : ℤ)) (rect 0 0 n 6) := by
-      ext ⟨x, y⟩
-      simp only [mem_rect, mem_translate]
-      omega
-    rw [h_trans]
-    exact setTileable_translate (setTileable_odd_x_6 n hn_odd hn_ge) 0 _
+  have hn_pos : (0:ℤ) < n := by exact_mod_cast (show 0 < n by omega)
+  have h := (setTileable_odd_x_6 n hn_odd hn_ge).scale_rect hn_pos (by norm_num) 1 k (by omega) hk
+  convert h using 2 <;> push_cast <;> ring
