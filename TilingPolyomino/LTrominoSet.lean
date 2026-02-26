@@ -573,15 +573,11 @@ theorem not_setTileable_3x_odd (k : ℕ) : ¬ SetTileable (rect 0 0 3 (2*k+1)) l
     have hunion_eq : lPlacedCopy dxi dyi ri ∪ lPlacedCopy dxj dyj rj = rect 0 0 3 2 := by
       have h_union_card : (lPlacedCopy dxi dyi ri ∪ lPlacedCopy dxj dyj rj).ncard = 6 := by
         rw [Set.ncard_union_eq hdisj (lPlacedCopy_finite _ _ _) (lPlacedCopy_finite _ _ _),
-            lPlacedCopy_ncard, lPlacedCopy_ncard]; rfl
-      have h_rect_card : (rect 0 0 3 (2 : ℤ)).ncard = 6 := by
-        simp [rect_ncard]
-      -- eq_of_subset_of_ncard_le (h : s ⊆ t) : t = s
-      -- With s = union, t = rect: gives rect = union; then .symm gives union = rect
-      have h_rect_eq_union : rect 0 0 3 2 = lPlacedCopy dxi dyi ri ∪ lPlacedCopy dxj dyj rj :=
-        Set.eq_of_subset_of_ncard_le (Set.union_subset hi_sub_3x2 hj_sub_3x2)
-          (by linarith) (rect_finite _ _ _ _)
-      exact h_rect_eq_union.symm
+            lPlacedCopy_ncard, lPlacedCopy_ncard]
+      have h_rect_card : (rect 0 0 3 (2 : ℤ)).ncard = 6 := by simp [rect_ncard]
+      -- eq_of_subset_of_ncard_le (h : s ⊆ t) : s = t; with s = union, t = rect → union = rect ✓
+      exact Set.eq_of_subset_of_ncard_le (Set.union_subset hi_sub_3x2 hj_sub_3x2)
+        (by linarith) (rect_finite _ _ _ _)
     -- The remaining region after removing tiles i and j is tileable
     have hS : t.cellsAt i ∪ t.cellsAt j = rect 0 0 3 2 := by
       rw [hi_eq, hj_eq]; exact hunion_eq
