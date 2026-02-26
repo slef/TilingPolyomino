@@ -6,22 +6,15 @@ import TilingPolyomino.RectOmega
 
 open Set Function
 
--- Step 1 — Core definitions
+-- ============================================================
+-- Step 1 — Core definitions (generic, shape-independent)
+-- ============================================================
 
 /-- A "shape" is a finite non-empty set of cells (the prototile) -/
 structure Shape where
   cells : Set Cell
   finite : cells.Finite
   nonempty : cells.Nonempty
-
-/-- The L-tromino shape (standard orientation): {(0,0),(0,1),(1,0)} -/
-def lShape_cells : Set Cell := {(0,0), (0,1), (1,0)}
-
-def lShape : Shape := ⟨
-  lShape_cells,
-  by simp [Set.finite_insert, lShape_cells],
-  ⟨(0,0), by simp [lShape_cells]⟩
-⟩
 
 /-- A placed copy is a translate + rotate of a shape -/
 def placedCopy (s : Shape) (dx dy : ℤ) (r : Fin 4) : Set Cell :=
@@ -40,7 +33,15 @@ structure Tiling (R : Set Cell) (s : Shape) where
 def SetTileable (R : Set Cell) (s : Shape) : Prop :=
   Nonempty (Tiling R s)
 
--- Finite lemmas for transformations
+-- ============================================================
+-- Step 2 — Connection to RExp
+-- ============================================================
+
+def rexpTileable (e : RExp) (s : Shape) : Prop := SetTileable (e.eval) s
+
+-- ============================================================
+-- Step 3 — Finite lemmas for transformations
+-- ============================================================
 
 theorem translate_finite (dx dy : ℤ) (s : Set Cell) (h : s.Finite) :
     (translate dx dy s).Finite := by
@@ -70,7 +71,9 @@ theorem finite_placedCopy (s : Shape) (dx dy : ℤ) (r : Fin 4) :
   dsimp [placedCopy]
   exact translate_finite dx dy (rotate r s.cells) (rotate_finite r s.cells s.finite)
 
--- Step 2 — Cardinality necessary condition
+-- ============================================================
+-- Step 4 — Cardinality necessary condition
+-- ============================================================
 
 theorem SetTileable.ncard_dvd {R : Set Cell} {s : Shape} (hR : R.Finite) (ht : SetTileable R s) :
     s.cells.ncard ∣ R.ncard := by
@@ -124,11 +127,65 @@ theorem SetTileable.ncard_dvd {R : Set Cell} {s : Shape} (hR : R.Finite) (ht : S
   simp only [nsmul_eq_mul, Finset.card_univ]
   exact dvd_mul_left _ _
 
--- Step 3 — Connection to RExp
+-- ============================================================
+-- Step 5 — Tiling constructors
+-- ============================================================
 
-def rexpTileable (e : RExp) (s : Shape) : Prop := SetTileable (e.eval) s
+def Tiling.of_one (R : Set Cell) (s : Shape)
+    (dx dy : ℤ) (r : Fin 4)
+    (h_cover : placedCopy s dx dy r = R) :
+    Tiling R s where
+  ι := Fin 1
+  tile _ := placedCopy s dx dy r
+  covers := by
+    rw [← h_cover]
+    ext p
+    simp only [Set.mem_iUnion]
+    constructor
+    · rintro ⟨_, hp⟩; exact hp
+    · intro hp; exact ⟨0, hp⟩
+  disjoint i j hij := by
+    fin_cases i; fin_cases j
+    contradiction
+  is_placed _ := ⟨dx, dy, r, rfl⟩
 
--- Step 5 — Union lemma
+def Tiling.of_two (R : Set Cell) (s : Shape)
+    (dx1 dy1 : ℤ) (r1 : Fin 4)
+    (dx2 dy2 : ℤ) (r2 : Fin 4)
+    (h_cover : placedCopy s dx1 dy1 r1 ∪ placedCopy s dx2 dy2 r2 = R)
+    (h_disj : Disjoint (placedCopy s dx1 dy1 r1) (placedCopy s dx2 dy2 r2)) :
+    Tiling R s where
+  ι := Fin 2
+  tile i := if i.val = 0 then placedCopy s dx1 dy1 r1 else placedCopy s dx2 dy2 r2
+  covers := by
+    rw [← h_cover]
+    ext p
+    simp only [Set.mem_iUnion, Set.mem_union]
+    constructor
+    · rintro ⟨i, hi⟩
+      fin_cases i
+      · left; simpa [Fin.isValue] using hi
+      · right; simpa [Fin.isValue] using hi
+    · intro h
+      rcases h with h | h
+      · exact ⟨0, by simpa [Fin.isValue] using h⟩
+      · exact ⟨1, by simpa [Fin.isValue] using h⟩
+  disjoint i j hij := by
+    fin_cases i <;> fin_cases j
+    · contradiction
+    · simp only [ite_true]
+      exact h_disj
+    · simp only [ite_true]
+      exact h_disj.symm
+    · contradiction
+  is_placed i := by
+    fin_cases i
+    · exact ⟨dx1, dy1, r1, by rfl⟩
+    · exact ⟨dx2, dy2, r2, by rfl⟩
+
+-- ============================================================
+-- Step 6 — Union and refinement
+-- ============================================================
 
 def Tiling.union {R S : Set Cell} {s : Shape} (tR : Tiling R s) (tS : Tiling S s)
     (hdisj : Disjoint R S) : Tiling (R ∪ S) s where
@@ -170,6 +227,10 @@ def Tiling.union {R S : Set Cell} {s : Shape} (tR : Tiling R s) (tS : Tiling S s
     cases i
     · exact tR.is_placed _
     · exact tS.is_placed _
+
+theorem SetTileable.union {R S : Set Cell} {s : Shape} (hR : SetTileable R s) (hS : SetTileable S s)
+    (hdisj : Disjoint R S) : SetTileable (R ∪ S) s :=
+  ⟨Tiling.union hR.some hS.some hdisj⟩
 
 /-- General refinement: if R is partitioned into pieces each tileable by s,
     then R itself is tileable by s. -/
@@ -221,164 +282,36 @@ theorem SetTileable.refine {ι : Type} {R : Set Cell} {s : Shape}
     is_placed := fun ⟨i, j⟩ => (htile i).some.is_placed j
   }
 
-theorem SetTileable.union {R S : Set Cell} {s : Shape} (hR : SetTileable R s) (hS : SetTileable S s)
-    (hdisj : Disjoint R S) : SetTileable (R ∪ S) s :=
-  ⟨Tiling.union hR.some hS.some hdisj⟩
-
--- Step 4 — Base case proofs
-
-theorem lShape_eq_rects : lShape.cells = rect 0 0 1 2 ∪ rect 1 0 2 1 := by
-  ext ⟨x, y⟩
-  simp [lShape, lShape_cells]
-  omega
-
-def Tiling.of_two (R : Set Cell) (s : Shape)
-    (dx1 dy1 : ℤ) (r1 : Fin 4)
-    (dx2 dy2 : ℤ) (r2 : Fin 4)
-    (h_cover : placedCopy s dx1 dy1 r1 ∪ placedCopy s dx2 dy2 r2 = R)
-    (h_disj : Disjoint (placedCopy s dx1 dy1 r1) (placedCopy s dx2 dy2 r2)) :
-    Tiling R s where
-  ι := Fin 2
-  tile i := if i.val = 0 then placedCopy s dx1 dy1 r1 else placedCopy s dx2 dy2 r2
-  covers := by
-    rw [← h_cover]
-    ext p
-    simp only [Set.mem_iUnion, Set.mem_union]
-    constructor
-    · rintro ⟨i, hi⟩
-      fin_cases i
-      · left; simpa [Fin.isValue] using hi
-      · right; simpa [Fin.isValue] using hi
-    · intro h
-      rcases h with h | h
-      · exact ⟨0, by simpa [Fin.isValue] using h⟩
-      · exact ⟨1, by simpa [Fin.isValue] using h⟩
-  disjoint i j hij := by
-    fin_cases i <;> fin_cases j
-    · contradiction
-    · simp only [ite_true]
-      exact h_disj
-    · simp only [ite_true]
-      exact h_disj.symm
-    · contradiction
-  is_placed i := by
-    fin_cases i
-    · exact ⟨dx1, dy1, r1, by rfl⟩
-    · exact ⟨dx2, dy2, r2, by rfl⟩
-
-def Tiling.of_one (R : Set Cell) (s : Shape)
-    (dx dy : ℤ) (r : Fin 4)
-    (h_cover : placedCopy s dx dy r = R) :
-    Tiling R s where
-  ι := Fin 1
-  tile _ := placedCopy s dx dy r
-  covers := by
-    rw [← h_cover]
-    ext p
-    simp only [Set.mem_iUnion]
-    constructor
-    · rintro ⟨_, hp⟩; exact hp
-    · intro hp; exact ⟨0, hp⟩
-  disjoint i j hij := by
-    fin_cases i; fin_cases j
-    contradiction
-  is_placed _ := ⟨dx, dy, r, rfl⟩
-
-theorem setTileable_2x3 : SetTileable (rect 0 0 2 3) lShape := by
-  apply Nonempty.intro
-  refine Tiling.of_two _ lShape 0 0 0 1 2 2 ?_ ?_
-  · dsimp [placedCopy]
-    rw [lShape_eq_rects]
-    rect_omega
-  · dsimp [placedCopy]
-    rw [lShape_eq_rects, Set.disjoint_iff_inter_eq_empty]
-    rect_omega
-
-theorem setTileable_3x2 : SetTileable (rect 0 0 3 2) lShape := by
-  apply Nonempty.intro
-  refine Tiling.of_two _ lShape 0 0 0 2 1 2 ?_ ?_
-  · dsimp [placedCopy]
-    rw [lShape_eq_rects]
-    rect_omega
-  · dsimp [placedCopy]
-    rw [lShape_eq_rects, Set.disjoint_iff_inter_eq_empty]
-    rect_omega
-
-theorem setTileable_2x2_minus : SetTileable (rect 0 0 2 2 \ {(1,1)}) lShape := by
-  apply Nonempty.intro
-  refine Tiling.of_one _ lShape 0 0 0 ?_
-  have h_sing : ({(1,1)} : Set Cell) = rect 1 1 2 2 := by
-    ext ⟨x, y⟩
-    simp
-    omega
-  dsimp [placedCopy]
-  rw [lShape_eq_rects, h_sing]
-  rect_omega
-
+-- ============================================================
+-- Step 7 — Swap region (generic)
+-- ============================================================
 
 protected def Set.swapRegion (R : Set Cell) : Set Cell := {p | (p.2, p.1) ∈ R}
-
-def swapRot : Fin 4 → Fin 4
-  | 0 => 0
-  | 1 => 3
-  | 2 => 2
-  | 3 => 1
 
 @[simp] theorem mem_swapRegion (R : Set Cell) (p : Cell) :
   p ∈ Set.swapRegion R ↔ (p.2, p.1) ∈ R := by rfl
 
-theorem swapRegion_placedCopy (dx dy : ℤ) (r : Fin 4) :
-    Set.swapRegion (placedCopy lShape dx dy r) = placedCopy lShape dy dx (swapRot r) := by
-  dsimp [placedCopy]
-  rw [lShape_eq_rects]
-  fin_cases r
-  · dsimp [swapRot]; rect_omega
-  · dsimp [swapRot]; rect_omega
-  · dsimp [swapRot]; rect_omega
-  · dsimp [swapRot]; rect_omega
+-- ============================================================
+-- Step 8 — Generic translation lemma
+-- ============================================================
 
-theorem setTileable_swap {R : Set Cell} (h : SetTileable R lShape) :
-    SetTileable (Set.swapRegion R) lShape := by
-  rcases h with ⟨t⟩
-  apply Nonempty.intro
-  refine {
-    ι := t.ι
-    tile := fun i => Set.swapRegion (t.tile i)
-    covers := by
-      ext ⟨x, y⟩
-      have h_cov := t.covers
-      have h1 : (x, y) ∈ ⋃ i, Set.swapRegion (t.tile i) ↔ ∃ i, (y, x) ∈ t.tile i := by simp only [mem_swapRegion, Set.mem_iUnion]
-      have h2 : (∃ i, (y, x) ∈ t.tile i) ↔ (y, x) ∈ ⋃ i, t.tile i := by simp only [Set.mem_iUnion]
-      have h3 : (y, x) ∈ ⋃ i, t.tile i ↔ (y, x) ∈ R := by rw [h_cov]
-      rw [h1, h2, h3, mem_swapRegion]
-    disjoint := by
-      intro i j hij
-      have hd := t.disjoint i j hij
-      rw [Set.disjoint_iff_inter_eq_empty] at hd ⊢
-      ext ⟨x, y⟩
-      simp only [mem_swapRegion, Set.mem_inter_iff, Set.mem_empty_iff_false]
-      have := Set.ext_iff.mp hd (y, x)
-      simp only [Set.mem_inter_iff, Set.mem_empty_iff_false] at this
-      exact this
-    is_placed := by
-      intro i
-      rcases t.is_placed i with ⟨dx, dy, r, hr⟩
-      use dy, dx, swapRot r
-      rw [hr]
-      exact swapRegion_placedCopy dx dy r
-  }
-
-theorem placedCopy_translate (dx dy dx' dy' : ℤ) (r : Fin 4) :
-  translate dx dy (placedCopy lShape dx' dy' r) = placedCopy lShape (dx + dx') (dy + dy') r := by
-  dsimp [placedCopy]
+private theorem translate_placedCopy_eq (s : Shape) (dx dy dx' dy' : ℤ) (r : Fin 4) :
+    translate dx dy (placedCopy s dx' dy' r) = placedCopy s (dx + dx') (dy + dy') r := by
   ext ⟨x, y⟩
-  simp only [mem_translate]
-  have h1 : x - dx - dx' = x - (dx + dx') := by omega
-  have h2 : y - dy - dy' = y - (dy + dy') := by omega
-  rw [h1, h2]
+  simp only [placedCopy, mem_translate]
+  constructor
+  · intro h
+    have h1 : x - dx - dx' = x - (dx + dx') := by omega
+    have h2 : y - dy - dy' = y - (dy + dy') := by omega
+    rwa [← h1, ← h2]
+  · intro h
+    have h1 : x - dx - dx' = x - (dx + dx') := by omega
+    have h2 : y - dy - dy' = y - (dy + dy') := by omega
+    rwa [h1, h2]
 
-theorem setTileable_translate {R : Set Cell} (h : SetTileable R lShape) (dx dy : ℤ) :
-    SetTileable (translate dx dy R) lShape := by
+/-- Translation preserves tileability (generic, works for any Shape) -/
+theorem setTileable_translate {R : Set Cell} {s : Shape} (h : SetTileable R s) (dx dy : ℤ) :
+    SetTileable (translate dx dy R) s := by
   rcases h with ⟨t⟩
   apply Nonempty.intro
   refine {
@@ -386,11 +319,14 @@ theorem setTileable_translate {R : Set Cell} (h : SetTileable R lShape) (dx dy :
     tile := fun i => translate dx dy (t.tile i)
     covers := by
       ext ⟨x, y⟩
-      have h_cov := t.covers
-      have h1 : (x, y) ∈ ⋃ i, translate dx dy (t.tile i) ↔ ∃ i, (x - dx, y - dy) ∈ t.tile i := by simp only [Set.mem_iUnion, mem_translate]
-      have h2 : (∃ i, (x - dx, y - dy) ∈ t.tile i) ↔ (x - dx, y - dy) ∈ ⋃ i, t.tile i := by simp only [Set.mem_iUnion]
-      have h3 : (x - dx, y - dy) ∈ ⋃ i, t.tile i ↔ (x - dx, y - dy) ∈ R := by rw [h_cov]
-      rw [h1, h2, h3, mem_translate]
+      simp only [Set.mem_iUnion, mem_translate]
+      constructor
+      · rintro ⟨i, hi⟩
+        have hmem : (x - dx, y - dy) ∈ ⋃ j, t.tile j := Set.mem_iUnion.mpr ⟨i, hi⟩
+        rwa [t.covers] at hmem
+      · intro h
+        have hmem : (x - dx, y - dy) ∈ ⋃ j, t.tile j := by rw [t.covers]; exact h
+        exact Set.mem_iUnion.mp hmem
     disjoint := by
       intro i j hij
       have hd := t.disjoint i j hij
@@ -403,331 +339,13 @@ theorem setTileable_translate {R : Set Cell} (h : SetTileable R lShape) (dx dy :
     is_placed := by
       intro i
       rcases t.is_placed i with ⟨dx', dy', r, hr⟩
-      use dx + dx', dy + dy', r
+      refine ⟨dx + dx', dy + dy', r, ?_⟩
       rw [hr]
-      exact placedCopy_translate dx dy dx' dy' r
+      exact translate_placedCopy_eq s dx dy dx' dy' r
   }
 
-theorem SetTileable.horizontal_union {a b m : ℤ} (ha_pos : 0 ≤ a) (hb_pos : 0 ≤ b)
-    (ha : SetTileable (rect 0 0 a m) lShape)
-    (hb : SetTileable (rect a 0 (a+b) m) lShape) :
-    SetTileable (rect 0 0 (a+b) m) lShape := by
-  have h_eq : rect 0 0 (a+b) m = rect 0 0 a m ∪ rect a 0 (a+b) m := by
-    ext ⟨x, y⟩
-    simp only [mem_rect, mem_union]
-    omega
-  have h_disj : Disjoint (rect 0 0 a m) (rect a 0 (a+b) m) := by
-    rw [Set.disjoint_left]
-    intro p h1 h2
-    simp only [mem_rect] at h1 h2
-    omega
-  rw [h_eq]
-  exact SetTileable.union ha hb h_disj
-
-theorem SetTileable.vertical_union {n a b : ℤ} (ha_pos : 0 ≤ a) (hb_pos : 0 ≤ b)
-    (ha : SetTileable (rect 0 0 n a) lShape)
-    (hb : SetTileable (rect 0 a n (a+b)) lShape) :
-    SetTileable (rect 0 0 n (a+b)) lShape := by
-  have h_eq : rect 0 0 n (a+b) = rect 0 0 n a ∪ rect 0 a n (a+b) := by
-    ext ⟨x, y⟩
-    simp only [mem_rect, mem_union]
-    omega
-  have h_disj : Disjoint (rect 0 0 n a) (rect 0 a n (a+b)) := by
-    rw [Set.disjoint_left]
-    intro p h1 h2
-    simp only [mem_rect] at h1 h2
-    omega
-  rw [h_eq]
-  exact SetTileable.union ha hb h_disj
-
-theorem setTileable_2x6 : SetTileable (rect 0 0 2 6) lShape := by
-  have ha : SetTileable (rect 0 0 2 3) lShape := setTileable_2x3
-  have hb : SetTileable (rect 0 3 2 6) lShape := by
-    have h_trans : rect 0 3 2 6 = translate 0 3 (rect 0 0 2 3) := by
-      ext ⟨x, y⟩
-      simp only [mem_rect, mem_translate]
-      omega
-    rw [h_trans]
-    exact setTileable_translate setTileable_2x3 0 3
-  exact @SetTileable.vertical_union 2 3 3 (by omega) (by omega) ha hb
-
-theorem setTileable_6x2 : SetTileable (rect 0 0 6 2) lShape := by
-  have h := setTileable_swap setTileable_2x6
-  have h_eq : Set.swapRegion (rect 0 0 2 6) = rect 0 0 6 2 := by
-    ext ⟨x, y⟩
-    simp only [mem_swapRegion, mem_rect]
-    omega
-  rw [h_eq] at h
-  exact h
-
-theorem setTileable_3x4 : SetTileable (rect 0 0 3 4) lShape := by
-  have ha : SetTileable (rect 0 0 3 2) lShape := setTileable_3x2
-  have hb : SetTileable (rect 0 2 3 4) lShape := by
-    have h_trans : rect 0 2 3 4 = translate 0 2 (rect 0 0 3 2) := by
-      ext ⟨x, y⟩
-      simp only [mem_rect, mem_translate]
-      omega
-    rw [h_trans]
-    exact setTileable_translate setTileable_3x2 0 2
-  exact @SetTileable.vertical_union 3 2 2 (by omega) (by omega) ha hb
-
-theorem setTileable_3x6 : SetTileable (rect 0 0 3 6) lShape := by
-  have ha : SetTileable (rect 0 0 3 2) lShape := setTileable_3x2
-  have hb : SetTileable (rect 0 2 3 6) lShape := by
-    have h_trans : rect 0 2 3 6 = translate 0 2 (rect 0 0 3 4) := by
-      ext ⟨x, y⟩
-      simp only [mem_rect, mem_translate]
-      omega
-    rw [h_trans]
-    exact setTileable_translate setTileable_3x4 0 2
-  exact @SetTileable.vertical_union 3 2 4 (by omega) (by omega) ha hb
-
-theorem setTileable_6x3 : SetTileable (rect 0 0 6 3) lShape := by
-  have h := setTileable_swap setTileable_3x6
-  have h_eq : Set.swapRegion (rect 0 0 3 6) = rect 0 0 6 3 := by
-    ext ⟨x, y⟩
-    simp only [mem_swapRegion, mem_rect]
-    omega
-  rw [h_eq] at h
-  exact h
-
-theorem setTileable_6x6 : SetTileable (rect 0 0 6 6) lShape := by
-  have ha : SetTileable (rect 0 0 6 3) lShape := setTileable_6x3
-  have hb : SetTileable (rect 0 3 6 6) lShape := by
-    have h_trans : rect 0 3 6 6 = translate 0 3 (rect 0 0 6 3) := by
-      ext ⟨x, y⟩
-      simp only [mem_rect, mem_translate]
-      omega
-    rw [h_trans]
-    exact setTileable_translate setTileable_6x3 0 3
-  exact @SetTileable.vertical_union 6 3 3 (by omega) (by omega) ha hb
-
-
-theorem setTileable_2x_mult3 (k : ℕ) (hk : 1 ≤ k) :
-    SetTileable (rect 0 0 2 (3*k)) lShape := by
-  have _ := hk
-  apply SetTileable.refine (fun (i : Fin k) => rect 0 (3 * (i.val : ℤ)) 2 (3 * (i.val + 1 : ℤ)))
-  · ext ⟨x, y⟩
-    simp only [Set.mem_iUnion, mem_rect]
-    constructor
-    · rintro ⟨i, hx1, hx2, hy1, hy2⟩
-      have hi : (i.val : ℤ) < (k : ℤ) := Nat.cast_lt (α := ℤ).mpr i.isLt
-      exact ⟨hx1, hx2, by omega, by omega⟩
-    · rintro ⟨hx1, hx2, hy1, hy2⟩
-      have hk_pos : 0 < (k : ℤ) := by omega
-      have hy_pos : 0 ≤ y := hy1
-      have hy_lt : y < 3 * (k : ℤ) := hy2
-      let q := y / 3
-      have hq_pos : 0 ≤ q := by omega
-      have hq_lt : q < (k : ℤ) := by omega
-      have h1 : q.toNat < k := by
-        apply Nat.cast_lt (α := ℤ).mp
-        rw [Int.toNat_of_nonneg hq_pos]
-        exact hq_lt
-      use ⟨q.toNat, h1⟩
-      have h_q_val : ((q.toNat : ℕ) : ℤ) = q := Int.toNat_of_nonneg hq_pos
-      refine ⟨hx1, hx2, ?_, ?_⟩
-      · rw [h_q_val]; omega
-      · rw [h_q_val]; omega
-  · intro i j hij
-    dsimp [Function.onFun]
-    rw [Set.disjoint_iff_inter_eq_empty]
-    ext ⟨x, y⟩
-    simp only [Set.mem_inter_iff, mem_rect, Set.mem_empty_iff_false, iff_false]
-    rintro ⟨⟨_, _, hy1, hy2⟩, ⟨_, _, hy3, hy4⟩⟩
-    have h_neq : (i.val : ℤ) ≠ (j.val : ℤ) := by
-      intro h
-      apply hij
-      ext
-      exact Nat.cast_inj.mp h
-    omega
-  · intro i
-    exact rect_finite _ _ _ _
-  · intro i
-    have h_trans : rect 0 (3 * (i.val : ℤ)) 2 (3 * (i.val + 1 : ℤ)) = translate 0 (3 * (i.val : ℤ)) (rect 0 0 2 3) := by
-      ext ⟨x, y⟩
-      simp only [mem_rect, mem_translate]
-      omega
-    rw [h_trans]
-    exact setTileable_translate setTileable_2x3 0 (3 * i.val)
-
-theorem setTileable_3x_even (k : ℕ) (hk : 1 ≤ k) :
-    SetTileable (rect 0 0 3 (2*k)) lShape := by
-  have _ := hk
-  apply SetTileable.refine (fun (i : Fin k) => rect 0 (2 * (i.val : ℤ)) 3 (2 * (i.val + 1 : ℤ)))
-  · ext ⟨x, y⟩
-    simp only [Set.mem_iUnion, mem_rect]
-    constructor
-    · rintro ⟨i, hx1, hx2, hy1, hy2⟩
-      have hi : (i.val : ℤ) < (k : ℤ) := Nat.cast_lt (α := ℤ).mpr i.isLt
-      exact ⟨hx1, hx2, by omega, by omega⟩
-    · rintro ⟨hx1, hx2, hy1, hy2⟩
-      have hk_pos : 0 < (k : ℤ) := by omega
-      have hy_pos : 0 ≤ y := hy1
-      have hy_lt : y < 2 * (k : ℤ) := hy2
-      let q := y / 2
-      have hq_pos : 0 ≤ q := by omega
-      have hq_lt : q < (k : ℤ) := by omega
-      have h1 : q.toNat < k := by
-        apply Nat.cast_lt (α := ℤ).mp
-        rw [Int.toNat_of_nonneg hq_pos]
-        exact hq_lt
-      use ⟨q.toNat, h1⟩
-      have h_q_val : ((q.toNat : ℕ) : ℤ) = q := Int.toNat_of_nonneg hq_pos
-      refine ⟨hx1, hx2, ?_, ?_⟩
-      · rw [h_q_val]; omega
-      · rw [h_q_val]; omega
-  · intro i j hij
-    dsimp [Function.onFun]
-    rw [Set.disjoint_iff_inter_eq_empty]
-    ext ⟨x, y⟩
-    simp only [Set.mem_inter_iff, mem_rect, Set.mem_empty_iff_false, iff_false]
-    rintro ⟨⟨_, _, hy1, hy2⟩, ⟨_, _, hy3, hy4⟩⟩
-    have h_neq : (i.val : ℤ) ≠ (j.val : ℤ) := by
-      intro h
-      apply hij
-      ext
-      exact Nat.cast_inj.mp h
-    omega
-  · intro i
-    exact rect_finite _ _ _ _
-  · intro i
-    have h_trans : rect 0 (2 * (i.val : ℤ)) 3 (2 * (i.val + 1 : ℤ)) = translate 0 (2 * (i.val : ℤ)) (rect 0 0 3 2) := by
-      ext ⟨x, y⟩
-      simp only [mem_rect, mem_translate]
-      omega
-    rw [h_trans]
-    exact setTileable_translate setTileable_3x2 0 (2 * i.val)
-theorem lShape_cells_ncard : lShape.cells.ncard = 3 := by
-  dsimp [lShape, lShape_cells]
-  rw [Set.ncard_insert_of_notMem]
-  · rw [Set.ncard_insert_of_notMem]
-    · rw [Set.ncard_singleton]
-    · simp
-  · simp
-
-theorem setTileable_mult3_x_2 (k : Nat) (hk : 1 ≤ k) : SetTileable (rect 0 0 (3*k) 2) lShape := by
-  have h := setTileable_swap (setTileable_2x_mult3 k hk)
-  have h_eq : Set.swapRegion (rect 0 0 2 (3*k)) = rect 0 0 (3*k) 2 := by
-    ext ⟨x, y⟩
-    simp only [mem_swapRegion, mem_rect]
-    omega
-  rw [h_eq] at h
-  exact h
-
-theorem setTileable_even_x_3 (k : Nat) (hk : 1 <= k) : SetTileable (rect 0 0 (2*k) 3) lShape := by
-  have h := setTileable_swap (setTileable_3x_even k hk)
-  have h_eq : Set.swapRegion (rect 0 0 3 (2*k)) = rect 0 0 (2*k) 3 := by
-    ext ⟨x, y⟩
-    simp only [mem_swapRegion, mem_rect]
-    omega
-  rw [h_eq] at h
-  exact h
-
-theorem setTileable_6x_of_ge2 (k : Nat) (hk : 2 ≤ k) : SetTileable (rect 0 0 6 k) lShape := by
-  induction' k using Nat.strong_induction_on with n ih
-  rcases eq_or_lt_of_le hk with rfl | hn2
-  · exact setTileable_6x2
-  · rcases eq_or_lt_of_le (show 3 ≤ n from hn2) with rfl | hn3
-    · exact setTileable_6x3
-    · have hn_ge_4 : 4 ≤ n := hn3
-      have h_prev_nat : SetTileable (rect 0 0 6 (n - 2 : Nat)) lShape := ih (n - 2) (by omega) (by omega)
-      have h_prev : SetTileable (rect 0 0 6 (n - 2 : ℤ)) lShape := by
-        have h_eq : ((n - 2 : Nat) : ℤ) = (n : ℤ) - 2 := by omega
-        exact h_eq ▸ h_prev_nat
-      have h_2 : SetTileable (rect 0 (n - 2 : ℤ) 6 n) lShape := by
-        have h_trans : rect 0 (n - 2 : ℤ) 6 n = translate 0 (n - 2 : ℤ) (rect 0 0 6 2) := by
-          ext ⟨x, y⟩
-          simp only [mem_rect, mem_translate]
-          omega
-        rw [h_trans]
-        exact setTileable_translate setTileable_6x2 0 (n - 2 : ℤ)
-      have h_union := @SetTileable.vertical_union 6 (n - 2 : ℤ) 2 (by omega) (by omega) h_prev (by
-        have h_eq : (n - 2 : ℤ) + 2 = (n : ℤ) := by omega
-        exact h_eq.symm ▸ h_2)
-      have h_eq : (n - 2 : ℤ) + 2 = n := by omega
-      rw [h_eq] at h_union
-      exact h_union
-
-theorem setTileable_kx6_of_ge2 (k : Nat) (hk : 2 <= k) : SetTileable (rect 0 0 k 6) lShape := by
-  have h := setTileable_swap (setTileable_6x_of_ge2 k hk)
-  have h_eq : Set.swapRegion (rect 0 0 6 k) = rect 0 0 k 6 := by
-    ext ⟨x, y⟩
-    simp only [mem_swapRegion, mem_rect]
-    omega
-  rw [h_eq] at h
-  exact h
-
-theorem setTileable_rect_area_dvd (m n : Nat) (h : SetTileable (rect 0 0 m n) lShape) : 3 ∣ m * n := by
-  have h1 := SetTileable.ncard_dvd (rect_finite 0 0 m n) h
-  have h2 : lShape.cells.ncard = 3 := lShape_cells_ncard
-  have h3 : (rect 0 0 (m : ℤ) (n : ℤ)).ncard = m * n := by
-    rw [rect_ncard]
-    simp
-  rw [h2, h3] at h1
-  exact h1
-
 -- ============================================================
--- Step 8 — Impossibility theorems
--- ============================================================
-
--- Helper: every placed copy of lShape contains a cell at (dx, dy)
-private lemma placedCopy_contains_origin_offset (dx dy : ℤ) (r : Fin 4) :
-    (dx, dy) ∈ placedCopy lShape dx dy r := by
-  fin_cases r <;>
-    simp [placedCopy, mem_translate, mem_rotate, lShape, lShape_cells, inverseRot,
-          rotateCell_0, rotateCell_1, rotateCell_2, rotateCell_3,
-          Set.mem_insert_iff, Set.mem_singleton_iff, Prod.mk.injEq]
-
--- Helper: every placed copy spans ≥ 2 distinct x-values
-private lemma placedCopy_x_span (dx dy : ℤ) (r : Fin 4) :
-    (dx + 1, dy) ∈ placedCopy lShape dx dy r ∨ (dx - 1, dy) ∈ placedCopy lShape dx dy r := by
-  fin_cases r <;>
-    simp [placedCopy, mem_translate, mem_rotate, lShape, lShape_cells, inverseRot,
-          rotateCell_0, rotateCell_1, rotateCell_2, rotateCell_3,
-          Set.mem_insert_iff, Set.mem_singleton_iff, Prod.mk.injEq] <;>
-    omega
-
-/-- No 1×n strip (n ≥ 1) is L-tileable: placed copies always span ≥ 2 x-values -/
-theorem not_setTileable_1xn (n : ℕ) (hn : 1 ≤ n) : ¬ SetTileable (rect 0 0 1 n) lShape := by
-  intro ⟨t⟩
-  -- The region is nonempty, so some tile exists
-  have hcell : ((0 : ℤ), (0 : ℤ)) ∈ rect 0 0 1 (n : ℤ) := by
-    simp only [mem_rect]
-    exact ⟨le_refl _, by norm_num, le_refl _, by exact_mod_cast hn⟩
-  rw [← t.covers, Set.mem_iUnion] at hcell
-  obtain ⟨i, hi⟩ := hcell
-  obtain ⟨dx, dy, r, hrep⟩ := t.is_placed i
-  -- Every cell of tile i is in rect 0 0 1 n
-  have h_sub : ∀ q, q ∈ t.tile i → 0 ≤ q.1 ∧ q.1 < 1 := by
-    intro q hq
-    have hmem : q ∈ rect 0 0 1 (n : ℤ) := by
-      have : q ∈ ⋃ j, t.tile j := Set.mem_iUnion.mpr ⟨i, hq⟩
-      rwa [t.covers] at this
-    simp only [mem_rect] at hmem
-    exact ⟨hmem.1, hmem.2.1⟩
-  rw [hrep] at h_sub
-  -- The piece always contains (dx, dy)
-  have h_base : (dx, dy) ∈ placedCopy lShape dx dy r :=
-    placedCopy_contains_origin_offset dx dy r
-  have hbase := h_sub _ h_base
-  -- The piece also contains (dx+1, dy) or (dx-1, dy)
-  rcases placedCopy_x_span dx dy r with h2 | h2
-  · have := (h_sub _ h2).2; omega
-  · have := (h_sub _ h2).1; omega
-
-/-- Same result for the transposed strip (n×1) -/
-theorem not_setTileable_nx1 (n : ℕ) (hn : 1 ≤ n) : ¬ SetTileable (rect 0 0 n 1) lShape := by
-  intro h
-  have hswap : SetTileable (Set.swapRegion (rect 0 0 n 1)) lShape :=
-    setTileable_swap h
-  have heq : Set.swapRegion (rect 0 0 (n : ℤ) 1) = rect 0 0 1 n := by
-    ext ⟨x, y⟩; simp only [mem_swapRegion, mem_rect]; omega
-  rw [heq] at hswap
-  exact not_setTileable_1xn n hn hswap
-
--- ============================================================
--- Step 9 — Biconditional for 2×n rectangles
+-- Step 9 — Vacuous tileability + empty rectangles
 -- ============================================================
 
 /-- The empty region is vacuously tileable by any shape -/
@@ -742,75 +360,38 @@ theorem SetTileable.empty (s : Shape) : SetTileable (∅ : Set Cell) s :=
 theorem rect_empty_of_eq (x0 x1 y : ℤ) : rect x0 y x1 y = ∅ := by
   ext p; simp only [mem_rect, Set.mem_empty_iff_false, iff_false]; omega
 
-/-- 2×n is L-tileable iff 3 ∣ n -/
-theorem setTileable_2xn_iff (n : ℕ) : SetTileable (rect 0 0 2 n) lShape ↔ 3 ∣ n := by
-  constructor
-  · intro h
-    have hdvd := setTileable_rect_area_dvd 2 n h
-    -- hdvd : 3 ∣ 2 * n; since gcd(3,2)=1, conclude 3 ∣ n
-    -- Direct: from 2n = 3k, we get n = 3(n-k) by linear arithmetic
-    rcases hdvd with ⟨k, hk⟩
-    exact ⟨n - k, by omega⟩
-  · rintro ⟨k, hk⟩
-    subst hk
-    rcases Nat.eq_zero_or_pos k with rfl | hk_pos
-    · simp only [Nat.mul_zero, Nat.cast_zero]
-      rw [rect_empty_of_eq]
-      exact SetTileable.empty lShape
-    · exact setTileable_2x_mult3 k hk_pos
-
 -- ============================================================
--- Step 10 — General 2D inductive families via refine
+-- Step 10 — Horizontal and vertical union lemmas
 -- ============================================================
 
-/-- Any (3a) × (2b) rectangle is L-tileable (a, b ≥ 1).
-    Partition into a×b copies of the 3×2 base tile. -/
-theorem setTileable_mult3_mult2 (a b : ℕ) (ha : 1 ≤ a) (hb : 1 ≤ b) :
-    SetTileable (rect 0 0 (3 * a) (2 * b)) lShape := by
-  apply SetTileable.refine
-    (pieces := fun (p : Fin a × Fin b) =>
-      rect (3 * p.1.val) (2 * p.2.val) (3 * (p.1.val + 1)) (2 * (p.2.val + 1)))
-  · -- cover: ⋃ pieces = rect 0 0 (3a) (2b)
+theorem SetTileable.horizontal_union {s : Shape} {a b m : ℤ} (ha_pos : 0 ≤ a) (hb_pos : 0 ≤ b)
+    (ha : SetTileable (rect 0 0 a m) s)
+    (hb : SetTileable (rect a 0 (a+b) m) s) :
+    SetTileable (rect 0 0 (a+b) m) s := by
+  have h_eq : rect 0 0 (a+b) m = rect 0 0 a m ∪ rect a 0 (a+b) m := by
     ext ⟨x, y⟩
-    simp only [Set.mem_iUnion, mem_rect]
-    constructor
-    · rintro ⟨⟨⟨i, hi⟩, ⟨j, hj⟩⟩, hx1, hx2, hy1, hy2⟩
-      refine ⟨?_, ?_, ?_, ?_⟩ <;> push_cast at * <;> omega
-    · rintro ⟨hx1, hx2, hy1, hy2⟩
-      have hx_nn : 0 ≤ x := by linarith
-      have hy_nn : 0 ≤ y := by linarith
-      have hxq_lt : (x / 3).toNat < a := by
-        apply Nat.cast_lt (α := ℤ).mp
-        rw [Int.toNat_of_nonneg (by omega)]
-        omega
-      have hyq_lt : (y / 2).toNat < b := by
-        apply Nat.cast_lt (α := ℤ).mp
-        rw [Int.toNat_of_nonneg (by omega)]
-        omega
-      refine ⟨⟨⟨(x / 3).toNat, hxq_lt⟩, ⟨(y / 2).toNat, hyq_lt⟩⟩, ?_, ?_, ?_, ?_⟩ <;>
-        rw [Int.toNat_of_nonneg (by omega)] <;> push_cast <;> omega
-  · -- pairwise disjoint
-    intro ⟨⟨i₁, _⟩, ⟨j₁, _⟩⟩ ⟨⟨i₂, _⟩, ⟨j₂, _⟩⟩ hne
-    simp only [Function.onFun, Set.disjoint_iff_inter_eq_empty]
-    ext ⟨x, y⟩
-    simp only [Set.mem_inter_iff, mem_rect, Set.mem_empty_iff_false, iff_false]
-    rintro ⟨⟨hx1, hx2, hy1, hy2⟩, hx1', hx2', hy1', hy2'⟩
-    push_cast at *
-    have heqi : i₁ = i₂ := by omega
-    have heqj : j₁ = j₂ := by omega
-    exact hne (Prod.ext (Fin.ext heqi) (Fin.ext heqj))
-  · intro p; exact rect_finite _ _ _ _
-  · intro ⟨⟨i, _⟩, ⟨j, _⟩⟩
-    have heq : rect (3 * (i : ℤ)) (2 * j) (3 * (i + 1)) (2 * (j + 1))
-             = translate (3 * i) (2 * j) (rect 0 0 3 2) := by
-      ext ⟨x, y⟩; simp only [mem_rect, mem_translate]; push_cast; omega
-    rw [heq]
-    exact setTileable_translate setTileable_3x2 _ _
+    simp only [mem_rect, mem_union]
+    omega
+  have h_disj : Disjoint (rect 0 0 a m) (rect a 0 (a+b) m) := by
+    rw [Set.disjoint_left]
+    intro p h1 h2
+    simp only [mem_rect] at h1 h2
+    omega
+  rw [h_eq]
+  exact SetTileable.union ha hb h_disj
 
-/-- Any (2a) × (3b) rectangle is L-tileable (a, b ≥ 1) — by swap from mult3_mult2 -/
-theorem setTileable_mult2_mult3 (a b : ℕ) (ha : 1 ≤ a) (hb : 1 ≤ b) :
-    SetTileable (rect 0 0 (2 * a) (3 * b)) lShape := by
-  have h := setTileable_swap (setTileable_mult3_mult2 b a hb ha)
-  have heq : Set.swapRegion (rect 0 0 (3 * b) (2 * a)) = rect 0 0 (2 * a) (3 * b) := by
-    ext ⟨x, y⟩; simp only [mem_swapRegion, mem_rect]; omega
-  rwa [heq] at h
+theorem SetTileable.vertical_union {s : Shape} {n a b : ℤ} (ha_pos : 0 ≤ a) (hb_pos : 0 ≤ b)
+    (ha : SetTileable (rect 0 0 n a) s)
+    (hb : SetTileable (rect 0 a n (a+b)) s) :
+    SetTileable (rect 0 0 n (a+b)) s := by
+  have h_eq : rect 0 0 n (a+b) = rect 0 0 n a ∪ rect 0 a n (a+b) := by
+    ext ⟨x, y⟩
+    simp only [mem_rect, mem_union]
+    omega
+  have h_disj : Disjoint (rect 0 0 n a) (rect 0 a n (a+b)) := by
+    rw [Set.disjoint_left]
+    intro p h1 h2
+    simp only [mem_rect] at h1 h2
+    omega
+  rw [h_eq]
+  exact SetTileable.union ha hb h_disj
