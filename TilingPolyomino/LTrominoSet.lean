@@ -25,7 +25,7 @@ private def lPlaced_set (dx dy : ℤ) (r : Fin 4) : Set Cell :=
     lPlaced_set dx dy r = translate dx dy (rotate r LShape_cells) := by
   rfl
 
-theorem LShape_eq_rects : LShape_cells = rect 0 0 1 2 ∪ rect 1 0 2 1 := by
+private theorem LShape_eq_rects : LShape_cells = rect 0 0 1 2 ∪ rect 1 0 2 1 := by
   ext ⟨x, y⟩
   simp [LShape_cells]
   omega
@@ -47,7 +47,7 @@ private lemma swapRegion_rect (a b : ℤ) :
 -- Swap rotation: swapRegion commutes with lPlaced_set
 -- ============================================================
 
-def swapRot : Fin 4 → Fin 4
+private def swapRot : Fin 4 → Fin 4
   | 0 => 0
   | 1 => 3
   | 2 => 2
