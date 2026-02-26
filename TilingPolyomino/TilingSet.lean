@@ -4,7 +4,7 @@ import Mathlib.Algebra.BigOperators.Finprod
 import Mathlib.Tactic
 import TilingPolyomino.RectOmega
 
-open Set
+open Set Function
 
 -- Step 1 — Core definitions
 
@@ -170,6 +170,56 @@ def Tiling.union {R S : Set Cell} {s : Shape} (tR : Tiling R s) (tS : Tiling S s
     cases i
     · exact tR.is_placed _
     · exact tS.is_placed _
+
+/-- General refinement: if R is partitioned into pieces each tileable by s,
+    then R itself is tileable by s. -/
+theorem SetTileable.refine {ι : Type} {R : Set Cell} {s : Shape}
+    (pieces : ι → Set Cell)
+    (hcover : ⋃ i, pieces i = R)
+    (hdisj : Pairwise (Disjoint on pieces))
+    (hfin : ∀ i, (pieces i).Finite)
+    (htile : ∀ i, SetTileable (pieces i) s) :
+    SetTileable R s := by
+  apply Nonempty.intro
+  have _ := hfin
+  exact {
+    ι := Σ i, (htile i).some.ι
+    tile := fun ⟨i, j⟩ => (htile i).some.tile j
+    covers := by
+      rw [← hcover]
+      ext p
+      simp only [Set.mem_iUnion, Sigma.exists]
+      constructor
+      · rintro ⟨i, j, hp⟩
+        exact ⟨i, by rw [← (htile i).some.covers]; exact Set.mem_iUnion.mpr ⟨j, hp⟩⟩
+      · rintro ⟨i, hp⟩
+        have : p ∈ ⋃ j, (htile i).some.tile j := by rw [(htile i).some.covers]; exact hp
+        rcases Set.mem_iUnion.mp this with ⟨j, hj⟩
+        exact ⟨i, j, hj⟩
+    disjoint := by
+      intro x y hxy
+      by_cases hfst : x.fst = y.fst
+      · rcases x with ⟨x_fst, x_snd⟩
+        rcases y with ⟨y_fst, y_snd⟩
+        dsimp at hfst
+        subst hfst
+        have hsnd : x_snd ≠ y_snd := by
+          intro heq
+          apply hxy
+          congr
+        exact (htile x_fst).some.disjoint x_snd y_snd hsnd
+      · have hdisj_pieces : Disjoint (pieces x.fst) (pieces y.fst) := hdisj hfst
+        have hsubx : (htile x.fst).some.tile x.snd ⊆ pieces x.fst := by
+          intro p hp
+          rw [← (htile x.fst).some.covers]
+          exact Set.mem_iUnion.mpr ⟨x.snd, hp⟩
+        have hsuby : (htile y.fst).some.tile y.snd ⊆ pieces y.fst := by
+          intro p hp
+          rw [← (htile y.fst).some.covers]
+          exact Set.mem_iUnion.mpr ⟨y.snd, hp⟩
+        exact Set.disjoint_of_subset hsubx hsuby hdisj_pieces
+    is_placed := fun ⟨i, j⟩ => (htile i).some.is_placed j
+  }
 
 theorem SetTileable.union {R S : Set Cell} {s : Shape} (hR : SetTileable R s) (hS : SetTileable S s)
     (hdisj : Disjoint R S) : SetTileable (R ∪ S) s :=
@@ -452,55 +502,99 @@ theorem setTileable_6x6 : SetTileable (rect 0 0 6 6) lShape := by
     exact setTileable_translate setTileable_6x3 0 3
   exact @SetTileable.vertical_union 6 3 3 (by omega) (by omega) ha hb
 
+
 theorem setTileable_2x_mult3 (k : ℕ) (hk : 1 ≤ k) :
     SetTileable (rect 0 0 2 (3*k)) lShape := by
-  induction k, hk using Nat.le_induction with
-  | base =>
-    have h_eq : rect 0 0 2 (3 * (1 : ℕ)) = rect 0 0 2 3 := by
+  have _ := hk
+  apply SetTileable.refine (fun (i : Fin k) => rect 0 (3 * (i.val : ℤ)) 2 (3 * (i.val + 1 : ℤ)))
+  · ext ⟨x, y⟩
+    simp only [Set.mem_iUnion, mem_rect]
+    constructor
+    · rintro ⟨i, hx1, hx2, hy1, hy2⟩
+      have hi : (i.val : ℤ) < (k : ℤ) := Nat.cast_lt (α := ℤ).mpr i.isLt
+      exact ⟨hx1, hx2, by omega, by omega⟩
+    · rintro ⟨hx1, hx2, hy1, hy2⟩
+      have hk_pos : 0 < (k : ℤ) := by omega
+      have hy_pos : 0 ≤ y := hy1
+      have hy_lt : y < 3 * (k : ℤ) := hy2
+      let q := y / 3
+      have hq_pos : 0 ≤ q := by omega
+      have hq_lt : q < (k : ℤ) := by omega
+      have h1 : q.toNat < k := by
+        apply Nat.cast_lt (α := ℤ).mp
+        rw [Int.toNat_of_nonneg hq_pos]
+        exact hq_lt
+      use ⟨q.toNat, h1⟩
+      have h_q_val : ((q.toNat : ℕ) : ℤ) = q := Int.toNat_of_nonneg hq_pos
+      refine ⟨hx1, hx2, ?_, ?_⟩
+      · rw [h_q_val]; omega
+      · rw [h_q_val]; omega
+  · intro i j hij
+    dsimp [Function.onFun]
+    rw [Set.disjoint_iff_inter_eq_empty]
+    ext ⟨x, y⟩
+    simp only [Set.mem_inter_iff, mem_rect, Set.mem_empty_iff_false, iff_false]
+    rintro ⟨⟨_, _, hy1, hy2⟩, ⟨_, _, hy3, hy4⟩⟩
+    have h_neq : (i.val : ℤ) ≠ (j.val : ℤ) := by
+      intro h
+      apply hij
+      ext
+      exact Nat.cast_inj.mp h
+    omega
+  · intro i
+    exact rect_finite _ _ _ _
+  · intro i
+    have h_trans : rect 0 (3 * (i.val : ℤ)) 2 (3 * (i.val + 1 : ℤ)) = translate 0 (3 * (i.val : ℤ)) (rect 0 0 2 3) := by
       ext ⟨x, y⟩
-      simp only [mem_rect]
+      simp only [mem_rect, mem_translate]
       omega
-    rw [h_eq]
-    exact setTileable_2x3
-  | succ n hn ih =>
-    have h_eq : rect 0 0 2 (3 * (n + 1 : ℕ)) = rect 0 0 2 ((3*n : ℕ) + 3) := by
-      ext ⟨x, y⟩
-      simp only [mem_rect]
-      omega
-    rw [h_eq]
-    have ha : SetTileable (rect 0 0 2 (3*n : ℕ)) lShape := ih
-    have hb : SetTileable (rect 0 (3*n : ℕ) 2 ((3*n : ℕ) + 3)) lShape := by
-      have h_trans : rect 0 (3*n : ℕ) 2 ((3*n : ℕ) + 3) = translate 0 (3*n : ℕ) (rect 0 0 2 3) := by
-        ext ⟨x, y⟩
-        simp only [mem_rect, mem_translate]
-        omega
-      rw [h_trans]
-      exact setTileable_translate setTileable_2x3 0 (3*n : ℕ)
-    exact @SetTileable.vertical_union 2 (3*n : ℕ) 3 (by omega) (by omega) ha hb
+    rw [h_trans]
+    exact setTileable_translate setTileable_2x3 0 (3 * i.val)
 
 theorem setTileable_3x_even (k : ℕ) (hk : 1 ≤ k) :
     SetTileable (rect 0 0 3 (2*k)) lShape := by
-  induction k, hk using Nat.le_induction with
-  | base =>
-    have h_eq : rect 0 0 3 (2 * (1 : ℕ)) = rect 0 0 3 2 := by
+  have _ := hk
+  apply SetTileable.refine (fun (i : Fin k) => rect 0 (2 * (i.val : ℤ)) 3 (2 * (i.val + 1 : ℤ)))
+  · ext ⟨x, y⟩
+    simp only [Set.mem_iUnion, mem_rect]
+    constructor
+    · rintro ⟨i, hx1, hx2, hy1, hy2⟩
+      have hi : (i.val : ℤ) < (k : ℤ) := Nat.cast_lt (α := ℤ).mpr i.isLt
+      exact ⟨hx1, hx2, by omega, by omega⟩
+    · rintro ⟨hx1, hx2, hy1, hy2⟩
+      have hk_pos : 0 < (k : ℤ) := by omega
+      have hy_pos : 0 ≤ y := hy1
+      have hy_lt : y < 2 * (k : ℤ) := hy2
+      let q := y / 2
+      have hq_pos : 0 ≤ q := by omega
+      have hq_lt : q < (k : ℤ) := by omega
+      have h1 : q.toNat < k := by
+        apply Nat.cast_lt (α := ℤ).mp
+        rw [Int.toNat_of_nonneg hq_pos]
+        exact hq_lt
+      use ⟨q.toNat, h1⟩
+      have h_q_val : ((q.toNat : ℕ) : ℤ) = q := Int.toNat_of_nonneg hq_pos
+      refine ⟨hx1, hx2, ?_, ?_⟩
+      · rw [h_q_val]; omega
+      · rw [h_q_val]; omega
+  · intro i j hij
+    dsimp [Function.onFun]
+    rw [Set.disjoint_iff_inter_eq_empty]
+    ext ⟨x, y⟩
+    simp only [Set.mem_inter_iff, mem_rect, Set.mem_empty_iff_false, iff_false]
+    rintro ⟨⟨_, _, hy1, hy2⟩, ⟨_, _, hy3, hy4⟩⟩
+    have h_neq : (i.val : ℤ) ≠ (j.val : ℤ) := by
+      intro h
+      apply hij
+      ext
+      exact Nat.cast_inj.mp h
+    omega
+  · intro i
+    exact rect_finite _ _ _ _
+  · intro i
+    have h_trans : rect 0 (2 * (i.val : ℤ)) 3 (2 * (i.val + 1 : ℤ)) = translate 0 (2 * (i.val : ℤ)) (rect 0 0 3 2) := by
       ext ⟨x, y⟩
-      simp only [mem_rect]
+      simp only [mem_rect, mem_translate]
       omega
-    rw [h_eq]
-    exact setTileable_3x2
-  | succ n hn ih =>
-    have h_eq : rect 0 0 3 (2 * (n + 1 : ℕ)) = rect 0 0 3 ((2*n : ℕ) + 2) := by
-      ext ⟨x, y⟩
-      simp only [mem_rect]
-      omega
-    rw [h_eq]
-    have ha : SetTileable (rect 0 0 3 (2*n : ℕ)) lShape := ih
-    have hb : SetTileable (rect 0 (2*n : ℕ) 3 ((2*n : ℕ) + 2)) lShape := by
-      have h_trans : rect 0 (2*n : ℕ) 3 ((2*n : ℕ) + 2) = translate 0 (2*n : ℕ) (rect 0 0 3 2) := by
-        ext ⟨x, y⟩
-        simp only [mem_rect, mem_translate]
-        omega
-      rw [h_trans]
-      exact setTileable_translate setTileable_3x2 0 (2*n : ℕ)
-    exact @SetTileable.vertical_union 3 (2*n : ℕ) 2 (by omega) (by omega) ha hb
-
+    rw [h_trans]
+    exact setTileable_translate setTileable_3x2 0 (2 * i.val)
