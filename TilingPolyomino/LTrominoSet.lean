@@ -545,6 +545,39 @@ theorem setTileable_2xn_iff (n : ℕ) : SetTileable (rect 0 0 2 n) lProtoset ↔
     · exact setTileable_2x_mult3 k hk_pos
 
 -- ============================================================
+-- 3×n biconditional
+-- ============================================================
+
+/-- 3×n is L-tileable iff n is even -/
+theorem setTileable_3xn_iff (n : ℕ) : SetTileable (rect 0 0 3 n) lProtoset ↔ 2 ∣ n := by
+  constructor
+  · intro h
+    rcases Nat.even_or_odd n with he | ⟨k, hk⟩
+    · exact even_iff_two_dvd.mp he
+    · have hk' : (n : ℤ) = 2 * k + 1 := by exact_mod_cast hk
+      exact absurd (hk' ▸ h) (not_setTileable_3x_odd k)
+  · rintro ⟨k, hk⟩
+    subst hk
+    rcases Nat.eq_zero_or_pos k with rfl | hk_pos
+    · simp only [Nat.mul_zero, Nat.cast_zero]
+      rw [rect_empty_of_eq]
+      exact SetTileable.empty lProtoset
+    · exact setTileable_3x_even k hk_pos
+
+/-- n×3 is L-tileable iff n is even (by symmetry with 3×n) -/
+theorem setTileable_nx3_iff (n : ℕ) : SetTileable (rect 0 0 n 3) lProtoset ↔ 2 ∣ n := by
+  rw [← setTileable_3xn_iff]
+  constructor
+  · intro h
+    have := setTileable_swap h
+    rwa [show Set.swapRegion (rect 0 0 (n : ℤ) 3) = rect 0 0 3 n from by
+      ext ⟨x, y⟩; simp [mem_swapRegion, mem_rect]; omega] at this
+  · intro h
+    have := setTileable_swap h
+    rwa [show Set.swapRegion (rect 0 0 3 (n : ℤ)) = rect 0 0 n 3 from by
+      ext ⟨x, y⟩; simp [mem_swapRegion, mem_rect]; omega] at this
+
+-- ============================================================
 -- General 2D families via refine
 -- ============================================================
 
