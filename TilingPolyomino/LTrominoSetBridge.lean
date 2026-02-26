@@ -3,7 +3,7 @@
 
 This file proves the equivalence between the two L-tromino tiling frameworks:
 - `LTileable` (from LTromino.lean): uses `Region = Finset Cell`
-- `SetTileable ... lProtoset` (from LTrominoSet.lean): uses `Set Cell`
+- `SetTileable ... LSetProtoset` (from LTrominoSet.lean): uses `Set Cell`
 
 Main results:
 - `LTileable_iff_SetTileable`: the two notions of tileability coincide
@@ -20,19 +20,19 @@ open Set Function
 -- Section 1: Connecting the two cell representations
 -- ============================================================
 
-/-- The lTromino shape as a Finset coerces to lShape_cells as a Set -/
-lemma lTromino_coe_eq_lShape : (↑(lTromino : Finset Cell) : Set Cell) = lShape_cells := by
+/-- The lTromino shape as a Finset coerces to LShape_cells as a Set -/
+lemma lTromino_coe_eq_LShape : (↑(lTromino : Finset Cell) : Set Cell) = LShape_cells := by
   ext c
   constructor
   · intro hm
     rw [Finset.mem_coe, Prototile.mem_coe] at hm
     simp only [lTromino, List.mem_cons, List.mem_nil_iff, or_false] at hm
-    simp only [lShape_cells, Set.mem_insert_iff, Set.mem_singleton_iff]
+    simp only [LShape_cells, Set.mem_insert_iff, Set.mem_singleton_iff]
     exact hm
   · intro hm
     rw [Finset.mem_coe, Prototile.mem_coe]
     simp only [lTromino, List.mem_cons, List.mem_nil_iff, or_false]
-    simp only [lShape_cells, Set.mem_insert_iff, Set.mem_singleton_iff] at hm
+    simp only [LShape_cells, Set.mem_insert_iff, Set.mem_singleton_iff] at hm
     exact hm
 
 /-- rotateCell and inverseRot are inverses: cancel in r-then-inverseRot order -/
@@ -53,11 +53,11 @@ lemma rotateCell_inverseRot_cancel' (c : Cell) (r : Fin 4) :
     equal the cells of the corresponding Set-framework SetPlacedTile. -/
 lemma placedTile_cells_as_set (pt : PlacedTile Unit) :
     (↑(pt.cells lTrominoSet) : Set Cell) =
-    SetPlacedTile.cells lProtoset ⟨pt.index, pt.translation, pt.rotation⟩ := by
+    SetPlacedTile.cells LSetProtoset ⟨pt.index, pt.translation, pt.rotation⟩ := by
   ext ⟨x, y⟩
   simp only [Finset.mem_coe, PlacedTile.cells, rotateProto, Finset.mem_image,
              Prototile.mem_coe, translateCell,
-             SetPlacedTile.cells, lTrominoSet, lProtoset, lSetPrototile,
+             SetPlacedTile.cells, lTrominoSet, LSetProtoset, LSetPrototile,
              mem_translate, mem_rotate]
   constructor
   · rintro ⟨c, ⟨c₀, hc₀_list, rfl⟩, hxy⟩
@@ -68,10 +68,10 @@ lemma placedTile_cells_as_set (pt : PlacedTile Unit) :
       by have := congr_arg Prod.snd hxy; simp at this; omega
     rw [show (x - pt.translation.1, y - pt.translation.2) = rotateCell c₀ pt.rotation
         from Prod.ext hx hy,
-        rotateCell_inverseRot_cancel, ← lTromino_coe_eq_lShape]
+        rotateCell_inverseRot_cancel, ← lTromino_coe_eq_LShape]
     exact Finset.mem_coe.mpr (Prototile.mem_coe lTromino c₀ |>.mpr hc₀_list)
   · intro h
-    rw [← lTromino_coe_eq_lShape] at h
+    rw [← lTromino_coe_eq_LShape] at h
     let c₀ := rotateCell (x - pt.translation.1, y - pt.translation.2) (inverseRot pt.rotation)
     have hc₀_list : c₀ ∈ (lTromino : Prototile).cells :=
       (Prototile.mem_coe lTromino c₀).mp (Finset.mem_coe.mp h)
@@ -87,7 +87,7 @@ lemma placedTile_cells_as_set (pt : PlacedTile Unit) :
 /-- For corresponding tile sets, covered cells agree. -/
 private lemma cellsAt_eq {ιₜ : Type} [Fintype ιₜ]
     (t : TileSet lTrominoSet ιₜ)
-    (t' : SetTileSet lProtoset ιₜ)
+    (t' : SetTileSet LSetProtoset ιₜ)
     (htiles : ∀ i : ιₜ, t'.tiles i =
       ⟨(t.tiles i).index, (t.tiles i).translation, (t.tiles i).rotation⟩)
     (i : ιₜ) : t'.cellsAt i = ↑(t.cellsAt i) := by
@@ -96,7 +96,7 @@ private lemma cellsAt_eq {ιₜ : Type} [Fintype ιₜ]
 
 private lemma coveredCells_eq_coe {ιₜ : Type} [Fintype ιₜ] [DecidableEq ιₜ]
     (t : TileSet lTrominoSet ιₜ)
-    (t' : SetTileSet lProtoset ιₜ)
+    (t' : SetTileSet LSetProtoset ιₜ)
     (htiles : ∀ i : ιₜ, t'.tiles i =
       ⟨(t.tiles i).index, (t.tiles i).translation, (t.tiles i).rotation⟩) :
     t'.coveredCells = (↑(t.coveredCells) : Set Cell) := by
@@ -122,9 +122,9 @@ lemma coe_rectangle_eq_rect (n m : ℕ) :
 
 /-- Forward direction: a Finset tiling yields a Set tiling -/
 private lemma LTileable_to_SetTileable {R : Finset Cell}
-    (h : LTileable R) : SetTileable (↑R : Set Cell) lProtoset := by
+    (h : LTileable R) : SetTileable (↑R : Set Cell) LSetProtoset := by
   obtain ⟨ιₜ, hFin, hDec, t, hValid⟩ := h
-  let t' : SetTileSet lProtoset ιₜ :=
+  let t' : SetTileSet LSetProtoset ιₜ :=
     ⟨fun i => ⟨(t.tiles i).index, (t.tiles i).translation, (t.tiles i).rotation⟩⟩
   refine ⟨ιₜ, hFin, t', ?_⟩
   constructor
@@ -135,7 +135,7 @@ private lemma LTileable_to_SetTileable {R : Finset Cell}
 
 /-- Backward direction: a Set tiling yields a Finset tiling -/
 private lemma SetTileable_to_LTileable {R : Finset Cell}
-    (h : SetTileable (↑R : Set Cell) lProtoset) : LTileable R := by
+    (h : SetTileable (↑R : Set Cell) LSetProtoset) : LTileable R := by
   obtain ⟨ιₜ, hFin, t', hValid⟩ := h
   haveI hDec : DecidableEq ιₜ := Classical.decEq ιₜ
   let t : TileSet lTrominoSet ιₜ :=
@@ -155,9 +155,9 @@ private lemma SetTileable_to_LTileable {R : Finset Cell}
     have heq : (↑(t.coveredCells) : Set Cell) = ↑R := by rw [← hcov]; exact hcovers
     exact Finset.coe_injective heq
 
-/-- **Bridge Theorem**: `LTileable` and `SetTileable lProtoset` coincide on finite sets -/
+/-- **Bridge Theorem**: `LTileable` and `SetTileable LSetProtoset` coincide on finite sets -/
 theorem LTileable_iff_SetTileable (R : Finset Cell) :
-    LTileable R ↔ SetTileable (↑R : Set Cell) lProtoset :=
+    LTileable R ↔ SetTileable (↑R : Set Cell) LSetProtoset :=
   ⟨LTileable_to_SetTileable, SetTileable_to_LTileable⟩
 
 -- ============================================================
@@ -167,6 +167,6 @@ theorem LTileable_iff_SetTileable (R : Finset Cell) :
 /-- The full characterization of L-tileable rectangles in the Set framework.
     This follows from `rect_tileable_iff` (Finset) via the bridge theorem. -/
 theorem rect_setTileable_iff (n m : ℕ) :
-    SetTileable (rect 0 0 (n : ℤ) m) lProtoset ↔ RectTileableConditions n m := by
+    SetTileable (rect 0 0 (n : ℤ) m) LSetProtoset ↔ RectTileableConditions n m := by
   rw [← coe_rectangle_eq_rect, ← LTileable_iff_SetTileable]
   exact rect_tileable_iff n m
