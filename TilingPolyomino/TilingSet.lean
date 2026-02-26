@@ -527,6 +527,16 @@ theorem rotateCell_inverseRot_cancel' (c : Cell) (r : Fin 4) :
   ext <;> simp [rotateCell_1, rotateCell_2, rotateCell_3]
 
 -- ============================================================
+-- SetPrototile extensionality
+-- ============================================================
+
+/-- Two `SetPrototile` values are equal iff their `cells` fields are equal.
+    (The `finite` and `nonempty` fields are propositions, hence proof-irrelevant.) -/
+@[ext]
+theorem SetPrototile.ext {a b : SetPrototile} (h : a.cells = b.cells) : a = b := by
+  obtain ⟨c₁, _, _⟩ := a; obtain ⟨c₂, _, _⟩ := b; simp only at h; subst h; rfl
+
+-- ============================================================
 -- Generic Finset ↔ Set bridge
 -- ============================================================
 
@@ -631,3 +641,35 @@ theorem Tileable_iff_set {ι : Type*} (ps : Protoset ι) (sps : SetProtoset ι)
         obtain ⟨i, hi⟩ := Set.mem_iUnion.mp h1
         rw [h_cells i] at hi
         exact ⟨i, Finset.mem_coe.mp hi⟩
+
+-- ============================================================
+-- Canonical Protoset → SetProtoset conversion
+-- ============================================================
+
+/-- Convert a Finset-based `Prototile` to a `SetPrototile`.
+    Requires the underlying Finset to be nonempty. -/
+def toSetPrototile (p : Prototile) (h : (p : Finset Cell).Nonempty) : SetPrototile where
+  cells    := ↑(p : Finset Cell)
+  finite   := Finset.finite_toSet _
+  nonempty := Finset.coe_nonempty.mpr h
+
+/-- Convert a `Protoset ι` to a `SetProtoset ι` via `toSetPrototile`.
+    Requires every prototile in the protoset to be nonempty. -/
+def toSetProtoset {ι : Type*} (ps : Protoset ι)
+    (h : ∀ i, (ps i : Finset Cell).Nonempty) : SetProtoset ι :=
+  fun i => toSetPrototile (ps i) (h i)
+
+/-- `toSetProtoset ps h` is automatically compatible with `ps`:
+    `(toSetProtoset ps h i).cells = ↑(ps i)` holds by `rfl`. -/
+theorem toSetProtoset_compat {ι : Type*} (ps : Protoset ι)
+    (h : ∀ i, (ps i : Finset Cell).Nonempty) :
+    ProtosetCompatible ps (toSetProtoset ps h) :=
+  fun _ => rfl
+
+/-- **Generic bridge (canonical form)**: `Tileable ps R ↔ SetTileable ↑R (toSetProtoset ps h)`.
+    No manual compatibility proof required — use this when you have a `Protoset` and want
+    the canonical `SetProtoset`. -/
+theorem Tileable_iff_toSet {ι : Type*} (ps : Protoset ι) (R : Finset Cell)
+    (h : ∀ i, (ps i : Finset Cell).Nonempty) :
+    Tileable ps R ↔ SetTileable (↑R : Set Cell) (toSetProtoset ps h) :=
+  Tileable_iff_set ps (toSetProtoset ps h) (toSetProtoset_compat ps h) R
