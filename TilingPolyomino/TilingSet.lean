@@ -507,3 +507,127 @@ theorem SetTileable.scale_rect {ι : Type*} {ps : SetProtoset ι} {a b : ℤ}
 
 theorem rect_empty_of_eq (x0 x1 y : ℤ) : rect x0 y x1 y = ∅ := by
   ext p; simp only [mem_rect, Set.mem_empty_iff_false, iff_false]; omega
+
+-- ============================================================
+-- Rotation cancellation lemmas (used by generic bridge)
+-- ============================================================
+
+/-- Rotating then applying the inverse rotation gives the identity. -/
+theorem rotateCell_inverseRot_cancel (c : Cell) (r : Fin 4) :
+    rotateCell (rotateCell c r) (inverseRot r) = c := by
+  fin_cases r <;>
+  simp only [inverseRot, rotateCell_0, rotateCell_1, rotateCell_2, rotateCell_3] <;>
+  ext <;> simp [rotateCell_1, rotateCell_2, rotateCell_3]
+
+/-- Applying the inverse rotation then rotating gives the identity. -/
+theorem rotateCell_inverseRot_cancel' (c : Cell) (r : Fin 4) :
+    rotateCell (rotateCell c (inverseRot r)) r = c := by
+  fin_cases r <;>
+  simp only [inverseRot, rotateCell_0, rotateCell_1, rotateCell_2, rotateCell_3] <;>
+  ext <;> simp [rotateCell_1, rotateCell_2, rotateCell_3]
+
+-- ============================================================
+-- Generic Finset ↔ Set bridge
+-- ============================================================
+
+/-- A `SetProtoset sps` is *compatible* with a `Protoset ps` if their cell sets agree:
+    for all `i`, `(sps i).cells = ↑(ps i : Finset Cell)`. -/
+def ProtosetCompatible {ι : Type*} (ps : Protoset ι) (sps : SetProtoset ι) : Prop :=
+  ∀ i : ι, (sps i).cells = ↑(ps i : Finset Cell)
+
+/-- `rotateProto p r` coerced to `Set Cell` equals `rotate r ↑p`. -/
+private lemma coe_rotateProto_eq (p : Prototile) (r : Fin 4) :
+    ↑(rotateProto p r : Finset Cell) = rotate r ↑(p : Finset Cell) := by
+  ext c
+  simp only [Finset.mem_coe, rotateProto, Finset.mem_image, mem_rotate]
+  constructor
+  · rintro ⟨e, he, rfl⟩
+    rw [rotateCell_inverseRot_cancel]; exact he
+  · intro h
+    exact ⟨rotateCell c (inverseRot r), h, rotateCell_inverseRot_cancel' c r⟩
+
+/-- `Finset.image (translateCell · t)` coerced to `Set Cell` equals `translate t.1 t.2 ↑S`. -/
+private lemma coe_image_translateCell_eq (S : Finset Cell) (t : Cell) :
+    ↑(S.image (translateCell · t) : Finset Cell) = translate t.1 t.2 ↑S := by
+  ext ⟨cx, cy⟩
+  simp only [Finset.mem_coe, Finset.mem_image, translateCell, mem_translate, Finset.mem_coe]
+  constructor
+  · rintro ⟨⟨ex, ey⟩, he, hce⟩
+    simp only [Prod.mk.injEq] at hce
+    have h1 : cx - t.1 = ex := by omega
+    have h2 : cy - t.2 = ey := by omega
+    rwa [show (cx - t.1, cy - t.2) = (ex, ey) from Prod.ext h1 h2]
+  · intro h
+    exact ⟨(cx - t.1, cy - t.2), h, by ext <;> simp⟩
+
+/-- **Key lemma**: cells of a Finset-based `PlacedTile`, coerced to `Set Cell`, equal the cells
+    of the corresponding `SetPlacedTile` under any compatible `SetProtoset`. -/
+lemma placedTile_cells_compat {ι : Type*} (ps : Protoset ι) (sps : SetProtoset ι)
+    (hc : ProtosetCompatible ps sps) (pt : PlacedTile ι) :
+    ↑(pt.cells ps : Finset Cell) =
+    SetPlacedTile.cells sps ⟨pt.index, pt.translation, pt.rotation⟩ := by
+  simp only [PlacedTile.cells, SetPlacedTile.cells]
+  rw [coe_image_translateCell_eq, coe_rotateProto_eq, hc]
+
+/-- **Generic bridge theorem**: `Tileable ps R` (Finset) ↔ `SetTileable ↑R sps` (Set)
+    for any compatible pair of protosets. -/
+theorem Tileable_iff_set {ι : Type*} (ps : Protoset ι) (sps : SetProtoset ι)
+    (hc : ProtosetCompatible ps sps) (R : Finset Cell) :
+    Tileable ps R ↔ SetTileable (↑R : Set Cell) sps := by
+  constructor
+  · -- Forward: Finset tiling → Set tiling
+    -- hFin, hDec become local typeclass instances from the intro pattern
+    intro ⟨ιₜ, hFin, hDec, t, hValid⟩
+    let t' : SetTileSet sps ιₜ :=
+      ⟨fun i => ⟨(t.tiles i).index, (t.tiles i).translation, (t.tiles i).rotation⟩⟩
+    -- t' is a let-binding, so t' can be used to unfold via simp
+    have h_cells : ∀ i : ιₜ, t'.cellsAt i = ↑(t.cellsAt i : Finset Cell) := fun i =>
+      (placedTile_cells_compat ps sps hc (t.tiles i)).symm
+    refine ⟨ιₜ, hFin, t', ⟨?_, ?_⟩⟩
+    · intro i j hij
+      rw [h_cells i, h_cells j]
+      exact Finset.disjoint_coe.mpr (hValid.disjoint i j hij)
+    · -- Show ⋃ i, t'.cellsAt i = ↑R
+      simp only [SetTileSet.coveredCells]
+      have h_eq : (⋃ i : ιₜ, t'.cellsAt i) = ↑(t.coveredCells) := by
+        ext p
+        simp only [Set.mem_iUnion, h_cells, Finset.mem_coe,
+                   TileSet.coveredCells, Finset.mem_biUnion, Finset.mem_univ, true_and]
+      rw [h_eq, hValid.covers]
+  · -- Backward: Set tiling → Finset tiling
+    -- hFin becomes a local typeclass instance from the intro pattern
+    intro ⟨ιₜ, hFin, t', hValid⟩
+    haveI hDec : DecidableEq ιₜ := Classical.decEq _
+    let t : TileSet ps ιₜ :=
+      ⟨fun i => ⟨(t'.tiles i).index, (t'.tiles i).translation, (t'.tiles i).rotation⟩⟩
+    -- h_cells: t'.cellsAt i = ↑(t.cellsAt i)
+    -- Both sides unfold via placedTile_cells_compat applied to t.tiles i
+    -- (t.tiles i is a let-def of ⟨(t'.tiles i).index, ...⟩, definitionally equal)
+    have h_cells : ∀ i : ιₜ, t'.cellsAt i = ↑(t.cellsAt i : Finset Cell) := fun i =>
+      (placedTile_cells_compat ps sps hc (t.tiles i)).symm
+    refine ⟨ιₜ, hFin, hDec, t, ⟨?_, ?_⟩⟩
+    · intro i j hij
+      have hdisj := hValid.disjoint i j hij
+      rw [h_cells i, h_cells j] at hdisj
+      exact Finset.disjoint_coe.mp hdisj
+    · -- Prove t.coveredCells = R
+      have hcov := hValid.covers
+      simp only [SetTileSet.coveredCells] at hcov
+      -- hcov : ⋃ i, t'.cellsAt i = ↑R
+      apply Finset.ext; intro p
+      simp only [TileSet.coveredCells, Finset.mem_biUnion, Finset.mem_univ, true_and]
+      -- Goal: (∃ i, p ∈ t.cellsAt i) ↔ p ∈ R
+      constructor
+      · rintro ⟨i, hi⟩
+        -- p ∈ t.cellsAt i → p ∈ ↑(t.cellsAt i) → p ∈ t'.cellsAt i → p ∈ ↑R → p ∈ R
+        have h1 : p ∈ (↑(t.cellsAt i) : Set Cell) := Finset.mem_coe.mpr hi
+        rw [← h_cells i] at h1
+        have h2 : p ∈ (↑R : Set Cell) := hcov ▸ Set.mem_iUnion.mpr ⟨i, h1⟩
+        exact Finset.mem_coe.mp h2
+      · intro hp
+        -- p ∈ R → p ∈ ↑R = ⋃ i, t'.cellsAt i → p ∈ t'.cellsAt i → p ∈ t.cellsAt i
+        have h1 : p ∈ (↑R : Set Cell) := Finset.mem_coe.mpr hp
+        rw [← hcov] at h1
+        obtain ⟨i, hi⟩ := Set.mem_iUnion.mp h1
+        rw [h_cells i] at hi
+        exact ⟨i, Finset.mem_coe.mp hi⟩
