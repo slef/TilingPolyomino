@@ -188,7 +188,7 @@ theorem LTileable_even_x_3_set (k : Nat) (hk : 1 ≤ k) :
 
 theorem LTileable_6x_of_ge2_set (k : Nat) (hk : 2 ≤ k) :
     SetTileable (rect 0 0 6 k) LProtoset_set := by
-  induction' k using Nat.strong_induction_on with n ih
+  revert hk; induction k using Nat.strong_induction_on; rename_i n ih; intro hk
   rcases eq_or_lt_of_le hk with rfl | hn2
   · exact LTileable_6x2_set
   · rcases eq_or_lt_of_le (show 3 ≤ n from hn2) with rfl | hn3
@@ -350,28 +350,22 @@ theorem not_LTileable_3x_odd_set (k : ℕ) : ¬ SetTileable (rect 0 0 3 (2*k+1))
     have hdisj : Disjoint (lPlaced_set dxi dyi ri) (lPlaced_set dxj dyj rj) := by
       rw [← hi_eq, ← hj_eq]; exact hv.disjoint i j hij
     -- Any cell of any tile is in rect 0 0 3 (2k'+3)
-    have sub_full : ∀ (ii : ιₜ) q, q ∈ SetTileSet.cellsAt t ii →
-        q ∈ rect 0 0 3 (2 * (k' : ℤ) + 3) :=
+    have sub_full : ∀ (ii : ιₜ), SetTileSet.cellsAt t ii ⊆ rect 0 0 3 (2 * (k' : ℤ) + 3) :=
       fun ii q hq => hv.covers ▸ Set.mem_iUnion.mpr ⟨ii, hq⟩
-    have hi_sub_full : ∀ q, q ∈ lPlaced_set dxi dyi ri → q ∈ rect 0 0 3 (2 * (k' : ℤ) + 3) := by
-      intro q hq; rw [← hi_eq] at hq; exact sub_full i q hq
-    have hj_sub_full : ∀ q, q ∈ lPlaced_set dxj dyj rj → q ∈ rect 0 0 3 (2 * (k' : ℤ) + 3) := by
-      intro q hq; rw [← hj_eq] at hq; exact sub_full j q hq
     -- Each corner tile is contained in the bottom strip rect 0 0 3 2
     have hi_sub_3x2 : lPlaced_set dxi dyi ri ⊆ rect 0 0 3 2 := fun q hq => by
-      have hf := hi_sub_full q hq; simp only [mem_rect] at hf ⊢
+      have hf := sub_full i (hi_eq ▸ hq); simp only [mem_rect] at hf ⊢
       exact ⟨hf.1, hf.2.1, hf.2.2.1, lPlaced_set_ybnd_of_cover_00 dxi dyi ri hi' q hq hf.2.2.1⟩
     have hj_sub_3x2 : lPlaced_set dxj dyj rj ⊆ rect 0 0 3 2 := fun q hq => by
-      have hf := hj_sub_full q hq; simp only [mem_rect] at hf ⊢
+      have hf := sub_full j (hj_eq ▸ hq); simp only [mem_rect] at hf ⊢
       exact ⟨hf.1, hf.2.1, hf.2.2.1, lPlaced_set_ybnd_of_cover_20 dxj dyj rj hj' q hq hf.2.2.1⟩
     -- Their union fills rect 0 0 3 2 exactly (two disjoint 3-cell tiles in a 6-cell rect)
     have hunion_eq : lPlaced_set dxi dyi ri ∪ lPlaced_set dxj dyj rj = rect 0 0 3 2 := by
       have hcard : (lPlaced_set dxi dyi ri ∪ lPlaced_set dxj dyj rj).ncard = 6 := by
         rw [Set.ncard_union_eq hdisj (lPlaced_set_finite _ _ _) (lPlaced_set_finite _ _ _),
             lPlaced_set_ncard, lPlaced_set_ncard]
-      have h_rect_card : (rect 0 0 3 (2 : ℤ)).ncard = 6 := by simp [rect_ncard]
       exact Set.eq_of_subset_of_ncard_le (Set.union_subset hi_sub_3x2 hj_sub_3x2)
-        (by linarith) (rect_finite _ _ _ _)
+        (by simp [rect_ncard] at hcard ⊢; omega) (rect_finite _ _ _ _)
     -- Remove the two bottom tiles; the remainder is the translated smaller rect
     have hS : t.cellsAt i ∪ t.cellsAt j = rect 0 0 3 2 := by rw [hi_eq, hj_eq]; exact hunion_eq
     have h_remain := SetTileable.remove_two t hv i j hij hS
@@ -381,9 +375,8 @@ theorem not_LTileable_3x_odd_set (k : ℕ) : ¬ SetTileable (rect 0 0 3 (2*k+1))
     rw [h_diff_eq] at h_remain
     -- Translate back and apply IH
     have h_back : SetTileable (rect 0 0 3 (2 * (k' : ℤ) + 1)) LProtoset_set := by
-      have h := h_remain.translate 0 (-2)
-      rwa [show translate 0 (-2) (translate 0 2 (rect 0 0 3 (2 * ↑k' + 1))) =
-          rect 0 0 3 (2 * ↑k' + 1) from by ext ⟨x, y⟩; simp only [mem_translate, mem_rect]; omega] at h
+      convert h_remain.translate 0 (-2) using 1
+      ext ⟨x, y⟩; simp only [mem_translate, mem_rect]; omega
     exact ih h_back
 
 -- ============================================================
@@ -457,7 +450,7 @@ theorem LTileable_mult2_mult3_set (a b : ℕ) (ha : 1 ≤ a) (hb : 1 ≤ b) :
 /-- n×6 is L-tileable for all odd n ≥ 3 -/
 theorem LTileable_odd_x_6_set (n : ℕ) (hn_odd : n % 2 = 1) (hn_ge : 3 ≤ n) :
     SetTileable (rect 0 0 n 6) LProtoset_set := by
-  induction' n using Nat.strong_induction_on with n ih
+  revert hn_odd hn_ge; induction n using Nat.strong_induction_on; rename_i n ih; intro hn_odd hn_ge
   rcases Nat.eq_or_lt_of_le hn_ge with rfl | hn_gt
   · exact LTileable_3x6_set
   · have h_prev : SetTileable (rect 0 0 ((n : ℤ) - 2) 6) LProtoset_set := by

@@ -10,8 +10,6 @@
       `not_LTileable_3x_odd_set` and `LTileable_3xn_iff_set`.
 - [ ] **Fair line-count comparison**: compare `LTrominoSet.lean` + `LTrominoSetBridge.lean`
       against `LTromino.lean` for matching theorem sets.
-- [ ] **`induction'` → `induction`**: Replace `induction'` (style warning) in
-      `LTileable_6x_of_ge2_set` and `LTileable_odd_x_6_set` with `induction ... using`.
 - [ ] **`LTileable_2xn_iff_set` and `LTileable_nx2_iff_set`** companion symmetry (only `2xn`/`3xn`
       are biconditionals; `nx2` and `nx3` directions are missing or need checking).
 
@@ -22,6 +20,14 @@
       (currently only `2xn` and `3xn` are biconditionals).
 
 ## Done (recent)
+- [x] **Third simplification pass** (`feat/set-tiling`):
+      - `not_LTileable_3x_odd_set`: 75 → 68 lines (−7): removed `hi_sub_full`/`hj_sub_full`
+        helpers (inlined via reshaped `sub_full`), eliminated `h_rect_card` variable
+        (merged into `ncard` inequality via simp), compressed `h_back` with `convert`.
+      - `LTileable_6x_of_ge2_set`, `LTileable_odd_x_6_set`: replaced `induction'`
+        (style warning) with `revert … ; induction … using Nat.strong_induction_on;
+        rename_i … ; intro …` (no line change, correct Lean 4 idiom).
+      - Total: LTrominoSet.lean 482 → 475 lines (−7). 0 sorries.
 - [x] **Second simplification pass** (`feat/set-tiling`):
       - `LTileable_2x2_minus_set`: 21 → 14 lines (−7): removed `h_sing` subproof, let `simp+Prod.mk.injEq+omega` close.
       - `LTileable_6x_of_ge2_set`: 26 → 15 lines (−11): merged Nat→ℤ cast via `convert+push_cast+omega`; `h_stripe` compressed to 2 lines.
