@@ -13,7 +13,7 @@ But using the bridge to prove Set theorems defeats the entire point.
 **Status** (ALL DONE):
 1. ~~`LTileable_rect_iff_set`~~ — **DONE**: native proof in LTrominoSet.lean (f62afd4)
 2. ~~`LTileable_rectMinusCorner_iff_set`~~ — **DONE**: native proof in LTrominoSet.lean (ce3b2f0, 2026-02-27 15:10)
-3. ~~`LTileable_rectMinus2Corner_set`~~ — **DONE**: native proof in LTrominoSet.lean (2026-02-27 16:10)
+3. ~~`LTileable_rectMinus2Corner_set`~~ — **DONE**: native proof in LTrominoSet.lean (`5f82e19`, 2026-02-27 16:10)
 
 All three major Set-framework theorems are now proved natively. Bridge.lean retains only
 conversion helpers (`LTileable_iff_set`, coercions) — no theorem delegation to bridge.
@@ -62,7 +62,7 @@ _Nothing in progress. P4 just completed (2026-02-27 16:10). Next up: P5 or P6._
       Leave as-is unless doing a structural refactor.
 
 ## Done (recent)
-- [x] **P4 COMPLETE — Native `LTileable_rectMinus2Corner_set` in LTrominoSet.lean** (`feat/set-tiling`, 2026-02-27 16:10):
+- [x] **P4 COMPLETE — Native `LTileable_rectMinus2Corner_set` in LTrominoSet.lean** (`feat/set-tiling`, `5f82e19`, 2026-02-27 16:10):
       - Full native Set-framework proof; no bridge delegation. 0 sorries. Build clean.
       - `rectMinus2Corner_set` defined as `rect 0 0 n m \ ({(n-1, m-1)} ∪ {(n-2, m-1)})`.
       - Helper lemmas: `LTileable_piece2_base_set`, `LTileable_piece2_set` (4×(3k+1) minus corner).
