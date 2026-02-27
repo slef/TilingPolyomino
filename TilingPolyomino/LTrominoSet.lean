@@ -1293,3 +1293,366 @@ theorem LTileable_rectMinusCorner_iff_set (n m : ℕ) (hn : n ≥ 2) (hm : m ≥
       have hm_eq : m = 3 * k + 2 := by simp only [k]; omega
       have h := LTileable_mod2_minus_corner_set_all j k
       convert h using 2 <;> [push_cast; omega; push_cast; omega]
+
+-- ============================================================
+-- Deficient Rectangles: rectMinus2Corner_set
+-- ============================================================
+
+/-- n×m rectangle with two adjacent top-right corners removed. -/
+def rectMinus2Corner_set (n m : ℤ) : Set Cell :=
+  rect 0 0 n m \ ({(n - 1, m - 1)} ∪ {(n - 2, m - 1)})
+
+-- ============================================================
+-- Helper: piece2_set (rect 0 0 4 (3k+1) minus top-left corner)
+-- ============================================================
+
+/-- The 4×4 rectangle minus the top-left corner {(0,3)} is L-tileable.
+    Tiles: r=0 at (0,0), r=1 at (1,2), r=1 at (2,1), r=1 at (3,0), r=2 at (3,3). -/
+private lemma LTileable_piece2_base_set :
+    SetTileable (rect 0 0 4 4 \ {(0 : ℤ, 3 : ℤ)}) LProtoset_set := by
+  refine ⟨Fin 5, inferInstance, ⟨![
+    ⟨(), (0, 0), 0⟩,
+    ⟨(), (1, 2), 1⟩,
+    ⟨(), (2, 1), 1⟩,
+    ⟨(), (3, 0), 1⟩,
+    ⟨(), (3, 3), 2⟩]⟩, ⟨?_, ?_⟩⟩
+  · intro i j hij
+    fin_cases i <;> fin_cases j <;>
+      simp_all only [ne_eq, not_false_eq_true, Set.disjoint_iff_inter_eq_empty,
+        SetTileSet.cellsAt, SetPlacedTile.cells, LProtoset_set, LPrototile_set,
+        LShape_cells, LShape_eq_rects] <;>
+      rect_omega
+  · ext ⟨x, y⟩
+    simp only [SetTileSet.coveredCells, Set.mem_iUnion, SetTileSet.cellsAt,
+      SetPlacedTile.cells, LProtoset_set, LPrototile_set, LShape_cells, LShape_eq_rects,
+      mem_translate, mem_rotate, mem_rect, inverseRot, rotateCell_0, rotateCell_1,
+      rotateCell_2, rotateCell_3, Set.mem_diff, Set.mem_singleton_iff, Prod.mk.injEq]
+    constructor
+    · rintro ⟨i, hi⟩
+      fin_cases i <;> simp_all <;> omega
+    · intro ⟨⟨h1, h2, h3, h4⟩, hne⟩
+      interval_cases x <;> interval_cases y <;> simp_all <;> omega
+
+/-- rect 0 0 4 (3k+1) minus the top-left corner {(0, 3k)} is L-tileable for k ≥ 1. -/
+private lemma LTileable_piece2_set (k : ℕ) (hk : k ≥ 1) :
+    SetTileable (rect 0 0 4 (3 * (k : ℤ) + 1) \ {(0 : ℤ, 3 * k)}) LProtoset_set := by
+  induction k with
+  | zero => omega
+  | succ n ih =>
+    rcases Nat.eq_zero_or_pos n with hn | hn
+    · subst hn
+      convert LTileable_piece2_base_set using 2 <;> norm_num
+    · have ih' := ih hn
+      have heq : rect 0 0 4 (3 * (↑(n + 1) : ℤ) + 1) \ {(0 : ℤ, 3 * ↑(n + 1))} =
+          rect 0 0 4 3 ∪ translate 0 3 (rect 0 0 4 (3 * (n : ℤ) + 1) \ {(0 : ℤ, 3 * ↑n)}) := by
+        ext ⟨x, y⟩
+        simp only [Set.mem_diff, mem_rect, Set.mem_union, mem_translate, Set.mem_singleton_iff,
+          Prod.mk.injEq]
+        push_cast; omega
+      rw [heq]
+      apply SetTileable.union LTileable_4x3_set (setTileable_translate ih' 0 3)
+      rw [Set.disjoint_left]
+      intro ⟨x, y⟩ h1 h2
+      simp only [mem_rect, mem_translate, Set.mem_diff, Set.mem_singleton_iff,
+        Prod.mk.injEq] at h1 h2
+      omega
+
+-- ============================================================
+-- Step 3: 4 × (3k+2) minus 2 corners
+-- ============================================================
+
+/-- 4×(3k+2) rectangle minus two top-right corners is L-tileable for k ≥ 1. -/
+theorem LTileable_4x_3kplus2_minus_2corner_set (k : ℕ) (hk : k ≥ 1) :
+    SetTileable (rectMinus2Corner_set 4 (3 * (k : ℤ) + 2)) LProtoset_set := by
+  have hdecomp : rectMinus2Corner_set 4 (3 * (k : ℤ) + 2) =
+      ({(0 : ℤ, 3 * k + 1), (1, 3 * k + 1), (0, 3 * k)} : Set Cell) ∪
+      (rect 0 0 4 (3 * (k : ℤ) + 1) \ {(0 : ℤ, 3 * k)}) := by
+    ext ⟨x, y⟩
+    simp only [rectMinus2Corner_set, Set.mem_diff, mem_rect, Set.mem_union,
+      Set.mem_insert_iff, Set.mem_singleton_iff, Prod.mk.injEq]
+    push_cast; omega
+  have hdisj : Disjoint
+      ({(0 : ℤ, 3 * k + 1), (1, 3 * k + 1), (0, 3 * k)} : Set Cell)
+      (rect 0 0 4 (3 * (k : ℤ) + 1) \ {(0 : ℤ, 3 * k)}) := by
+    rw [Set.disjoint_left]
+    intro ⟨x, y⟩ h1 h2
+    simp only [Set.mem_insert_iff, Set.mem_singleton_iff, Prod.mk.injEq,
+      Set.mem_diff, mem_rect, Set.mem_singleton_iff] at h1 h2
+    push_cast at *; omega
+  have hpiece1 : SetTileable
+      ({(0 : ℤ, 3 * k + 1), (1, 3 * k + 1), (0, 3 * k)} : Set Cell) LProtoset_set := by
+    refine ⟨Fin 1, inferInstance, ⟨![⟨(), (0, 3 * (k : ℤ) + 1), 3⟩]⟩, ⟨?_, ?_⟩⟩
+    · intro i j hij; fin_cases i; fin_cases j; exact (hij rfl).elim
+    · ext ⟨x, y⟩
+      simp only [SetTileSet.coveredCells, Set.mem_iUnion, Fin.exists_fin_one,
+        SetTileSet.cellsAt, SetPlacedTile.cells, LProtoset_set, LPrototile_set, LShape_cells,
+        mem_translate, mem_rotate, inverseRot, rotateCell_3,
+        Set.mem_insert_iff, Set.mem_singleton_iff, Prod.mk.injEq]
+      push_cast; omega
+  rw [hdecomp]
+  exact SetTileable.union hpiece1 (LTileable_piece2_set k hk) hdisj
+
+-- ============================================================
+-- Step 5: (3j+2) × (3k+1) minus 2 corners (proved before Step 4)
+-- ============================================================
+
+/-- Modular arithmetic helper: ((3j+2)*(3k-1) - 1) % 3 = 0 for j,k ≥ 1. -/
+private lemma piece5_area_mod (j k : ℕ) (hj : j ≥ 1) (hk : k ≥ 1) :
+    ((3 * j + 2) * (3 * k - 1) - 1) % 3 = 0 := by
+  obtain ⟨j', rfl⟩ : ∃ j', j = j' + 1 := ⟨j - 1, by omega⟩
+  obtain ⟨k', rfl⟩ : ∃ k', k = k' + 1 := ⟨k - 1, by omega⟩
+  have h1 : 3 * (k' + 1) - 1 = 3 * k' + 2 := by omega
+  simp only [h1]
+  have h2 : (3 * (j' + 1) + 2) * (3 * k' + 2) =
+      3 * (3 * j' * k' + 2 * j' + 5 * k' + 3) + 1 := by ring
+  have h3 : 0 < (3 * (j' + 1) + 2) * (3 * k' + 2) := by positivity
+  omega
+
+/-- (3j+2)×(3k+1) minus two top-right corners is L-tileable for j,k ≥ 1. -/
+theorem LTileable_3jplus2_x_3kplus1_minus_2corner_set (j k : ℕ) (hj : j ≥ 1) (hk : k ≥ 1) :
+    SetTileable (rectMinus2Corner_set (3 * (j : ℤ) + 2) (3 * k + 1)) LProtoset_set := by
+  -- Decompose into A ∪ B ∪ C:
+  -- A = rectMinusCorner_set (3j+2) (3k-1)
+  -- B = translate 0 (3k-1) (rect 0 0 (3j) 2)
+  -- C = {(3j+1, 3k-1), (3j+1, 3k-2), (3j, 3k-1)} (L-tromino, r=2 at (3j+1, 3k-1))
+  have hdecomp : rectMinus2Corner_set (3 * (j : ℤ) + 2) (3 * k + 1) =
+      rectMinusCorner_set (3 * (j : ℤ) + 2) (3 * k - 1) ∪
+      translate 0 (3 * (k : ℤ) - 1) (rect 0 0 (3 * j) 2) ∪
+      ({(3 * (j : ℤ) + 1, 3 * k - 1), (3 * j + 1, 3 * k - 2), (3 * j, 3 * k - 1)} : Set Cell) := by
+    ext ⟨x, y⟩
+    simp only [rectMinus2Corner_set, rectMinusCorner_set, Set.mem_diff, mem_rect, Set.mem_union,
+      mem_translate, Set.mem_insert_iff, Set.mem_singleton_iff, Prod.mk.injEq]
+    push_cast; omega
+  have hdisj_AB : Disjoint
+      (rectMinusCorner_set (3 * (j : ℤ) + 2) (3 * k - 1))
+      (translate 0 (3 * (k : ℤ) - 1) (rect 0 0 (3 * j) 2)) := by
+    rw [Set.disjoint_left]
+    intro ⟨x, y⟩ h1 h2
+    simp only [rectMinusCorner_set, Set.mem_diff, mem_rect, Set.mem_singleton_iff,
+      mem_translate, Prod.mk.injEq] at h1 h2
+    push_cast at *; omega
+  have hdisj_ABC : Disjoint
+      (rectMinusCorner_set (3 * (j : ℤ) + 2) (3 * k - 1) ∪
+       translate 0 (3 * (k : ℤ) - 1) (rect 0 0 (3 * j) 2))
+      ({(3 * (j : ℤ) + 1, 3 * k - 1), (3 * j + 1, 3 * k - 2), (3 * j, 3 * k - 1)} : Set Cell) := by
+    rw [Set.disjoint_left]
+    intro ⟨x, y⟩ h1 h2
+    simp only [Set.mem_union, rectMinusCorner_set, Set.mem_diff, mem_rect,
+      Set.mem_singleton_iff, mem_translate, Set.mem_insert_iff, Prod.mk.injEq] at h1 h2
+    push_cast at *; omega
+  have hA : SetTileable (rectMinusCorner_set (3 * (j : ℤ) + 2) (3 * k - 1)) LProtoset_set := by
+    have h := (LTileable_rectMinusCorner_iff_set (3 * j + 2) (3 * k - 1) (by omega) (by omega)).mpr
+      (piece5_area_mod j k hj hk)
+    simp only [LTileable_set] at h
+    convert h using 1
+    ext ⟨x, y⟩
+    simp only [rectMinusCorner_set, Set.mem_diff, mem_rect, Set.mem_singleton_iff, Prod.mk.injEq]
+    push_cast; omega
+  have hB : SetTileable (translate 0 (3 * (k : ℤ) - 1) (rect 0 0 (3 * (j : ℤ)) 2))
+      LProtoset_set := by
+    apply setTileable_translate
+    apply LTileable_rect_of_conditions_set
+    unfold RectTileableConditions
+    right; right
+    refine ⟨?_, ?_, ?_, ?_, ?_⟩
+    · have : 3 * j * 2 % 3 = 0 := by omega
+      exact_mod_cast this
+    · omega
+    · omega
+    · intro ⟨h1, h2⟩; omega
+    · intro ⟨h1, h2⟩; norm_num at h2
+  have hC : SetTileable
+      ({(3 * (j : ℤ) + 1, 3 * k - 1), (3 * j + 1, 3 * k - 2), (3 * j, 3 * k - 1)} : Set Cell)
+      LProtoset_set := by
+    refine ⟨Fin 1, inferInstance, ⟨![⟨(), (3 * (j : ℤ) + 1, 3 * k - 1), 2⟩]⟩, ⟨?_, ?_⟩⟩
+    · intro i j' hij; fin_cases i; fin_cases j'; exact (hij rfl).elim
+    · ext ⟨x, y⟩
+      simp only [SetTileSet.coveredCells, Set.mem_iUnion, Fin.exists_fin_one,
+        SetTileSet.cellsAt, SetPlacedTile.cells, LProtoset_set, LPrototile_set, LShape_cells,
+        mem_translate, mem_rotate, inverseRot, rotateCell_2,
+        Set.mem_insert_iff, Set.mem_singleton_iff, Prod.mk.injEq]
+      push_cast; omega
+  rw [hdecomp]
+  exact SetTileable.union (SetTileable.union hA hB hdisj_AB) hC hdisj_ABC
+
+-- ============================================================
+-- Step 4: (3j+1) × (3k+2) minus 2 corners
+-- ============================================================
+
+/-- (3j+1)×(3k+2) minus two top-right corners is L-tileable for j,k ≥ 1. -/
+theorem LTileable_3jplus1_x_3kplus2_minus_2corner_set (j k : ℕ) (hj : j ≥ 1) (hk : k ≥ 1) :
+    SetTileable (rectMinus2Corner_set (3 * (j : ℤ) + 1) (3 * k + 2)) LProtoset_set := by
+  induction j with
+  | zero => omega
+  | succ n ih =>
+    rcases Nat.eq_zero_or_pos n with hn0 | hn_pos
+    · -- j = 1: base case
+      subst hn0
+      convert LTileable_4x_3kplus2_minus_2corner_set k hk using 2 <;> norm_num
+    · rcases Nat.eq_or_lt_of_le hn_pos with hn1 | hn2
+      · -- j = 2 (n = 1): special case, split on k parity
+        rw [← hn1]
+        rcases Nat.even_or_odd k with ⟨m, hm⟩ | ⟨m, hm⟩
+        · -- k even: simple split
+          have hdecomp : rectMinus2Corner_set (3 * (↑(1 + 1) : ℤ) + 1) (3 * ↑k + 2) =
+              rect 0 0 3 (3 * (k : ℤ) + 2) ∪
+              translate 3 0 (rectMinus2Corner_set 4 (3 * ↑k + 2)) := by
+            ext ⟨x, y⟩
+            simp only [rectMinus2Corner_set, Set.mem_diff, mem_rect, Set.mem_union,
+              mem_translate, Set.mem_insert_iff, Set.mem_singleton_iff, Prod.mk.injEq]
+            push_cast; omega
+          have hdisj : Disjoint
+              (rect 0 0 3 (3 * (k : ℤ) + 2))
+              (translate 3 0 (rectMinus2Corner_set 4 (3 * ↑k + 2))) := by
+            rw [Set.disjoint_left]
+            intro ⟨x, y⟩ h1 h2
+            simp only [mem_rect, mem_translate, rectMinus2Corner_set, Set.mem_diff, mem_rect,
+              Set.mem_insert_iff, Set.mem_singleton_iff, Prod.mk.injEq] at h1 h2
+            push_cast at *; omega
+          have hleft : SetTileable (rect 0 0 3 (3 * (k : ℤ) + 2)) LProtoset_set := by
+            apply LTileable_rect_of_conditions_set
+            unfold RectTileableConditions; right; right
+            refine ⟨?_, ?_, ?_, ?_, ?_⟩
+            · have : 3 * (3 * k + 2) % 3 = 0 := by omega
+              exact_mod_cast this
+            · omega
+            · omega
+            · intro ⟨_, hodd⟩
+              rw [Nat.odd_iff] at hodd
+              subst hm; omega
+            · intro ⟨hodd, h2⟩; omega
+          rw [hdecomp]
+          exact SetTileable.union hleft
+            (setTileable_translate (LTileable_4x_3kplus2_minus_2corner_set k hk) 3 0) hdisj
+        · -- k odd: pieceA ∪ pieceB ∪ pieceC decomposition of 7×(3k+2)
+          -- pieceA = rect 0 0 4 (3k+2) \ {(3,3k+1),(3,3k)}
+          -- pieceB = {(3,3k+1),(4,3k+1),(3,3k)} (L-tromino r=3 at (3,3k+1))
+          -- pieceC = translate 4 0 (rect 0 0 3 (3k+1))
+          have hdecomp7 : rectMinus2Corner_set (3 * (↑(1 + 1) : ℤ) + 1) (3 * ↑k + 2) =
+              (rect 0 0 4 (3 * (k : ℤ) + 2) \ ({(3, 3 * k + 1)} ∪ {(3, 3 * k)})) ∪
+              ({(3 : ℤ, 3 * k + 1), (4, 3 * k + 1), (3, 3 * k)} : Set Cell) ∪
+              translate 4 0 (rect 0 0 3 (3 * (k : ℤ) + 1)) := by
+            ext ⟨x, y⟩
+            simp only [rectMinus2Corner_set, Set.mem_diff, mem_rect, Set.mem_union,
+              Set.mem_insert_iff, Set.mem_singleton_iff, mem_translate, Prod.mk.injEq]
+            push_cast; omega
+          have hdisj_AB : Disjoint
+              (rect 0 0 4 (3 * (k : ℤ) + 2) \ ({(3, 3 * k + 1)} ∪ {(3, 3 * k)}))
+              ({(3 : ℤ, 3 * k + 1), (4, 3 * k + 1), (3, 3 * k)} : Set Cell) := by
+            rw [Set.disjoint_left]
+            intro ⟨x, y⟩ h1 h2
+            simp only [Set.mem_diff, mem_rect, Set.mem_union, Set.mem_singleton_iff,
+              Set.mem_insert_iff, Prod.mk.injEq] at h1 h2
+            push_cast at *; omega
+          have hdisj_ABC : Disjoint
+              (rect 0 0 4 (3 * (k : ℤ) + 2) \ ({(3, 3 * k + 1)} ∪ {(3, 3 * k)}) ∪
+               ({(3 : ℤ, 3 * k + 1), (4, 3 * k + 1), (3, 3 * k)} : Set Cell))
+              (translate 4 0 (rect 0 0 3 (3 * (k : ℤ) + 1))) := by
+            rw [Set.disjoint_left]
+            intro ⟨x, y⟩ h1 h2
+            simp only [Set.mem_union, Set.mem_diff, mem_rect, Set.mem_insert_iff,
+              Set.mem_singleton_iff, Prod.mk.injEq, mem_translate] at h1 h2
+            push_cast at *; omega
+          -- Tileability of pieceA via swapRegion
+          have hA : SetTileable
+              (rect 0 0 4 (3 * (k : ℤ) + 2) \ ({(3, 3 * k + 1)} ∪ {(3, 3 * k)}))
+              LProtoset_set := by
+            have heq : rect 0 0 4 (3 * (k : ℤ) + 2) \ ({(3, 3 * k + 1)} ∪ {(3, 3 * k)}) =
+                Set.swapRegion (rectMinus2Corner_set (3 * (k : ℤ) + 2) 4) := by
+              ext ⟨x, y⟩
+              simp only [Set.mem_diff, mem_rect, Set.mem_union, Set.mem_singleton_iff,
+                Set.mem_swapRegion, rectMinus2Corner_set, Prod.mk.injEq]
+              push_cast; omega
+            rw [heq]
+            exact LTileable_swap_set
+              (LTileable_3jplus2_x_3kplus1_minus_2corner_set k 1 hk (by omega))
+          -- Tileability of pieceB (L-tromino r=3 at (3,3k+1))
+          have hB : SetTileable
+              ({(3 : ℤ, 3 * k + 1), (4, 3 * k + 1), (3, 3 * k)} : Set Cell) LProtoset_set := by
+            refine ⟨Fin 1, inferInstance, ⟨![⟨(), (3, 3 * (k : ℤ) + 1), 3⟩]⟩, ⟨?_, ?_⟩⟩
+            · intro i j' hij; fin_cases i; fin_cases j'; exact (hij rfl).elim
+            · ext ⟨x, y⟩
+              simp only [SetTileSet.coveredCells, Set.mem_iUnion, Fin.exists_fin_one,
+                SetTileSet.cellsAt, SetPlacedTile.cells, LProtoset_set, LPrototile_set,
+                LShape_cells, mem_translate, mem_rotate, inverseRot, rotateCell_3,
+                Set.mem_insert_iff, Set.mem_singleton_iff, Prod.mk.injEq]
+              push_cast; omega
+          -- Tileability of pieceC = translate 4 0 (rect 0 0 3 (3k+1))
+          -- When k is odd, 3k+1 is even, so rect 0 0 3 (3k+1) is tileable
+          have hC : SetTileable (translate 4 0 (rect 0 0 3 (3 * (k : ℤ) + 1))) LProtoset_set := by
+            apply setTileable_translate
+            apply LTileable_rect_of_conditions_set
+            unfold RectTileableConditions; right; right
+            refine ⟨?_, ?_, ?_, ?_, ?_⟩
+            · have : 3 * (3 * k + 1) % 3 = 0 := by omega
+              exact_mod_cast this
+            · omega
+            · omega
+            · -- ¬(3=3 ∧ Odd(3k+1)): k odd → 3k is odd → 3k+1 is even → ¬Odd(3k+1)
+              intro ⟨_, hodd⟩
+              rw [Nat.odd_iff] at hodd
+              subst hm; omega
+            · intro ⟨_, h2⟩; omega
+          rw [hdecomp7]
+          exact SetTileable.union (SetTileable.union hA hB hdisj_AB) hC hdisj_ABC
+      · -- j ≥ 3 (n ≥ 2): split off 3*n columns on the left
+        -- Left: rect 0 0 (3n) (3k+2), Right: translate (3n) 0 (rectMinus2Corner_set 4 (3k+2))
+        have hdecomp : rectMinus2Corner_set (3 * (↑(n + 1) : ℤ) + 1) (3 * ↑k + 2) =
+            rect 0 0 (3 * (n : ℤ)) (3 * k + 2) ∪
+            translate (3 * (n : ℤ)) 0 (rectMinus2Corner_set 4 (3 * ↑k + 2)) := by
+          ext ⟨x, y⟩
+          simp only [rectMinus2Corner_set, Set.mem_diff, mem_rect, Set.mem_union, mem_translate,
+            Set.mem_insert_iff, Set.mem_singleton_iff, Prod.mk.injEq]
+          push_cast; omega
+        have hdisj : Disjoint
+            (rect 0 0 (3 * (n : ℤ)) (3 * k + 2))
+            (translate (3 * (n : ℤ)) 0 (rectMinus2Corner_set 4 (3 * ↑k + 2))) := by
+          rw [Set.disjoint_left]
+          intro ⟨x, y⟩ h1 h2
+          simp only [mem_rect, mem_translate, rectMinus2Corner_set, Set.mem_diff, mem_rect,
+            Set.mem_insert_iff, Set.mem_singleton_iff, Prod.mk.injEq] at h1 h2
+          push_cast at *; omega
+        -- n ≥ 2, so 3*n ≥ 6, avoiding the 3×odd forbidden case
+        have hleft : SetTileable (rect 0 0 (3 * (n : ℤ)) (3 * k + 2)) LProtoset_set := by
+          apply LTileable_rect_of_conditions_set
+          unfold RectTileableConditions; right; right
+          refine ⟨?_, ?_, ?_, ?_, ?_⟩
+          · have : 3 * n * (3 * k + 2) % 3 = 0 := by omega
+            exact_mod_cast this
+          · omega
+          · omega
+          · intro ⟨h1, _⟩; omega  -- 3*n = 3 → n=1, but n ≥ 2
+          · intro ⟨_, h2⟩; omega  -- 3*k+2 = 3 → impossible since k ≥ 1
+        rw [hdecomp]
+        exact SetTileable.union hleft
+          (setTileable_translate (LTileable_4x_3kplus2_minus_2corner_set k hk) _ _) hdisj
+
+-- ============================================================
+-- Step 6: Main theorem
+-- ============================================================
+
+/-- **Native Set-framework version of the two-corner-deficient rectangle theorem.**
+    An n×m rectangle with two adjacent top-right corners removed is L-tileable
+    when n*m ≡ 2 (mod 3), for n, m ≥ 3. -/
+theorem LTileable_rectMinus2Corner_set (n m : ℕ) (hn : n ≥ 3) (hm : m ≥ 3)
+    (hmod : n * m % 3 = 2) :
+    LTileable_set (rect 0 0 (n : ℤ) m \ ({((n : ℤ) - 1, (m : ℤ) - 1)} ∪
+                                          {((n : ℤ) - 2, (m : ℤ) - 1)})) := by
+  simp only [LTileable_set]
+  have hrw : rect 0 0 (n : ℤ) m \ ({((n : ℤ) - 1, (m : ℤ) - 1)} ∪ {((n : ℤ) - 2, (m : ℤ) - 1)}) =
+      rectMinus2Corner_set (n : ℤ) m := rfl
+  rw [hrw]
+  have h_cases := mod3_one_two_or_two_one_of_area_mod3_two hmod
+  rcases h_cases with ⟨hn1, hm2⟩ | ⟨hn2, hm1⟩
+  · -- n ≡ 1 mod 3, m ≡ 2 mod 3
+    let j := n / 3; let k := m / 3
+    have hj1 : j ≥ 1 := by simp only [j]; omega
+    have hk1 : k ≥ 1 := by simp only [k]; omega
+    have h := LTileable_3jplus1_x_3kplus2_minus_2corner_set j k hj1 hk1
+    convert h using 2 <;> push_cast <;> [simp only [j]; omega; simp only [k]; omega]
+  · -- n ≡ 2 mod 3, m ≡ 1 mod 3
+    let j := n / 3; let k := m / 3
+    have hj1 : j ≥ 1 := by simp only [j]; omega
+    have hk1 : k ≥ 1 := by simp only [k]; omega
+    have h := LTileable_3jplus2_x_3kplus1_minus_2corner_set j k hj1 hk1
+    convert h using 2 <;> push_cast <;> [simp only [j]; omega; simp only [k]; omega]

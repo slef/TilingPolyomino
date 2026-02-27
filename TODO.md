@@ -10,12 +10,13 @@ The bridge (`LTrominoSetBridge.lean`) is a **two-way compatibility layer** for l
 if some theorem is easier to prove in one framework, the bridge lets you transport it.
 But using the bridge to prove Set theorems defeats the entire point.
 
-**Status** (one remaining):
+**Status** (ALL DONE):
 1. ~~`LTileable_rect_iff_set`~~ — **DONE**: native proof in LTrominoSet.lean (f62afd4)
 2. ~~`LTileable_rectMinusCorner_iff_set`~~ — **DONE**: native proof in LTrominoSet.lean (ce3b2f0, 2026-02-27 15:10)
-3. `LTileable_rectMinus2Corner_set` — still in Bridge.lean, uses bridge
+3. ~~`LTileable_rectMinus2Corner_set`~~ — **DONE**: native proof in LTrominoSet.lean (2026-02-27 16:10)
 
-**Required**: Move item 3 into `LTrominoSet.lean` with a direct Set proof (no bridge).
+All three major Set-framework theorems are now proved natively. Bridge.lean retains only
+conversion helpers (`LTileable_iff_set`, coercions) — no theorem delegation to bridge.
 
 ## ✅ RESOLVED — LTileable_5x9_set heartbeat fix confirmed working
 `set_option maxHeartbeats 20000000` per-theorem budget applied (commit ce3b2f0 working tree, now committed).
@@ -23,13 +24,9 @@ Build passed cleanly — 0 errors, 0 warnings, 0 sorries. Verified 2026-02-27 15
 
 ## In Progress
 
-### P4 — Native `LTileable_rectMinus2Corner_set` in LTrominoSet.lean (no bridge)
-**Status: not yet started** (P3 just completed 2026-02-27 15:10)
+_Nothing in progress. P4 just completed (2026-02-27 16:10). Next up: P5 or P6._
 
 ## Up Next
-
-### P4 — Native `LTileable_rectMinus2Corner_set` in LTrominoSet.lean (no bridge)
-- Same strategy as P3: define `rectMinus2Corner` as RExp, port decomposition lemmas
 
 ### P5 — Auto-tactic for explicit tiling verification (side project — do only if more explicit tilings needed)
 - Pattern: all explicit tiling proofs have the same structure: provide tile list, prove pairwise
@@ -65,6 +62,15 @@ Build passed cleanly — 0 errors, 0 warnings, 0 sorries. Verified 2026-02-27 15
       Leave as-is unless doing a structural refactor.
 
 ## Done (recent)
+- [x] **P4 COMPLETE — Native `LTileable_rectMinus2Corner_set` in LTrominoSet.lean** (`feat/set-tiling`, 2026-02-27 16:10):
+      - Full native Set-framework proof; no bridge delegation. 0 sorries. Build clean.
+      - `rectMinus2Corner_set` defined as `rect 0 0 n m \ ({(n-1, m-1)} ∪ {(n-2, m-1)})`.
+      - Helper lemmas: `LTileable_piece2_base_set`, `LTileable_piece2_set` (4×(3k+1) minus corner).
+      - Family lemmas: `LTileable_4x_3kplus2_minus_2corner_set`, `LTileable_3jplus2_x_3kplus1_minus_2corner_set`,
+        `LTileable_3jplus1_x_3kplus2_minus_2corner_set`.
+      - Main theorem at LTrominoSet.lean line 1637: case split on (n≡1,m≡2) vs (n≡2,m≡1) mod 3.
+      - Bridge copy removed. LTrominoSet.lean: 1295 → 1658L (+363). Bridge: 108 → 84L (−24).
+      - All three TOP PRIORITY native Set proofs complete. Branch is PR-ready.
 - [x] **P3 COMPLETE — Native `LTileable_rectMinusCorner_iff_set` in LTrominoSet.lean** (`feat/set-tiling`, `ce3b2f0`, 2026-02-27 15:10):
       - All 7 steps complete, 0 sorries, build clean (verified by cron 15:10).
       - STEP 6: `LTileable_rectMinusCorner_ncard_set` (necessity via ncard divisibility).

@@ -10,7 +10,7 @@ Main results:
 - `LTileable_iff_set`: `LTileable R ↔ SetTileable ↑R LProtoset_set`
 - `LTileable_rect_iff_set`: full rectangle characterization in the Set framework
 - `LTileable_rectMinusCorner_iff_set`: proved natively in LTrominoSet.lean (bridge copy removed)
-- `LTileable_rectMinus2Corner_set`: two-corner-deficient rectangle theorem (Set framework)
+- `LTileable_rectMinus2Corner_set`: proved natively in LTrominoSet.lean (bridge copy removed)
 -/
 
 import TilingPolyomino.LTromino
@@ -75,34 +75,5 @@ lemma coe_rectangleMinusCorner_eq (n m : ℕ) (hn : n ≥ 1) (hm : m ≥ 1) :
 -- NOTE: `LTileable_rectMinusCorner_iff_set` is now proved natively in LTrominoSet.lean
 -- (via direct Set-framework proof). The bridge copy has been removed.
 
--- ============================================================
--- Priority 3: rectMinus2Corner in the Set framework
--- ============================================================
-
-/-- Helper: integer coordinates of the second top-right corner when n ≥ 2, m ≥ 1. -/
-private lemma cornerTR2_cast (n m : ℕ) (hn : n ≥ 2) (hm : m ≥ 1) :
-    cornerTR2 n m = ((n : ℤ) - 2, (m : ℤ) - 1) := by
-  simp only [cornerTR2, Prod.mk.injEq]
-  exact ⟨by exact_mod_cast Nat.cast_sub (show 2 ≤ n from hn),
-         by exact_mod_cast Nat.cast_sub hm⟩
-
-/-- Coercion: `rectangleMinus2Corner n m` as a Set equals `rect 0 0 n m \ {(n-1, m-1), (n-2, m-1)}`.
-    Here `{a, b}` denotes `{a} ∪ {b}`. -/
-lemma coe_rectangleMinus2Corner_eq (n m : ℕ) (hn : n ≥ 2) (hm : m ≥ 1) :
-    (↑(rectangleMinus2Corner n m) : Set Cell) =
-    rect 0 0 (n : ℤ) m \ ({((n : ℤ) - 1, (m : ℤ) - 1)} ∪ {((n : ℤ) - 2, (m : ℤ) - 1)}) := by
-  rw [rectangleMinus2Corner, Finset.coe_erase, Finset.coe_erase,
-      coe_rectangle_eq_rect,
-      cornerTR_cast n m (by omega) hm, cornerTR2_cast n m hn hm]
-  rw [Set.diff_diff, Set.union_comm]
-
-/-- **Set framework version of the two-corner-deficient rectangle theorem.**
-    `rect 0 0 n m \ {(n-1, m-1), (n-2, m-1)}` is L-tileable when `n * m % 3 = 2`,
-    for n, m ≥ 3. -/
-theorem LTileable_rectMinus2Corner_set (n m : ℕ) (hn : n ≥ 3) (hm : m ≥ 3)
-    (hmod : n * m % 3 = 2) :
-    LTileable_set (rect 0 0 (n : ℤ) m \ ({((n : ℤ) - 1, (m : ℤ) - 1)} ∪
-                                          {((n : ℤ) - 2, (m : ℤ) - 1)})) := by
-  rw [← coe_rectangleMinus2Corner_eq n m (by omega) (by omega)]
-  rw [LTileable_set, ← LTileable_iff_set]
-  exact rectMinus2Corner_tileable_of_area_mod2 n m hn hm hmod
+-- NOTE: `LTileable_rectMinus2Corner_set` is now proved natively in LTrominoSet.lean
+-- (via direct Set-framework proof, commit to be pushed). The bridge copy has been removed.
