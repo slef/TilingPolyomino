@@ -97,34 +97,32 @@ theorem LTileable_2x3_set : SetTileable (rect 0 0 2 3) LProtoset_set := by
   refine ⟨Fin 2, inferInstance, ⟨![⟨(), (0, 0), 0⟩, ⟨(), (1, 2), 2⟩]⟩, ⟨?_, ?_⟩⟩
   · intro i j hij
     fin_cases i <;> fin_cases j <;>
-      simp_all [Set.disjoint_iff_inter_eq_empty, SetTileSet.cellsAt, SetPlacedTile.cells,
-        LProtoset_set, LPrototile_set, LShape_cells,
-        mem_translate, mem_rotate, inverseRot,
-        rotateCell_0, rotateCell_1, rotateCell_2, rotateCell_3] <;>
+      simp_all only [Fin.isValue, Fin.zero_eta, Fin.mk_one,
+        Set.disjoint_iff_inter_eq_empty, SetTileSet.cellsAt, SetPlacedTile.cells,
+        LProtoset_set, LPrototile_set, LShape_cells] <;>
       rect_omega
   · ext ⟨x, y⟩
     simp [SetTileSet.coveredCells, Set.mem_iUnion, Fin.exists_fin_two,
       SetTileSet.cellsAt, SetPlacedTile.cells,
       LProtoset_set, LPrototile_set, LShape_cells,
       mem_translate, mem_rotate, mem_rect, inverseRot,
-      rotateCell_0, rotateCell_1, rotateCell_2, rotateCell_3]
+      rotateCell_0, rotateCell_2]
     omega
 
 theorem LTileable_3x2_set : SetTileable (rect 0 0 3 2) LProtoset_set := by
   refine ⟨Fin 2, inferInstance, ⟨![⟨(), (0, 0), 0⟩, ⟨(), (2, 1), 2⟩]⟩, ⟨?_, ?_⟩⟩
   · intro i j hij
     fin_cases i <;> fin_cases j <;>
-      simp_all [Set.disjoint_iff_inter_eq_empty, SetTileSet.cellsAt, SetPlacedTile.cells,
-        LProtoset_set, LPrototile_set, LShape_cells,
-        mem_translate, mem_rotate, inverseRot,
-        rotateCell_0, rotateCell_1, rotateCell_2, rotateCell_3] <;>
+      simp_all only [Fin.isValue, Fin.zero_eta, Fin.mk_one,
+        Set.disjoint_iff_inter_eq_empty, SetTileSet.cellsAt, SetPlacedTile.cells,
+        LProtoset_set, LPrototile_set, LShape_cells] <;>
       rect_omega
   · ext ⟨x, y⟩
     simp [SetTileSet.coveredCells, Set.mem_iUnion, Fin.exists_fin_two,
       SetTileSet.cellsAt, SetPlacedTile.cells,
       LProtoset_set, LPrototile_set, LShape_cells,
       mem_translate, mem_rotate, mem_rect, inverseRot,
-      rotateCell_0, rotateCell_1, rotateCell_2, rotateCell_3]
+      rotateCell_0, rotateCell_2]
     omega
 
 theorem LTileable_2x2_minus_set : SetTileable (rect 0 0 2 2 \ {(1, 1)}) LProtoset_set := by
