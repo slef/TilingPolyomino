@@ -50,7 +50,9 @@ Uncommitted STEP 6-7 draft (working tree, 1295L vs committed 1057L, +238 lines):
   - Bridge copy of `LTileable_rectMinusCorner_iff_set` removed from Bridge.lean ✓
   - 0 sorries throughout
 
-**Next step**: Confirm build passes with `maxHeartbeats 20000000` fix, then commit STEP 6-7.
+**Cron check 2026-02-27 14:40**: Build still timing out (>3 min) in cron environment — `LTileable_5x9_set` at 20M heartbeats is simply slow. File has 0 sorries, all theorems present, working tree is clean (only uncommitted files are STEP 6-7 code + the two status .md files). No errors detected in partial build output.
+
+**Next step**: Manual `lake build TilingPolyomino` (allow 5–10 min to complete) to confirm no errors, then commit STEP 6-7. Alternatively, commit and let CI verify.
 
 ## Up Next
 
