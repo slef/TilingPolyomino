@@ -51,7 +51,16 @@ LTrominoSet.lean: 483L. LTrominoSetBridge.lean: 115L (bridge copy still present)
 ### P4 — Native `LTileable_rectMinus2Corner_set` in LTrominoSet.lean (no bridge)
 - Same strategy as P3: define `rectMinus2Corner` as RExp, port decomposition lemmas
 
-### P5 — RExp experiment: redefine `LShape_cells` as `rect 0 0 1 2 ∪ rect 1 0 2 1`
+### P5 — Auto-tactic for explicit tiling verification (side project — do only if more explicit tilings needed)
+- Pattern: all explicit tiling proofs have the same structure: provide tile list, prove pairwise
+  disjointness by `fin_cases` + `rect_omega`, prove coverage by `interval_cases` + witnesses
+- Idea: a `decide_tiling` tactic (or `norm_num` extension) that takes a tile list and a region
+  and automatically generates + checks the proof, so explicit tilings become 1-liners
+- Motivation: 5×9 took 45 lines; with more base cases for deficient rectangles (4×4, 5×5, 7×7,
+  5×2 minus corner), we'll need several more — an auto-tactic would collapse all to ~3 lines each
+- Only worth building if we need ≥4 more explicit tiling base cases; assess after deficient rect work
+
+### P6 — RExp experiment: redefine `LShape_cells` as `rect 0 0 1 2 ∪ rect 1 0 2 1`
 - Question: does this collapse the `simp [LShape_cells, mem_translate, ...]; omega` blocks
   in coverage proofs to single `rexp_omega` calls?
 - Cost: `LPrototile_set_ncard` becomes harder (ncard of a union); bridge proofs may need updating
