@@ -10,25 +10,18 @@ The bridge (`LTrominoSetBridge.lean`) is a **two-way compatibility layer** for l
 if some theorem is easier to prove in one framework, the bridge lets you transport it.
 But using the bridge to prove Set theorems defeats the entire point.
 
-**Currently violating this principle** (all three main theorems proved via bridge):
-1. `LTileable_rect_iff_set` — in Bridge.lean, uses `LTileable_iff_set` → `rect_tileable_iff`
+**Currently violating this principle** (two remaining — one fixed):
+1. ~~`LTileable_rect_iff_set`~~ — **DONE**: native proof in LTrominoSet.lean (f62afd4)
 2. `LTileable_rectMinusCorner_iff_set` — in Bridge.lean, uses bridge
 3. `LTileable_rectMinus2Corner_set` — in Bridge.lean, uses bridge
 
-**Required**: Move all three into `LTrominoSet.lean` with direct Set proofs (no bridge).
+**Required**: Move items 2 and 3 into `LTrominoSet.lean` with direct Set proofs (no bridge).
 
 ## In Progress
 
 _Nothing currently in progress._
 
 ## Up Next
-
-### P2b — Remove bridge copy of `LTileable_rect_iff_set` from LTrominoSetBridge.lean
-- Line 56 in Bridge.lean is annotated "now proved natively in LTrominoSet.lean" but the theorem
-  (and its proof via bridge) is still present.
-- Delete the bridge copy; ensure no downstream users import it from Bridge.lean.
-- LTrominoSetBridge.lean should shrink from 115L to ~100L.
-- Build + lint check after deletion.
 
 ### P3 — Native `LTileable_rectMinusCorner_iff_set` in LTrominoSet.lean (no bridge)
 - Define `rectMinusCorner` as an RExp (big expected win — all decomposition lemmas in Finset
@@ -74,6 +67,14 @@ _Nothing currently in progress._
       Leave as-is unless doing a structural refactor.
 
 ## Done (recent)
+- [x] **P2b — Bridge copy of `LTileable_rect_iff_set` removed** (cron check 2026-02-27 09:40):
+      - Inspection confirmed: `theorem LTileable_rect_iff_set` is NOT present in Bridge.lean.
+      - Only a 2-line NOTE comment remains at lines 56-57 (cosmetic; can be deleted at will).
+      - Bridge.lean stays at 115L (the ~100L target was based on a larger expected proof;
+        actual bridge proof was short, so the headroom was always smaller than estimated).
+      - No downstream breakage: `LTileable_rect_iff_set` in LTrominoSet.lean is the canonical
+        definition; nothing imports it from Bridge.lean.
+      - **Header doc block still lists it** (line 11): update when doing next Bridge.lean pass.
 - [x] **P2 — Native `LTileable_rect_iff_set` in LTrominoSet.lean (no bridge)** (`feat/set-tiling`, `f62afd4`, 2026-02-27):
       - All 5 sorry lemmas proved. LTrominoSet.lean: 483 → 679L (+196). 0 sorries. Build clean.
       - `LTileable_5x9_set`: explicit 15-tile disjoint cover.
