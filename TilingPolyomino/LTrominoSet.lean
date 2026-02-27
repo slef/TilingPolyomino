@@ -131,11 +131,11 @@ theorem LTileable_2x2_minus_set : SetTileable (rect 0 0 2 2 \ {(1, 1)}) LProtose
   refine ⟨Fin 1, inferInstance, ⟨![⟨(), (0, 0), 0⟩]⟩, ⟨?_, ?_⟩⟩
   · intro i j hij; fin_cases i; fin_cases j; exact (hij rfl).elim
   · ext ⟨x, y⟩
-    simp [SetTileSet.coveredCells, Set.mem_iUnion, Fin.exists_fin_one,
+    simp [SetTileSet.coveredCells, Set.mem_iUnion,
       SetTileSet.cellsAt, SetPlacedTile.cells,
       LProtoset_set, LPrototile_set, LShape_cells,
       mem_translate, mem_rotate, mem_rect, inverseRot,
-      rotateCell_0, rotateCell_1, rotateCell_2, rotateCell_3, Prod.mk.injEq]
+      rotateCell_0, Prod.mk.injEq]
     omega
 
 -- ============================================================
@@ -169,22 +169,22 @@ theorem LTileable_6x6_set : SetTileable (rect 0 0 6 6) LProtoset_set := by
 theorem LTileable_2x_mult3_set (k : ℕ) (hk : 1 ≤ k) :
     SetTileable (rect 0 0 2 (3 * k)) LProtoset_set := by
   have h := LTileable_2x3_set.scale_rect (by norm_num) (by norm_num) 1 k (by omega) hk
-  convert h using 2 <;> ring
+  convert h using 2; ring
 
 theorem LTileable_3x_even_set (k : ℕ) (hk : 1 ≤ k) :
     SetTileable (rect 0 0 3 (2 * k)) LProtoset_set := by
   have h := LTileable_3x2_set.scale_rect (by norm_num) (by norm_num) 1 k (by omega) hk
-  convert h using 2 <;> ring
+  convert h using 2; ring
 
 theorem LTileable_mult3_x_2_set (k : Nat) (hk : 1 ≤ k) :
     SetTileable (rect 0 0 (3 * k) 2) LProtoset_set := by
   have h := LTileable_3x2_set.scale_rect (by norm_num) (by norm_num) k 1 hk (by omega)
-  convert h using 2 <;> ring
+  convert h using 2; ring
 
 theorem LTileable_even_x_3_set (k : Nat) (hk : 1 ≤ k) :
     SetTileable (rect 0 0 (2 * k) 3) LProtoset_set := by
   have h := LTileable_2x3_set.scale_rect (by norm_num) (by norm_num) k 1 hk (by omega)
-  convert h using 2 <;> ring
+  convert h using 2; ring
 
 theorem LTileable_6x_of_ge2_set (k : Nat) (hk : 2 ≤ k) :
     SetTileable (rect 0 0 6 k) LProtoset_set := by
