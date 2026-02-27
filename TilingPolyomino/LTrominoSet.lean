@@ -756,3 +756,135 @@ theorem LTileable_swap_rectMinusCorner_set {n m : ℤ}
     SetTileable (rectMinusCorner_set m n) LProtoset_set := by
   have := LTileable_swap_set h
   rwa [swapRegion_rectMinusCorner_set] at this
+
+-- ============================================================
+-- Base Cases: rectMinusCorner_set explicit tilings
+-- ============================================================
+
+/-- The 2×2 rectangle with a missing top-right corner is L-tileable. -/
+theorem LTileable_2x2_minus_corner_set :
+    SetTileable (rectMinusCorner_set 2 2) LProtoset_set := by
+  convert LTileable_2x2_minus_set using 1
+  ext ⟨x, y⟩
+  simp [rectMinusCorner_set, mem_rect, Set.mem_diff, Set.mem_singleton_iff]
+  omega
+
+/-- The 5×2 rectangle with a missing top-right corner is L-tileable. -/
+theorem LTileable_5x2_minus_corner_set :
+    SetTileable (rectMinusCorner_set 5 2) LProtoset_set := by
+  refine ⟨Fin 3, inferInstance, ⟨![
+    ⟨(), (0, 0), 0⟩,
+    ⟨(), (2, 1), 2⟩,
+    ⟨(), (3, 0), 0⟩]⟩, ⟨?_, ?_⟩⟩
+  · intro i j hij
+    fin_cases i <;> fin_cases j <;>
+      simp_all only [ne_eq, not_false_eq_true, Set.disjoint_iff_inter_eq_empty,
+        SetTileSet.cellsAt, SetPlacedTile.cells, LProtoset_set, LPrototile_set,
+        LShape_cells, LShape_eq_rects] <;>
+      rect_omega
+  · ext ⟨x, y⟩
+    simp only [SetTileSet.coveredCells, Set.mem_iUnion, SetTileSet.cellsAt,
+      SetPlacedTile.cells, LProtoset_set, LPrototile_set, LShape_cells, LShape_eq_rects,
+      mem_translate, mem_rotate, mem_rect, inverseRot, rotateCell_0, rotateCell_1,
+      rotateCell_2, rotateCell_3, rectMinusCorner_set, Set.mem_diff, Set.mem_singleton_iff,
+      Prod.mk.injEq]
+    constructor
+    · rintro ⟨i, hi⟩
+      fin_cases i <;> simp_all <;> omega
+    · intro ⟨⟨h1, h2, h3, h4⟩, hne⟩
+      interval_cases x <;> interval_cases y <;> simp_all <;> omega
+
+/-- The 4×4 rectangle with a missing top-right corner is L-tileable. -/
+theorem LTileable_4x4_minus_corner_set :
+    SetTileable (rectMinusCorner_set 4 4) LProtoset_set := by
+  refine ⟨Fin 5, inferInstance, ⟨![
+    ⟨(), (0, 0), 0⟩,
+    ⟨(), (3, 0), 1⟩,
+    ⟨(), (0, 3), 3⟩,
+    ⟨(), (2, 2), 0⟩,
+    ⟨(), (1, 1), 0⟩]⟩, ⟨?_, ?_⟩⟩
+  · intro i j hij
+    fin_cases i <;> fin_cases j <;>
+      simp_all only [ne_eq, not_false_eq_true, Set.disjoint_iff_inter_eq_empty,
+        SetTileSet.cellsAt, SetPlacedTile.cells, LProtoset_set, LPrototile_set,
+        LShape_cells, LShape_eq_rects] <;>
+      rect_omega
+  · ext ⟨x, y⟩
+    simp only [SetTileSet.coveredCells, Set.mem_iUnion, SetTileSet.cellsAt,
+      SetPlacedTile.cells, LProtoset_set, LPrototile_set, LShape_cells, LShape_eq_rects,
+      mem_translate, mem_rotate, mem_rect, inverseRot, rotateCell_0, rotateCell_1,
+      rotateCell_2, rotateCell_3, rectMinusCorner_set, Set.mem_diff, Set.mem_singleton_iff,
+      Prod.mk.injEq]
+    constructor
+    · rintro ⟨i, hi⟩
+      fin_cases i <;> simp_all <;> omega
+    · intro ⟨⟨h1, h2, h3, h4⟩, hne⟩
+      interval_cases x <;> interval_cases y <;> simp_all <;> omega
+
+/-- The 5×5 rectangle with a missing top-right corner is L-tileable. -/
+theorem LTileable_5x5_minus_corner_set :
+    SetTileable (rectMinusCorner_set 5 5) LProtoset_set := by
+  refine ⟨Fin 8, inferInstance, ⟨![
+    ⟨(), (0, 0), 0⟩,
+    ⟨(), (1, 2), 2⟩,
+    ⟨(), (2, 0), 0⟩,
+    ⟨(), (4, 1), 2⟩,
+    ⟨(), (0, 4), 3⟩,
+    ⟨(), (2, 3), 2⟩,
+    ⟨(), (3, 4), 2⟩,
+    ⟨(), (4, 2), 1⟩]⟩, ⟨?_, ?_⟩⟩
+  · intro i j hij
+    fin_cases i <;> fin_cases j <;>
+      simp_all only [ne_eq, not_false_eq_true, Set.disjoint_iff_inter_eq_empty,
+        SetTileSet.cellsAt, SetPlacedTile.cells, LProtoset_set, LPrototile_set,
+        LShape_cells, LShape_eq_rects] <;>
+      rect_omega
+  · ext ⟨x, y⟩
+    simp only [SetTileSet.coveredCells, Set.mem_iUnion, SetTileSet.cellsAt,
+      SetPlacedTile.cells, LProtoset_set, LPrototile_set, LShape_cells, LShape_eq_rects,
+      mem_translate, mem_rotate, mem_rect, inverseRot, rotateCell_0, rotateCell_1,
+      rotateCell_2, rotateCell_3, rectMinusCorner_set, Set.mem_diff, Set.mem_singleton_iff,
+      Prod.mk.injEq]
+    constructor
+    · rintro ⟨i, hi⟩
+      fin_cases i <;> simp_all <;> omega
+    · intro ⟨⟨h1, h2, h3, h4⟩, hne⟩
+      interval_cases x <;> interval_cases y <;> simp_all <;> omega
+
+/-- The 7×7 rectangle with a missing top-right corner is L-tileable. -/
+theorem LTileable_7x7_minus_corner_set :
+    SetTileable (rectMinusCorner_set 7 7) LProtoset_set := by
+  refine ⟨Fin 16, inferInstance, ⟨![
+    ⟨(), (0, 1), 3⟩,
+    ⟨(), (2, 0), 1⟩,
+    ⟨(), (0, 3), 3⟩,
+    ⟨(), (2, 2), 1⟩,
+    ⟨(), (1, 4), 1⟩,
+    ⟨(), (0, 6), 3⟩,
+    ⟨(), (3, 6), 2⟩,
+    ⟨(), (2, 4), 0⟩,
+    ⟨(), (4, 0), 1⟩,
+    ⟨(), (3, 2), 3⟩,
+    ⟨(), (4, 3), 1⟩,
+    ⟨(), (4, 6), 3⟩,
+    ⟨(), (6, 0), 1⟩,
+    ⟨(), (5, 2), 3⟩,
+    ⟨(), (6, 3), 1⟩,
+    ⟨(), (5, 5), 3⟩]⟩, ⟨?_, ?_⟩⟩
+  · intro i j hij
+    fin_cases i <;> fin_cases j <;>
+      simp_all only [ne_eq, not_false_eq_true, Set.disjoint_iff_inter_eq_empty,
+        SetTileSet.cellsAt, SetPlacedTile.cells, LProtoset_set, LPrototile_set,
+        LShape_cells, LShape_eq_rects] <;>
+      rect_omega
+  · ext ⟨x, y⟩
+    simp only [SetTileSet.coveredCells, Set.mem_iUnion, SetTileSet.cellsAt,
+      SetPlacedTile.cells, LProtoset_set, LPrototile_set, LShape_cells, LShape_eq_rects,
+      mem_translate, mem_rotate, mem_rect, inverseRot, rotateCell_0, rotateCell_1,
+      rotateCell_2, rotateCell_3, rectMinusCorner_set, Set.mem_diff, Set.mem_singleton_iff,
+      Prod.mk.injEq]
+    constructor
+    · rintro ⟨i, hi⟩
+      fin_cases i <;> simp_all <;> omega
+    · intro ⟨⟨h1, h2, h3, h4⟩, hne⟩
+      interval_cases x <;> interval_cases y <;> simp_all <;> omega
