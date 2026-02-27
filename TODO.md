@@ -10,55 +10,23 @@ The bridge (`LTrominoSetBridge.lean`) is a **two-way compatibility layer** for l
 if some theorem is easier to prove in one framework, the bridge lets you transport it.
 But using the bridge to prove Set theorems defeats the entire point.
 
-**Currently violating this principle** (two remaining — one fixed):
+**Status** (one remaining):
 1. ~~`LTileable_rect_iff_set`~~ — **DONE**: native proof in LTrominoSet.lean (f62afd4)
-2. `LTileable_rectMinusCorner_iff_set` — in Bridge.lean, uses bridge
-3. `LTileable_rectMinus2Corner_set` — in Bridge.lean, uses bridge
+2. ~~`LTileable_rectMinusCorner_iff_set`~~ — **DONE**: native proof in LTrominoSet.lean (ce3b2f0, 2026-02-27 15:10)
+3. `LTileable_rectMinus2Corner_set` — still in Bridge.lean, uses bridge
 
-**Required**: Move items 2 and 3 into `LTrominoSet.lean` with direct Set proofs (no bridge).
+**Required**: Move item 3 into `LTrominoSet.lean` with a direct Set proof (no bridge).
 
-## ⚠️ WATCH — LTileable_5x9_set heartbeat fix applied, build verification pending
-**Original blocker detected: 2026-02-27 12:40 | Fix applied: 2026-02-27 ~13:xx**
-
-`LTileable_5x9_set` was timing out at 200K heartbeats. Fix applied to working tree:
-`set_option maxHeartbeats 20000000` added before the theorem (Option D: per-theorem budget).
-Build is slow but no immediate errors observed during cron check at 14:10.
-
-**If the build fails** with the 20M budget, fall back to Option D (split into `@[noinline]`
-disjointness + coverage lemmas with separate budgets), or Option C (bridge base case).
+## ✅ RESOLVED — LTileable_5x9_set heartbeat fix confirmed working
+`set_option maxHeartbeats 20000000` per-theorem budget applied (commit ce3b2f0 working tree, now committed).
+Build passed cleanly — 0 errors, 0 warnings, 0 sorries. Verified 2026-02-27 15:10 cron.
 
 ## In Progress
 
-### P3 — Native `LTileable_rectMinusCorner_iff_set` in LTrominoSet.lean (no bridge)
-**Status: STEPS 6-7 fully drafted (no sorries), build verification in progress** (cron, 2026-02-27 14:10)
-
-Completed steps (all committed, build was clean at commit time):
-- [x] STEP 1 (`46fee68`): `rectMinusCorner_set` def + split lemmas (horiz/vert)
-- [x] STEP 2 (`dc3fce3`): union helper lemmas (`LTileable_horiz_union_rectMinusCorner_set`, etc.)
-- [x] STEP 3 (`622b39b`): base cases (2×2, 5×2, 4×4, 5×5, 7×7)
-- [x] STEP 4 (`4f55fd6`, `4e19012`): family lemmas ((3k+2)×2, 4×(7+6k), 5×(6k+2), 5×(6k+5))
-- [x] STEP 5 (`a466cf0`): main mod-2 case `LTileable_rectMinusCorner_mod2_set` (j,k≥2)
-
-Uncommitted STEP 6-7 draft (working tree, 1295L vs committed 1057L, +238 lines):
-- [~] STEP 6 (drafted): `LTileable_rectMinusCorner_ncard_set` (necessity, line ~1248)
-- [~] STEP 7 (drafted): `LTileable_rectMinusCorner_iff_set` full iff (line 1264)
-  - `LTileable_4x_3kplus1_minus_corner_set` (line 1067) — 4 × (3k+1) family
-  - `LTileable_rectMinusCorner_mod1_jk_ge_set` (line 1096) — mod-1 large case
-  - `LTileable_rectMinusCorner_mod1_recurrence_k_ge3_set` (line 1140) — mod-1 recurrence
-  - `LTileable_rectMinusCorner_mod1_set` (line 1180) — mod-1 master lemma
-  - `LTileable_mod2_minus_corner_set_all` (line 1220) — extended mod-2 all j,k
-  - Bridge copy of `LTileable_rectMinusCorner_iff_set` removed from Bridge.lean ✓
-  - 0 sorries throughout
-
-**Cron check 2026-02-27 14:40**: Build still timing out (>3 min) in cron environment — `LTileable_5x9_set` at 20M heartbeats is simply slow. File has 0 sorries, all theorems present, working tree is clean (only uncommitted files are STEP 6-7 code + the two status .md files). No errors detected in partial build output.
-
-**Next step**: Manual `lake build TilingPolyomino` (allow 5–10 min to complete) to confirm no errors, then commit STEP 6-7. Alternatively, commit and let CI verify.
+### P4 — Native `LTileable_rectMinus2Corner_set` in LTrominoSet.lean (no bridge)
+**Status: not yet started** (P3 just completed 2026-02-27 15:10)
 
 ## Up Next
-
-### P3 — Commit & push STEP 6-7 once build verified
-Confirm `lake build TilingPolyomino` passes (working tree), then commit + push.
-See "In Progress" for full theorem list.
 
 ### P4 — Native `LTileable_rectMinus2Corner_set` in LTrominoSet.lean (no bridge)
 - Same strategy as P3: define `rectMinus2Corner` as RExp, port decomposition lemmas
@@ -97,6 +65,15 @@ See "In Progress" for full theorem list.
       Leave as-is unless doing a structural refactor.
 
 ## Done (recent)
+- [x] **P3 COMPLETE — Native `LTileable_rectMinusCorner_iff_set` in LTrominoSet.lean** (`feat/set-tiling`, `ce3b2f0`, 2026-02-27 15:10):
+      - All 7 steps complete, 0 sorries, build clean (verified by cron 15:10).
+      - STEP 6: `LTileable_rectMinusCorner_ncard_set` (necessity via ncard divisibility).
+      - STEP 7: Full iff assembled from mod-1 and mod-2 cases:
+        `LTileable_4x_3kplus1_minus_corner_set`, `LTileable_rectMinusCorner_mod1_jk_ge_set`,
+        `LTileable_rectMinusCorner_mod1_recurrence_k_ge3_set`, `LTileable_rectMinusCorner_mod1_set`,
+        `LTileable_mod2_minus_corner_set_all`, `LTileable_rectMinusCorner_iff_set`.
+      - Bridge copy removed. LTrominoSet.lean: 1057 → 1295L (+238). Bridge: 119 → 108L (−11).
+      - `LTileable_5x9_set` heartbeat blocker resolved: `set_option maxHeartbeats 20000000`.
 - [x] **P3 STEPS 1–5 — Native rectMinusCorner work in LTrominoSet.lean** (`feat/set-tiling`, `a466cf0`..`46fee68`, 2026-02-27 10:48):
       - `rectMinusCorner_set` defined as `rect 0 0 n m \ {(n-1, m-1)}` in Set framework.
       - Split/union lemmas, swap, ncard proved.
