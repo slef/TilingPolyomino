@@ -20,6 +20,11 @@
       (currently only `2xn` and `3xn` are biconditionals).
 
 ## Done (recent)
+- [x] **Fourth simplification pass** (`feat/set-tiling`):
+      - Merged `lPlaced_set_ybnd_of_cover_00` + `lPlaced_set_ybnd_of_cover_20` into a single
+        `lPlaced_set_ybnd_of_y0` (generalised hypothesis: `∃ cx, (cx,0) ∈ tile`).
+      - Dropped the now-unused `hq_nn` parameter (revealed by the merge; omega never needed it).
+      - Total: LTrominoSet.lean 475 → 466 lines (−9). 0 sorries.
 - [x] **Third simplification pass** (`feat/set-tiling`):
       - `not_LTileable_3x_odd_set`: 75 → 68 lines (−7): removed `hi_sub_full`/`hj_sub_full`
         helpers (inlined via reshaped `sub_full`), eliminated `h_rect_card` variable
