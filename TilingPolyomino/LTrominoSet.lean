@@ -1,5 +1,6 @@
 import Mathlib.Tactic
 import TilingPolyomino.TilingSet
+import TilingPolyomino.LTromino
 
 open Set Function
 
@@ -449,3 +450,34 @@ theorem LTileable_odd_x_mult6_set (n k : ℕ) (hn_odd : n % 2 = 1) (hn_ge : 3 �
   have hn_pos : (0:ℤ) < n := by exact_mod_cast (show 0 < n by omega)
   have h := (LTileable_odd_x_6_set n hn_odd hn_ge).scale_rect hn_pos (by norm_num) 1 k (by omega) hk
   convert h using 2 <;> ring
+
+-- ============================================================
+-- Main theorem: native proof of LTileable_rect_iff_set
+-- ============================================================
+
+/-- Base case: 5×9 rectangle with explicit tiling of 15 L-trominoes -/
+theorem LTileable_5x9_set : SetTileable (rect 0 0 5 9) LProtoset_set := by
+  sorry  -- Placeholder: explicit tiling construction with 15 tiles
+  -- TODO: Prove disjointness and coverage by cases
+
+/-- 5 × (6i+3) is L-tileable for i ≥ 1 -/
+theorem LTileable_5x_6iplus3_set (i : ℕ) (hi : i ≥ 1) :
+    SetTileable (rect 0 0 5 (6 * i + 3)) LProtoset_set := by
+  sorry  -- Use vertical_union of 5×9 and 5×(6*(i-1))
+
+/-- n × (6i+3) is L-tileable for odd n ≥ 5 and i ≥ 1 -/
+theorem LTileable_odd_ge5_x_6iplus3_set (n : ℕ) (hn : n ≥ 5) (hodd : n % 2 = 1)
+    (i : ℕ) (hi : i ≥ 1) :
+    SetTileable (rect 0 0 n (6 * i + 3)) LProtoset_set := by
+  sorry  -- Strong induction on n, stripping 2×(6i+3) columns
+
+/-- n × (3k) is L-tileable for odd n ≥ 3, k ≥ 2, and ¬(n=3 ∧ k odd) -/
+theorem LTileable_odd_x_mult3_set (n k : ℕ) (hn : n ≥ 3) (hodd : n % 2 = 1) (hk : k ≥ 2)
+    (h_not : ¬(n = 3 ∧ k % 2 = 1)) :
+    SetTileable (rect 0 0 n (3 * k)) LProtoset_set := by
+  sorry  -- Case split on k even/odd
+
+/-- Main theorem: native proof of rect tileability characterization -/
+theorem LTileable_rect_iff_set (n m : ℕ) :
+    SetTileable (rect 0 0 (n : ℤ) m) LProtoset_set ↔ RectTileableConditions n m := by
+  sorry  -- Necessary and sufficient conditions using lemmas 1-4

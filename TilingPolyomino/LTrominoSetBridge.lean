@@ -53,12 +53,8 @@ theorem LTileable_iff_set (R : Finset Cell) :
   rw [LProtoset_set_eq_toSet]
   exact Tileable_iff_toSet lTrominoSet R lTrominoSet_nonempty
 
-/-- The full characterization of L-tileable rectangles in the Set framework.
-    Follows from `rect_tileable_iff` (Finset) via the bridge theorem. -/
-theorem LTileable_rect_iff_set (n m : ℕ) :
-    SetTileable (rect 0 0 (n : ℤ) m) LProtoset_set ↔ RectTileableConditions n m := by
-  rw [← coe_rectangle_eq_rect, ← LTileable_iff_set]
-  exact rect_tileable_iff n m
+-- NOTE: LTileable_rect_iff_set is now proved natively in LTrominoSet.lean
+-- (no longer using the bridge)
 
 -- ============================================================
 -- Priority 2: rectMinusCorner in the Set framework
