@@ -48,6 +48,14 @@ But using the bridge to prove Set theorems defeats the entire point.
 - Cost: `LPrototile_set_ncard` becomes harder (ncard of a union); bridge proofs may need updating
 - Try on a branch; measure before committing
 
+### P6 — Blueprint for the Set framework (do when out of proof tasks)
+- Extend the existing blueprint (`blueprint/` dir) to cover the Set framework theorems
+- Add dependency nodes for: `SetTileable`, `scale_rect`, `LTileable_rect_iff_set`,
+  `LTileable_rectMinusCorner_iff_set`, `LTileable_rectMinus2Corner_set`
+- Add TikZ figures for the new theorems where useful
+- Update `\uses{}` entries in blueprint `.tex` files for the new dep graph edges
+- Goal: the blueprint should cover the full arc from Set primitives to the final characterization
+
 ## Backlog
 
 ## Backlog
