@@ -455,6 +455,7 @@ theorem LTileable_odd_x_mult6_set (n k : ℕ) (hn_odd : n % 2 = 1) (hn_ge : 3 �
 -- Main theorem: native proof of LTileable_rect_iff_set
 -- ============================================================
 
+set_option maxHeartbeats 20000000 in
 /-- Base case: 5×9 rectangle with explicit tiling of 15 L-trominoes -/
 theorem LTileable_5x9_set : SetTileable (rect 0 0 5 9) LProtoset_set := by
   refine ⟨Fin 15, inferInstance, ⟨![
@@ -669,6 +670,21 @@ theorem LTileable_rect_iff_set (n m : ℕ) :
               exact ⟨by decide, hb_odd⟩
           exact LTileable_odd_x_mult3_set n b hn_ge3 (Nat.odd_iff.mp hn_odd) hb2 h_not'
 
+
+/-- Corollary: tileability conditions imply SetTileable for rectangles. -/
+theorem LTileable_rect_of_conditions_set (n m : ℕ) (h : RectTileableConditions n m) :
+    SetTileable (rect 0 0 (n : ℤ) m) LProtoset_set :=
+  (LTileable_rect_iff_set n m).mpr h
+
+-- Helper instantiations used in rectMinusCorner family lemmas below
+theorem LTileable_4x3_set : SetTileable (rect 0 0 4 3) LProtoset_set :=
+  swapRegion_rect 3 4 ▸ LTileable_swap_set LTileable_3x4_set
+
+theorem LTileable_4x6_set : SetTileable (rect 0 0 4 6) LProtoset_set :=
+  LTileable_kx6_of_ge2_set 4 (by omega)
+
+theorem LTileable_5x6_set : SetTileable (rect 0 0 5 6) LProtoset_set :=
+  LTileable_kx6_of_ge2_set 5 (by omega)
 
 -- ============================================================
 -- Deficient Rectangles: rectMinusCorner_set
@@ -940,19 +956,15 @@ theorem LTileable_4x_7plus6k_minus_corner_set (k : ℕ) :
   induction k with
   | zero => simp; exact LTileable_4x7_minus_corner_set
   | succ k ih =>
-    -- Split: 7 + 6*(k+1) = (7 + 6*k) + 6
-    have heq : (7 + 6 * (↑(k+1) : ℤ)) = (7 + 6 * ↑k) + 6 := by push_cast; ring
+    -- Split: 7 + 6*(k+1) = 6 + (7 + 6*k)
+    have heq : (7 + 6 * (↑(k+1) : ℤ)) = 6 + (7 + 6 * ↑k) := by push_cast; ring
     rw [heq]
-    apply LTileable_vert_union_rectMinusCorner_set
+    apply LTileable_vert_union_rectMinusCorner_set (a := 6) (b := 7 + 6 * ↑k) (n := 4)
     · norm_num
-    · norm_num
+    · push_cast; omega
     · norm_num
     · exact LTileable_4x6_set
-    · convert setTileable_translate ih 0 (7 + 6 * ↑k) using 1
-      ext ⟨x, y⟩
-      simp only [mem_translate, rectMinusCorner_set, Set.mem_diff, mem_rect,
-        Set.mem_singleton_iff, Prod.mk.injEq]
-      push_cast; omega
+    · exact setTileable_translate ih 0 6
 
 /-- For any k, the 5 × (6k+2) rectangle with a missing corner is L-tileable. -/
 theorem LTileable_5x_6kplus2_minus_corner_set (k : ℕ) :
@@ -960,19 +972,15 @@ theorem LTileable_5x_6kplus2_minus_corner_set (k : ℕ) :
   induction k with
   | zero => simp; exact LTileable_5x2_minus_corner_set
   | succ k ih =>
-    -- Split: 6*(k+1)+2 = (6*k+2) + 6
-    have heq : (6 * (↑(k+1) : ℤ) + 2) = (6 * ↑k + 2) + 6 := by push_cast; ring
+    -- Split: 6*(k+1)+2 = 6 + (6*k+2)
+    have heq : (6 * (↑(k+1) : ℤ) + 2) = 6 + (6 * ↑k + 2) := by push_cast; ring
     rw [heq]
-    apply LTileable_vert_union_rectMinusCorner_set
+    apply LTileable_vert_union_rectMinusCorner_set (a := 6) (b := 6 * ↑k + 2) (n := 5)
     · norm_num
-    · norm_num
+    · push_cast; omega
     · norm_num
     · exact LTileable_5x6_set
-    · convert setTileable_translate ih 0 (6 * ↑k + 2) using 1
-      ext ⟨x, y⟩
-      simp only [mem_translate, rectMinusCorner_set, Set.mem_diff, mem_rect,
-        Set.mem_singleton_iff, Prod.mk.injEq]
-      push_cast; omega
+    · exact setTileable_translate ih 0 6
 
 /-- For any k, the 5 × (6k+5) rectangle with a missing corner is L-tileable. -/
 theorem LTileable_5x_6kplus5_minus_corner_set (k : ℕ) :
@@ -983,19 +991,15 @@ theorem LTileable_5x_6kplus5_minus_corner_set (k : ℕ) :
     -- 6*0+5 = 5, so this is 5×5 minus corner
     exact LTileable_5x5_minus_corner_set
   | succ k ih =>
-    -- Split: 6*(k+1)+5 = (6*k+5) + 6
-    have heq : (6 * (↑(k+1) : ℤ) + 5) = (6 * ↑k + 5) + 6 := by push_cast; ring
+    -- Split: 6*(k+1)+5 = 6 + (6*k+5)
+    have heq : (6 * (↑(k+1) : ℤ) + 5) = 6 + (6 * ↑k + 5) := by push_cast; ring
     rw [heq]
-    apply LTileable_vert_union_rectMinusCorner_set
+    apply LTileable_vert_union_rectMinusCorner_set (a := 6) (b := 6 * ↑k + 5) (n := 5)
     · norm_num
-    · norm_num
+    · push_cast; omega
     · norm_num
     · exact LTileable_5x6_set
-    · convert setTileable_translate ih 0 (6 * ↑k + 5) using 1
-      ext ⟨x, y⟩
-      simp only [mem_translate, rectMinusCorner_set, Set.mem_diff, mem_rect,
-        Set.mem_singleton_iff, Prod.mk.injEq]
-      push_cast; omega
+    · exact setTileable_translate ih 0 6
 
 -- ============================================================
 -- Main Cases: rectMinusCorner_set iff conditions
@@ -1022,11 +1026,9 @@ theorem LTileable_rectMinusCorner_mod2_set
     apply LTileable_rect_of_conditions_set
     right; right
     refine ⟨?_, ?_, ?_, ?_, ?_⟩
-    · -- 3 ∣ n * (3k)
-      have : 3 ∣ (3 * k : ℤ) := ⟨k, by ring⟩
-      have : 3 ∣ (n : ℤ) * (3 * k : ℤ) := dvd_mul_of_dvd_right this _
-      rw [Nat.dvd_iff_mod_eq_zero]
-      omega
+    · -- n * (3k) % 3 = 0
+      have h3k : 3 ∣ (3 * k : ℕ) := ⟨k, rfl⟩
+      exact Nat.dvd_iff_mod_eq_zero.mp (dvd_mul_of_dvd_right h3k n)
     · -- n ≥ 2
       push_cast; omega
     · -- 3k ≥ 2
@@ -1046,8 +1048,8 @@ theorem LTileable_rectMinusCorner_mod2_set
   
   -- Combine: m = (3k) + 2
   have h_union : SetTileable (rectMinusCorner_set (n : ℤ) ((3 * k) + 2)) LProtoset_set :=
-    LTileable_vert_union_rectMinusCorner_set (by norm_num : (0 : ℤ) < 3 * k)
-      (by norm_num : (0 : ℤ) < 2) (by norm_num : (0 : ℤ) < n) h_bottom
+    LTileable_vert_union_rectMinusCorner_set (by push_cast; omega)
+      (by norm_num) (by push_cast; omega) h_bottom
       (setTileable_translate h_top 0 (3 * k))
   
   convert h_union using 1
@@ -1055,3 +1057,239 @@ theorem LTileable_rectMinusCorner_mod2_set
   simp only [rectMinusCorner_set, Set.mem_diff, mem_rect, Set.mem_singleton_iff,
     Prod.mk.injEq]
   push_cast; omega
+
+-- ============================================================
+-- Mod-1 family: 4 × (3k+1) minus corner for all k ≥ 1
+-- ============================================================
+
+/-- For any k ≥ 1, the 4 × (3k+1) rectangle with a missing corner is L-tileable.
+    Base: k=1 gives 4×4. Step: split off a 4×3 strip from the bottom. -/
+theorem LTileable_4x_3kplus1_minus_corner_set (k : ℕ) (hk : k ≥ 1) :
+    SetTileable (rectMinusCorner_set 4 (3 * k + 1)) LProtoset_set := by
+  induction k with
+  | zero => exact absurd hk (by omega)
+  | succ k' ih =>
+    rcases k' with _ | k''
+    · -- k = 1: 4 × 4
+      simp only [Nat.zero_add, Nat.mul_one]
+      norm_num
+      exact LTileable_4x4_minus_corner_set
+    · -- k = k''+2: split 3*(k''+2)+1 = 3 + (3*(k''+1)+1)
+      have ih' : SetTileable (rectMinusCorner_set 4 (3 * (k'' + 1) + 1)) LProtoset_set :=
+        ih (by omega)
+      have heq : (3 * (↑(k'' + 2) : ℤ) + 1) = 3 + (3 * ↑(k'' + 1) + 1) := by
+        push_cast; ring
+      rw [heq]
+      apply LTileable_vert_union_rectMinusCorner_set (a := 3) (n := 4)
+      · norm_num
+      · push_cast; omega
+      · norm_num
+      · exact LTileable_4x3_set
+      · exact setTileable_translate ih' 0 3
+
+-- ============================================================
+-- Mod-1 recurrence for j ≥ 3: (3k+1) × (3j+1) via bottom full rect + top corner rect
+-- ============================================================
+
+/-- For j ≥ 3 and k ≥ 1, the (3k+1) × (3j+1) rectangle with missing corner is L-tileable.
+    Proof: bottom full (3k+1) × (3*(j-1)) rect + top (3k+1) × 4 corner rect. -/
+theorem LTileable_rectMinusCorner_mod1_jk_ge_set
+    (j k : ℕ) (hj3 : j ≥ 3) (hk1 : k ≥ 1) :
+    SetTileable (rectMinusCorner_set (3 * k + 1) (3 * j + 1)) LProtoset_set := by
+  -- Let a = 3*(j-1) (bottom height), n = 3*k+1
+  let n := 3 * k + 1
+  let a := 3 * (j - 1)
+  have hn2 : (n : ℤ) ≥ 2 := by simp only [n]; push_cast; omega
+  have ha_pos : (a : ℤ) > 0 := by simp only [a]; push_cast; omega
+  have hn_pos : (n : ℤ) > 0 := by simp only [n]; push_cast; omega
+  -- Bottom: full n × a rectangle
+  have h_bottom : SetTileable (rect 0 0 (n : ℤ) (a : ℤ)) LProtoset_set := by
+    apply LTileable_rect_of_conditions_set
+    right; right
+    refine ⟨?_, ?_, ?_, ?_, ?_⟩
+    · -- n * a % 3 = 0: a = 3*(j-1), so 3 ∣ n*a
+      have h3a : 3 ∣ a := ⟨j - 1, by simp only [a]; ring⟩
+      exact Nat.dvd_iff_mod_eq_zero.mp (dvd_mul_of_dvd_right h3a n)
+    · -- n ≥ 2
+      simp only [n]; omega
+    · -- a ≥ 2: j ≥ 3 → j-1 ≥ 2 → 3*(j-1) ≥ 6 ≥ 2
+      simp only [a]; omega
+    · -- ¬(n = 3 ∧ Odd a): n = 3*k+1 ≥ 4, so n ≠ 3
+      intro ⟨hn3, _⟩; simp only [n] at hn3; omega
+    · -- ¬(Odd n ∧ a = 3): a ≥ 6, so a ≠ 3
+      intro ⟨_, ha3⟩; simp only [a] at ha3; omega
+  -- Top: (3k+1) × 4 corner rect (via swap of 4 × (3k+1))
+  have h4xn : SetTileable (rectMinusCorner_set 4 (n : ℤ)) LProtoset_set :=
+    LTileable_4x_3kplus1_minus_corner_set k hk1
+  have h_top : SetTileable (rectMinusCorner_set (n : ℤ) 4) LProtoset_set :=
+    LTileable_swap_rectMinusCorner_set h4xn
+  -- Combine: height = a + 4 = 3*(j-1) + 4 = 3*j+1
+  have heq : (a : ℤ) + 4 = 3 * ↑j + 1 := by simp only [a]; push_cast; omega
+  have h_union : SetTileable (rectMinusCorner_set (n : ℤ) ((a : ℤ) + 4)) LProtoset_set :=
+    LTileable_vert_union_rectMinusCorner_set ha_pos (by norm_num) hn_pos
+      h_bottom (setTileable_translate h_top 0 (a : ℤ))
+  rw [heq] at h_union
+  convert h_union using 2 <;> (simp only [n]; push_cast; ring)
+
+-- ============================================================
+-- Mod-1 recurrence for k ≥ 3: (3k+1) × (3j+1) via left full rect + right corner rect
+-- ============================================================
+
+/-- For k ≥ 3 and j ≥ 1, the (3k+1) × (3j+1) rectangle with missing corner is L-tileable.
+    Proof: left full (3*(k-1)) × (3j+1) rect + right 4 × (3j+1) corner rect. -/
+theorem LTileable_rectMinusCorner_mod1_recurrence_k_ge3_set
+    (j k : ℕ) (hj1 : j ≥ 1) (hk3 : k ≥ 3) :
+    SetTileable (rectMinusCorner_set (3 * k + 1) (3 * j + 1)) LProtoset_set := by
+  -- Let b = 3*(k-1) (left width), m = 3*j+1
+  let m := 3 * j + 1
+  let b := 3 * (k - 1)
+  have hm_pos : (m : ℤ) > 0 := by simp only [m]; push_cast; omega
+  have hb_pos : (b : ℤ) > 0 := by simp only [b]; push_cast; omega
+  -- Left: full b × m rectangle
+  have h_left : SetTileable (rect 0 0 (b : ℤ) (m : ℤ)) LProtoset_set := by
+    apply LTileable_rect_of_conditions_set
+    right; right
+    refine ⟨?_, ?_, ?_, ?_, ?_⟩
+    · -- b * m % 3 = 0: b = 3*(k-1), so 3 ∣ b*m
+      have h3b : 3 ∣ b := ⟨k - 1, by simp only [b]; ring⟩
+      exact Nat.dvd_iff_mod_eq_zero.mp (dvd_mul_of_dvd_left h3b m)
+    · -- b ≥ 2: k ≥ 3 → k-1 ≥ 2 → 3*(k-1) ≥ 6 ≥ 2
+      simp only [b]; omega
+    · -- m ≥ 2: j ≥ 1 → 3*j+1 ≥ 4 ≥ 2
+      simp only [m]; omega
+    · -- ¬(b = 3 ∧ Odd m): b ≥ 6, so b ≠ 3
+      intro ⟨hb3, _⟩; simp only [b] at hb3; omega
+    · -- ¬(Odd b ∧ m = 3): m ≥ 4, so m ≠ 3
+      intro ⟨_, hm3⟩; simp only [m] at hm3; omega
+  -- Right: 4 × (3j+1) corner rect
+  have h_right : SetTileable (rectMinusCorner_set 4 (m : ℤ)) LProtoset_set :=
+    LTileable_4x_3kplus1_minus_corner_set j hj1
+  -- Combine (horizontal): width = b + 4 = 3*(k-1) + 4 = 3*k+1
+  have heq : (b : ℤ) + 4 = 3 * ↑k + 1 := by simp only [b]; push_cast; omega
+  have h_union : SetTileable (rectMinusCorner_set ((b : ℤ) + 4) (m : ℤ)) LProtoset_set :=
+    LTileable_horiz_union_rectMinusCorner_set hb_pos (by norm_num) hm_pos
+      h_left (setTileable_translate h_right (b : ℤ) 0)
+  rw [heq] at h_union
+  convert h_union using 2 <;> (simp only [m]; push_cast; ring)
+
+-- ============================================================
+-- Main mod-1 case: (3k+1) × (3j+1) for all k,j ≥ 1
+-- ============================================================
+
+/-- For any j, k ≥ 1, the (3k+1) × (3j+1) rectangle with missing corner is L-tileable. -/
+theorem LTileable_rectMinusCorner_mod1_set (j k : ℕ) (hj1 : j ≥ 1) (hk1 : k ≥ 1) :
+    SetTileable (rectMinusCorner_set (3 * k + 1) (3 * j + 1)) LProtoset_set := by
+  rcases le_or_lt k 2 with hk2 | hk3
+  · -- k ≤ 2
+    rcases le_or_lt j 2 with hj2 | hj3
+    · -- k ≤ 2, j ≤ 2: small cases (k,j) ∈ {1,2}²
+      interval_cases k <;> interval_cases j <;> simp <;>
+        first
+        | exact LTileable_4x4_minus_corner_set
+        | exact LTileable_4x7_minus_corner_set
+        | exact LTileable_swap_rectMinusCorner_set LTileable_4x7_minus_corner_set
+        | exact LTileable_7x7_minus_corner_set
+    · -- k ≤ 2, j ≥ 3: use jk_ge lemma
+      exact LTileable_rectMinusCorner_mod1_jk_ge_set j k hj3 hk1
+  · -- k ≥ 3: use recurrence
+    exact LTileable_rectMinusCorner_mod1_recurrence_k_ge3_set j k hj1 (by omega)
+
+-- ============================================================
+-- Mod-2 coverage: 5 × n for any n ≡ 2 mod 3
+-- ============================================================
+
+/-- For any n with n % 3 = 2, the 5 × n rectangle with missing corner is L-tileable. -/
+theorem LTileable_5x_mod2_minus_corner_set (n : ℕ) (hn : n % 3 = 2) :
+    SetTileable (rectMinusCorner_set 5 n) LProtoset_set := by
+  -- Write n = 6*t+2 or n = 6*t+5 depending on parity of n/3
+  have hcase : (∃ t, n = 6 * t + 2) ∨ (∃ t, n = 6 * t + 5) := by
+    rcases Nat.even_or_odd (n / 3) with ⟨t, ht⟩ | ⟨t, ht⟩
+    · left; exact ⟨t, by omega⟩
+    · right; exact ⟨t, by omega⟩
+  rcases hcase with ⟨t, rfl⟩ | ⟨t, rfl⟩
+  · -- n = 6*t+2
+    exact LTileable_5x_6kplus2_minus_corner_set t
+  · -- n = 6*t+5
+    exact LTileable_5x_6kplus5_minus_corner_set t
+
+-- ============================================================
+-- Complete mod-2 case: (3j+2) × (3k+2) for all j, k ≥ 0
+-- ============================================================
+
+/-- For any j, k ≥ 0, the (3j+2) × (3k+2) rectangle with missing corner is L-tileable. -/
+theorem LTileable_mod2_minus_corner_set_all (j k : ℕ) :
+    SetTileable (rectMinusCorner_set (3 * j + 2) (3 * k + 2)) LProtoset_set := by
+  rcases le_or_lt k 1 with hk1 | hk2
+  · interval_cases k
+    · -- k = 0: (3j+2) × 2
+      norm_num
+      exact LTileable_3kplus2_x2_minus_corner_set j
+    · -- k = 1: (3j+2) × 5
+      norm_num
+      apply LTileable_swap_rectMinusCorner_set
+      exact LTileable_5x_mod2_minus_corner_set (3 * j + 2) (by omega)
+  · rcases le_or_lt j 1 with hj1 | hj2
+    · interval_cases j
+      · -- j = 0: 2 × (3k+2)
+        norm_num
+        apply LTileable_swap_rectMinusCorner_set
+        exact LTileable_3kplus2_x2_minus_corner_set k
+      · -- j = 1: 5 × (3k+2)
+        norm_num
+        exact LTileable_5x_mod2_minus_corner_set (3 * k + 2) (by omega)
+    · -- j ≥ 2, k ≥ 2
+      exact LTileable_rectMinusCorner_mod2_set j k (by omega) (by omega)
+
+-- ============================================================
+-- Necessity: L-tileability implies area condition
+-- ============================================================
+
+/-- If rectMinusCorner_set n m is L-tileable, then (n*m-1) % 3 = 0. -/
+theorem LTileable_rectMinusCorner_ncard_set (n m : ℕ) (hn : n ≥ 2) (hm : m ≥ 2)
+    (h : SetTileable (rectMinusCorner_set (n : ℤ) m) LProtoset_set) :
+    (n * m - 1) % 3 = 0 := by
+  have hdvd := SetTileable.ncard_dvd (ι := Unit) (ps := LProtoset_set)
+    (rectMinusCorner_set_finite (n : ℤ) (m : ℤ)) h ()
+  simp only [LProtoset_set, LPrototile_set_ncard,
+    rectMinusCorner_set_ncard n m (by omega) (by omega)] at hdvd
+  rwa [Nat.dvd_iff_mod_eq_zero] at hdvd
+
+-- ============================================================
+-- Main iff: Ash–Golomb dog-eared rectangle theorem (Set version)
+-- ============================================================
+
+/-- **Native Set-framework version of Ash–Golomb's dog-eared rectangle theorem.**
+    An n×m rectangle with the top-right corner removed is L-tileable iff
+    (n*m - 1) is divisible by 3, for n,m ≥ 2. -/
+theorem LTileable_rectMinusCorner_iff_set (n m : ℕ) (hn : n ≥ 2) (hm : m ≥ 2) :
+    LTileable_set (rect 0 0 (n : ℤ) m \ {((n : ℤ) - 1, (m : ℤ) - 1)}) ↔
+    (n * m - 1) % 3 = 0 := by
+  simp only [LTileable_set]
+  -- Rewrite the region as rectMinusCorner_set
+  have hrw : rect 0 0 (n : ℤ) m \ {((n : ℤ) - 1, (m : ℤ) - 1)} =
+      rectMinusCorner_set (n : ℤ) (m : ℤ) := rfl
+  rw [hrw]
+  constructor
+  · -- Necessity
+    exact LTileable_rectMinusCorner_ncard_set n m hn hm
+  · -- Sufficiency: (n*m-1) % 3 = 0 ⇒ tileable
+    intro hmod
+    -- n*m % 3 = 1 (since n*m ≥ 4, n*m - 1 ≥ 1, and (n*m-1) % 3 = 0)
+    have hnm1 : n * m % 3 = 1 := by omega
+    -- Either n ≡ m ≡ 1 mod 3, or n ≡ m ≡ 2 mod 3
+    have hres := mod3_both_one_or_two_of_area_mod3_zero hnm1
+    rcases hres with ⟨hn1, hm1⟩ | ⟨hn2, hm2⟩
+    · -- Mod-1 case: n = 3*k+1, m = 3*j+1 with k,j ≥ 1
+      let k := n / 3; let j := m / 3
+      have hk1 : k ≥ 1 := by simp only [k]; omega
+      have hj1 : j ≥ 1 := by simp only [j]; omega
+      have hn_eq : n = 3 * k + 1 := by simp only [k]; omega
+      have hm_eq : m = 3 * j + 1 := by simp only [j]; omega
+      have h := LTileable_rectMinusCorner_mod1_set j k hj1 hk1
+      convert h using 2 <;> [push_cast; omega; push_cast; omega]
+    · -- Mod-2 case: n = 3*j+2, m = 3*k+2 with j,k ≥ 0
+      let j := n / 3; let k := m / 3
+      have hn_eq : n = 3 * j + 2 := by simp only [j]; omega
+      have hm_eq : m = 3 * k + 2 := by simp only [k]; omega
+      have h := LTileable_mod2_minus_corner_set_all j k
+      convert h using 2 <;> [push_cast; omega; push_cast; omega]
