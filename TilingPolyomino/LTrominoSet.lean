@@ -295,24 +295,15 @@ private lemma lPlaced_set_not_cover_x02 (dx dy : ℤ) (r : Fin 4)
       Set.mem_insert_iff, Set.mem_singleton_iff, Prod.mk.injEq] at h0 h2 <;>
     omega
 
-/-- A tile containing (0,0) with all cells y ≥ 0 must have all cells y < 2 -/
-private lemma lPlaced_set_ybnd_of_cover_00 (dx dy : ℤ) (r : Fin 4)
-    (h00 : ((0 : ℤ), (0 : ℤ)) ∈ lPlaced_set dx dy r)
-    (q : Cell) (hq : q ∈ lPlaced_set dx dy r) (hq_nn : (0 : ℤ) ≤ q.2) : q.2 < 2 := by
+/-- A tile with any cell at y=0 must have all cells at y<2 -/
+private lemma lPlaced_set_ybnd_of_y0 (dx dy : ℤ) (r : Fin 4)
+    (hc : ∃ cx : ℤ, (cx, (0 : ℤ)) ∈ lPlaced_set dx dy r)
+    (q : Cell) (hq : q ∈ lPlaced_set dx dy r) : q.2 < 2 := by
+  obtain ⟨cx, hcx⟩ := hc
   fin_cases r <;>
     simp only [lPlaced_set_eq, mem_translate, mem_rotate, LShape_cells, inverseRot,
       rotateCell_0, rotateCell_1, rotateCell_2, rotateCell_3,
-      Set.mem_insert_iff, Set.mem_singleton_iff, Prod.mk.injEq] at h00 hq <;>
-    omega
-
-/-- A tile containing (2,0) with all cells y ≥ 0 must have all cells y < 2 -/
-private lemma lPlaced_set_ybnd_of_cover_20 (dx dy : ℤ) (r : Fin 4)
-    (h20 : ((2 : ℤ), (0 : ℤ)) ∈ lPlaced_set dx dy r)
-    (q : Cell) (hq : q ∈ lPlaced_set dx dy r) (hq_nn : (0 : ℤ) ≤ q.2) : q.2 < 2 := by
-  fin_cases r <;>
-    simp only [lPlaced_set_eq, mem_translate, mem_rotate, LShape_cells, inverseRot,
-      rotateCell_0, rotateCell_1, rotateCell_2, rotateCell_3,
-      Set.mem_insert_iff, Set.mem_singleton_iff, Prod.mk.injEq] at h20 hq <;>
+      Set.mem_insert_iff, Set.mem_singleton_iff, Prod.mk.injEq] at hcx hq <;>
     omega
 
 /-- A 3×(2k+1) rectangle is not L-tileable (Set framework) -/
@@ -355,10 +346,10 @@ theorem not_LTileable_3x_odd_set (k : ℕ) : ¬ SetTileable (rect 0 0 3 (2*k+1))
     -- Each corner tile is contained in the bottom strip rect 0 0 3 2
     have hi_sub_3x2 : lPlaced_set dxi dyi ri ⊆ rect 0 0 3 2 := fun q hq => by
       have hf := sub_full i (hi_eq ▸ hq); simp only [mem_rect] at hf ⊢
-      exact ⟨hf.1, hf.2.1, hf.2.2.1, lPlaced_set_ybnd_of_cover_00 dxi dyi ri hi' q hq hf.2.2.1⟩
+      exact ⟨hf.1, hf.2.1, hf.2.2.1, lPlaced_set_ybnd_of_y0 dxi dyi ri ⟨0, hi'⟩ q hq⟩
     have hj_sub_3x2 : lPlaced_set dxj dyj rj ⊆ rect 0 0 3 2 := fun q hq => by
       have hf := sub_full j (hj_eq ▸ hq); simp only [mem_rect] at hf ⊢
-      exact ⟨hf.1, hf.2.1, hf.2.2.1, lPlaced_set_ybnd_of_cover_20 dxj dyj rj hj' q hq hf.2.2.1⟩
+      exact ⟨hf.1, hf.2.1, hf.2.2.1, lPlaced_set_ybnd_of_y0 dxj dyj rj ⟨2, hj'⟩ q hq⟩
     -- Their union fills rect 0 0 3 2 exactly (two disjoint 3-cell tiles in a 6-cell rect)
     have hunion_eq : lPlaced_set dxi dyi ri ∪ lPlaced_set dxj dyj rj = rect 0 0 3 2 := by
       have hcard : (lPlaced_set dxi dyi ri ∪ lPlaced_set dxj dyj rj).ncard = 6 := by
