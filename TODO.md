@@ -18,19 +18,28 @@ But using the bridge to prove Set theorems defeats the entire point.
 **Required**: Move all three into `LTrominoSet.lean` with direct Set proofs (no bridge).
 
 ## In Progress
-- (nothing active)
+
+### P2 — Native `LTileable_rect_iff_set` in LTrominoSet.lean (no bridge)
+**Status (2026-02-27 08:28):** Scaffolding committed (`68577e1`). 5 lemmas added to
+LTrominoSet.lean (lines 455–483), all with `sorry` placeholders:
+- `LTileable_5x9_set` — explicit 15-tile base case
+- `LTileable_5x_6iplus3_set` — 5 × (6i+3) via vertical union
+- `LTileable_odd_ge5_x_6iplus3_set` — odd n≥5 × (6i+3) by stripping 2-col slabs
+- `LTileable_odd_x_mult3_set` — odd n≥3 × 3k (k≥2, with exclusion condition)
+- `LTileable_rect_iff_set` — main iff theorem using the 4 lemmas above
+
+**Remaining:** Fill in all 5 sorries; then remove bridge copy from LTrominoSetBridge.lean.
+LTrominoSet.lean: 483L. LTrominoSetBridge.lean: 115L (bridge copy still present).
 
 ## Up Next
 
-### P1 — `LTileable_3x2_set` as a 1-liner via swap (quick win)
-- `LTileable_swap_set` and `swapRegion_rect` already exist
-- Unprivate `swapRegion_rect`; replace the 14-line proof with:
-  `swapRegion_rect 2 3 ▸ LTileable_swap_set LTileable_2x3_set`
-
-### P2 — Native `LTileable_rect_iff_set` in LTrominoSet.lean (no bridge)
-- Sufficient condition: use `scale_rect` + base cases + `union` — should be short
-- Necessary condition: `ncard_dvd` (area divisible by 3) + `not_LTileable_3x_odd_set` + iff theorems
-- Remove from Bridge.lean once done in LTrominoSet.lean
+### P2 (continued) — Prove the 5 sorry lemmas
+- `LTileable_5x9_set`: explicit disjoint-cover proof for 15 L-trominoes in a 5×9 grid
+- `LTileable_5x_6iplus3_set`: induction using vertical_union of 5×9 and 5×(6*(i-1)) blocks
+- `LTileable_odd_ge5_x_6iplus3_set`: strong induction stripping 2×(6i+3) column slabs
+- `LTileable_odd_x_mult3_set`: case split k even (use existing even families) / k odd (use 6i+3 lemma)
+- `LTileable_rect_iff_set`: wire up necessary (ncard_dvd + not_LTileable_3x_odd_set) and sufficient
+- When all sorry gone: remove bridge copy from LTrominoSetBridge.lean
 
 ### P3 — Native `LTileable_rectMinusCorner_iff_set` in LTrominoSet.lean (no bridge)
 - Define `rectMinusCorner` as an RExp (big expected win — all decomposition lemmas in Finset
@@ -67,6 +76,11 @@ But using the bridge to prove Set theorems defeats the entire point.
       Leave as-is unless doing a structural refactor.
 
 ## Done (recent)
+- [x] **P1 — `LTileable_3x2_set` as 1-liner via swap** (`feat/set-tiling`, `dd1ffba`, 2026-02-27):
+      - Unprivated `swapRegion_rect`; replaced 14-line proof with:
+        `swapRegion_rect 2 3 ▸ LTileable_swap_set LTileable_2x3_set`
+      - LTrominoSet.lean: 466 → 464 lines (−2 net after P1 + blueprint TODO docs commit).
+      - 0 sorries. Build clean.
 - [x] **Lint fix: scale_rect_vert unused var + line-too-long** (`feat/set-tiling`, 25343f7):
       - `scale_rect_vert`: renamed `hc` → `_hc` (unused variable warning).
       - `scale_rect`: split long one-liner (line 476) across two lines (100-char limit).
