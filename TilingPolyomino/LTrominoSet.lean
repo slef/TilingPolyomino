@@ -238,22 +238,19 @@ private lemma lPlaced_set_x_span (dx dy : ℤ) (r : Fin 4) :
 
 /-- No 1×n strip (n ≥ 1) is L-tileable: placed copies always span ≥ 2 x-values -/
 theorem not_LTileable_1xn_set (n : ℕ) (hn : 1 ≤ n) : ¬ SetTileable (rect 0 0 1 n) LProtoset_set := by
-  intro ⟨ιₜ, hft, t, hv⟩
-  haveI : Fintype ιₜ := hft
+  intro ⟨ιₜ, hft, t, hv⟩; haveI : Fintype ιₜ := hft
   -- Get the tile covering (0,0)
-  have hcell : ((0 : ℤ), (0 : ℤ)) ∈ rect 0 0 1 (n : ℤ) := by
-    simp only [mem_rect]; exact ⟨le_refl _, by norm_num, le_refl _, by exact_mod_cast hn⟩
+  have hcell : ((0 : ℤ), (0 : ℤ)) ∈ rect 0 0 1 (n : ℤ) := by simp [mem_rect]; omega
   rw [← hv.covers, SetTileSet.coveredCells, Set.mem_iUnion] at hcell
   obtain ⟨i, hi⟩ := hcell
   let dx := (t.tiles i).translation.1; let dy := (t.tiles i).translation.2
   let r  := (t.tiles i).rotation
-  have hrep : SetTileSet.cellsAt t i = lPlaced_set dx dy r :=
-    by simp [SetTileSet.cellsAt, lPlaced_set, dx, dy, r]
+  have hrep : SetTileSet.cellsAt t i = lPlaced_set dx dy r := by
+    simp [SetTileSet.cellsAt, lPlaced_set, dx, dy, r]
   -- Any cell in tile i has x-coordinate in [0, 1)
   have h_sub : ∀ q, q ∈ lPlaced_set dx dy r → 0 ≤ q.1 ∧ q.1 < 1 := fun q hq => by
-    have : q ∈ rect 0 0 1 (n : ℤ) :=
-      hv.covers ▸ Set.mem_iUnion.mpr ⟨i, hrep ▸ hq⟩
-    simp only [mem_rect] at this; exact ⟨this.1, this.2.1⟩
+    have h : q ∈ rect 0 0 1 (n : ℤ) := hv.covers ▸ Set.mem_iUnion.mpr ⟨i, hrep ▸ hq⟩
+    simp only [mem_rect] at h; exact ⟨h.1, h.2.1⟩
   -- The origin offset (dx, dy) is in the tile → 0 ≤ dx < 1
   have hbnd := h_sub _ (lPlaced_set_contains_origin_offset dx dy r)
   -- The tile spans ≥ 2 x-values → contradiction
@@ -315,8 +312,7 @@ theorem not_LTileable_3x_odd_set (k : ℕ) : ¬ SetTileable (rect 0 0 3 (2*k+1))
     exact not_LTileable_nx1_set 3 (by omega)
   | succ k' ih =>
     -- Rewrite goal: ¬ SetTileable (rect 0 0 3 (2*↑k' + 3))
-    have hgoal : (2 : ℤ) * ↑(k' + 1) + 1 = 2 * (k' : ℤ) + 3 := by push_cast; omega
-    rw [hgoal]
+    rw [show (2 : ℤ) * ↑(k' + 1) + 1 = 2 * (k' : ℤ) + 3 from by push_cast; omega]
     intro ⟨ιₜ, hft, t, hv⟩
     haveI : Fintype ιₜ := hft; haveI : DecidableEq ιₜ := Classical.decEq _
     -- Get tiles covering opposite corners (0,0) and (2,0)
