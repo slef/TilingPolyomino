@@ -17,43 +17,20 @@ But using the bridge to prove Set theorems defeats the entire point.
 
 **Required**: Move items 2 and 3 into `LTrominoSet.lean` with direct Set proofs (no bridge).
 
-## 🚨 BLOCKER — LTileable_5x9_set proof broken (toolchain regression)
-**Detected by cron: 2026-02-27 12:40**
+## ⚠️ WATCH — LTileable_5x9_set heartbeat fix applied, build verification pending
+**Original blocker detected: 2026-02-27 12:40 | Fix applied: 2026-02-27 ~13:xx**
 
-`LTileable_5x9_set` (LTrominoSet.lean ~line 460) times out in the current Lean 4.27.0
-environment with the default 200K-heartbeat budget. The proof was borderline at commit time
-(`f62afd4`) and the whnf evaluation cost has since increased.
+`LTileable_5x9_set` was timing out at 200K heartbeats. Fix applied to working tree:
+`set_option maxHeartbeats 20000000` added before the theorem (Option D: per-theorem budget).
+Build is slow but no immediate errors observed during cron check at 14:10.
 
-**Symptom**: `(deterministic) timeout at whnf, maximum number of heartbeats (200000)`
-at the `refine ⟨Fin 15, inferInstance, ⟨![...], ...⟩⟩` line.
-
-**Effect**: Both the committed HEAD (1057L) and working-tree (STEP 6-7 draft, 1306L)
-fail to build. All downstream theorems (`LTileable_5x_6iplus3_set`, `LTileable_odd_ge5_x...`,
-`LTileable_rect_iff_set`, and all rectMinusCorner work) produce cascade errors.
-
-**Root cause**: The `![...tile...tile...]` matrix literal + `inferInstance` for `Fintype (Fin 15)`
-triggers expensive kernel reduction. Increasing `set_option maxHeartbeats N` alone doesn't
-help — with N large enough for whnf to pass, `simp_all` in the coverage case becomes too
-aggressive and causes omega failures.
-
-**Fix required** (for Stefan or next sub-agent):
-Option A — `native_decide` for disjointness + coverage: rewrite both proof goals as
-decidable propositions if possible (may need a `Decidable` instance for `SetTileable`).
-Option B — explicit proof term: avoid `inferInstance` + `![...]`, use a manually constructed
-`Fintype` instance and named tile definitions.
-Option C — bridge base case: note `tileable_5x9 : LTileable (rectangle 5 9)` is already
-proved in LTromino.lean (line 635, by `decide`). Since LTrominoSet can't import Bridge, 
-temporarily allow an internal bridge-like workaround for just this base case, or restructure
-the imports so LTromino.lean's `tileable_5x9` is available earlier.
-Option D — split proof into pieces: extract disjointness and coverage as `@[noinline]`
-helper lemmas with their own heartbeat budgets.
-
-**Immediate action**: Fix `LTileable_5x9_set` before resuming STEP 6-7 work.
+**If the build fails** with the 20M budget, fall back to Option D (split into `@[noinline]`
+disjointness + coverage lemmas with separate budgets), or Option C (bridge base case).
 
 ## In Progress
 
 ### P3 — Native `LTileable_rectMinusCorner_iff_set` in LTrominoSet.lean (no bridge)
-**Status: STEP 6-7 draft written (uncommitted), build BLOCKED** (cron, 2026-02-27 12:40)
+**Status: STEPS 6-7 fully drafted (no sorries), build verification in progress** (cron, 2026-02-27 14:10)
 
 Completed steps (all committed, build was clean at commit time):
 - [x] STEP 1 (`46fee68`): `rectMinusCorner_set` def + split lemmas (horiz/vert)
@@ -62,19 +39,24 @@ Completed steps (all committed, build was clean at commit time):
 - [x] STEP 4 (`4f55fd6`, `4e19012`): family lemmas ((3k+2)×2, 4×(7+6k), 5×(6k+2), 5×(6k+5))
 - [x] STEP 5 (`a466cf0`): main mod-2 case `LTileable_rectMinusCorner_mod2_set` (j,k≥2)
 
-Uncommitted STEP 6-7 draft (working tree, ~249 new lines):
-- [~] STEP 6 (drafted): `LTileable_rectMinusCorner_ncard_set` (necessity)
-- [~] STEP 7 (drafted): `LTileable_rectMinusCorner_iff_set` full iff assembly
-  - mod-1 helper: `LTileable_rectMinusCorner_mod1_set` + supporting lemmas
-  - Bridge copy still present (will need removal after verification)
-  - BLOCKED: can't verify / commit until `LTileable_5x9_set` is fixed
+Uncommitted STEP 6-7 draft (working tree, 1295L vs committed 1057L, +238 lines):
+- [~] STEP 6 (drafted): `LTileable_rectMinusCorner_ncard_set` (necessity, line ~1248)
+- [~] STEP 7 (drafted): `LTileable_rectMinusCorner_iff_set` full iff (line 1264)
+  - `LTileable_4x_3kplus1_minus_corner_set` (line 1067) — 4 × (3k+1) family
+  - `LTileable_rectMinusCorner_mod1_jk_ge_set` (line 1096) — mod-1 large case
+  - `LTileable_rectMinusCorner_mod1_recurrence_k_ge3_set` (line 1140) — mod-1 recurrence
+  - `LTileable_rectMinusCorner_mod1_set` (line 1180) — mod-1 master lemma
+  - `LTileable_mod2_minus_corner_set_all` (line 1220) — extended mod-2 all j,k
+  - Bridge copy of `LTileable_rectMinusCorner_iff_set` removed from Bridge.lean ✓
+  - 0 sorries throughout
 
-**Next step**: Fix the blocker above, then verify STEP 6-7 draft compiles, then commit.
+**Next step**: Confirm build passes with `maxHeartbeats 20000000` fix, then commit STEP 6-7.
 
 ## Up Next
 
-### P3 — Native `LTileable_rectMinusCorner_iff_set` continued (STEP 6-7)
-See "In Progress" above — nearly done.
+### P3 — Commit & push STEP 6-7 once build verified
+Confirm `lake build TilingPolyomino` passes (working tree), then commit + push.
+See "In Progress" for full theorem list.
 
 ### P4 — Native `LTileable_rectMinus2Corner_set` in LTrominoSet.lean (no bridge)
 - Same strategy as P3: define `rectMinus2Corner` as RExp, port decomposition lemmas
