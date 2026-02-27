@@ -1,23 +1,41 @@
 # TilingPolyomino — To-Do List
 
 ## In Progress
-- [ ] **Naming cleanup** (`feat/set-tiling`): fix `LSet*` prefix → `LTileable_*_set` suffix everywhere;
-      create `NAMING_CONVENTIONS.md`; full coherence audit across all Set files.
+- (nothing active)
 
 ## Up Next
+- [ ] **Genuine Set proofs for corner theorems**: `LTileable_rectMinusCorner_iff_set` and
+      `LTileable_rectMinus2Corner_set` are currently bridge-based (via `LTileable_iff_set`).
+      Goal: replace with independent Set proofs (no bridge), mirroring the structure of
+      `not_LTileable_3x_odd_set` and `LTileable_3xn_iff_set`.
+- [ ] **Further simplification** of `LTileable_6x_of_ge2_set` (27 lines) and
+      `LTileable_odd_x_6_set` (21 lines) — these use strong induction with `horizontal_union`
+      and could potentially be compressed with a generic `vertical_strip_of_ge2` helper.
+- [ ] **Fair line-count comparison**: compare `LTrominoSet.lean` + `LTrominoSetBridge.lean`
+      against `LTromino.lean` for matching theorem sets.
 
 ## Backlog
-- [ ] **Proof simplification**: audit every proof in `LTrominoSet.lean` / `TilingSet.lean`,
-      target ≤15 lines per theorem; use `scale_rect`, `refine`, `rect_omega`.
-      No bridge shortcuts — Set proofs should be independently clean.
-- [ ] **Port remaining major theorems** to Set framework (currently only `rect_setTileable_iff`):
-      - `rectMinusCorner_tileable_iff_set`
-      - `rectMinus2Corner_tileable_of_area_mod2_set`
-      These would make the Set framework a full peer to `LTromino.lean` (all 3 major theorems).
-- [ ] **Fair line-count comparison**: once all 3 major theorems are ported,
-      compare line counts for matching theorem sets only.
+- [ ] **rect_omega for Set.mem_diff goals**: `h_diff_eq` style proofs now use
+      `ext ⟨x,y⟩; simp only [...]; omega` — consider adding this as a `rect_omega` extension.
+- [ ] **`LTileable_nx2_iff_set`** and **`LTileable_2xn_iff_set`** companion symmetry theorems
+      (currently only `2xn` and `3xn` are biconditionals).
 
-## Done
+## Done (recent)
+- [x] **Proof simplification audit** (`feat/set-tiling`):
+      - `LTileable_swap_set`: 36 → 24 lines (−12)
+      - `not_LTileable_1xn_set`: 33 → 25 lines (−8)
+      - `not_LTileable_3x_odd_set`: 122 → 75 lines (−47): extracted `sub_full` helper,
+        compressed `h_diff_eq` to 3 lines via `simp+omega`, inlined 3-arg lambdas.
+      - `LTileable_nx3_iff_set`: 17 → 5 lines (−12): `constructor <;> simpa [swapRegion_rect]`.
+      - Total: LTrominoSet.lean 579 → 507 lines (−72).  0 sorries throughout.
+- [x] **NAMING_CONVENTIONS.md** created (`feat/set-tiling`).
+- [x] **Port `rectMinusCorner_tileable_iff` to Set** (bridge-based, `LTrominoSetBridge.lean`):
+      `LTileable_rectMinusCorner_iff_set (n m : ℕ) (hn : n ≥ 2) (hm : m ≥ 2)`.
+      Condition: `(n * m - 1) % 3 = 0`. Via `coe_rectangleMinusCorner_eq` + `LTileable_iff_set`.
+- [x] **Port `rectMinus2Corner_tileable_of_area_mod2` to Set** (bridge-based, `LTrominoSetBridge.lean`):
+      `LTileable_rectMinus2Corner_set (n m : ℕ) (hn : n ≥ 3) (hm : m ≥ 3) (hmod : n * m % 3 = 2)`.
+      Via `coe_rectangleMinus2Corner_eq` + `LTileable_iff_set`.
+      Bridge.lean: 59 → 119 lines. 0 sorries.
 - [x] **Canonical conversion + simplified bridge** (`feat/set-tiling`):
       Added `SetPrototile.ext`, `toSetPrototile`, `toSetProtoset`, `toSetProtoset_compat`,
       and `Tileable_iff_toSet` (2-arg, no manual compat proof) to `TilingSet.lean`.

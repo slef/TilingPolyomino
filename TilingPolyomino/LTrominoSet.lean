@@ -74,29 +74,20 @@ theorem LTileable_swap_set {R : Set Cell} (h : SetTileable R LProtoset_set) :
     ⟨(), ((t.tiles i).translation.2, (t.tiles i).translation.1), swapRot (t.tiles i).rotation⟩⟩
   have hcell : ∀ i, SetTileSet.cellsAt t' i = Set.swapRegion (SetTileSet.cellsAt t i) := by
     intro i
-    rcases hti : t.tiles i with ⟨idx, tr, r⟩
-    rcases tr with ⟨dx, dy⟩
-    cases idx
+    rcases hti : t.tiles i with ⟨idx, tr, r⟩; rcases tr with ⟨dx, dy⟩; cases idx
     simpa [SetTileSet.cellsAt, t', hti, lPlaced_set] using (swapRegion_lPlaced_set dx dy r).symm
   refine ⟨ιₜ, hft, t', ⟨?_, ?_⟩⟩
   · intro i j hij
     have hd := hv.disjoint i j hij
     rw [Set.disjoint_left] at hd ⊢
-    intro p hp1 hp2
-    have hp1' : (p.2, p.1) ∈ SetTileSet.cellsAt t i := by
-      simpa [hcell i, mem_swapRegion] using hp1
-    have hp2' : (p.2, p.1) ∈ SetTileSet.cellsAt t j := by
-      simpa [hcell j, mem_swapRegion] using hp2
-    exact hd hp1' hp2'
+    exact fun p hp1 hp2 => hd (by simpa [hcell i, mem_swapRegion] using hp1)
+                              (by simpa [hcell j, mem_swapRegion] using hp2)
   · ext p
     simp only [SetTileSet.coveredCells, Set.mem_iUnion, hcell, mem_swapRegion]
-    constructor
-    · rintro ⟨i, hi⟩
-      have hc : (p.2, p.1) ∈ SetTileSet.coveredCells t := Set.mem_iUnion.mpr ⟨i, hi⟩
-      rwa [hv.covers] at hc
-    · intro hpR
-      have hc : (p.2, p.1) ∈ SetTileSet.coveredCells t := hv.covers ▸ hpR
-      exact Set.mem_iUnion.mp hc
+    exact ⟨fun ⟨i, hi⟩ => hv.covers ▸
+             (Set.mem_iUnion.mpr ⟨i, hi⟩ : (p.2, p.1) ∈ SetTileSet.coveredCells t),
+           fun hpR => Set.mem_iUnion.mp
+             (hv.covers.symm ▸ hpR : (p.2, p.1) ∈ SetTileSet.coveredCells t)⟩
 
 -- ============================================================
 -- Base cases
@@ -266,36 +257,28 @@ private lemma lPlaced_set_x_span (dx dy : ℤ) (r : Fin 4) :
 
 /-- No 1×n strip (n ≥ 1) is L-tileable: placed copies always span ≥ 2 x-values -/
 theorem not_LTileable_1xn_set (n : ℕ) (hn : 1 ≤ n) : ¬ SetTileable (rect 0 0 1 n) LProtoset_set := by
-  intro h
-  obtain ⟨ιₜ, hft, t, hv⟩ := h
+  intro ⟨ιₜ, hft, t, hv⟩
   haveI : Fintype ιₜ := hft
+  -- Get the tile covering (0,0)
   have hcell : ((0 : ℤ), (0 : ℤ)) ∈ rect 0 0 1 (n : ℤ) := by
-    simp only [mem_rect]
-    exact ⟨le_refl _, by norm_num, le_refl _, by exact_mod_cast hn⟩
+    simp only [mem_rect]; exact ⟨le_refl _, by norm_num, le_refl _, by exact_mod_cast hn⟩
   rw [← hv.covers, SetTileSet.coveredCells, Set.mem_iUnion] at hcell
   obtain ⟨i, hi⟩ := hcell
-  let dx : ℤ := (t.tiles i).translation.1
-  let dy : ℤ := (t.tiles i).translation.2
-  let r : Fin 4 := (t.tiles i).rotation
-  have hrep : SetTileSet.cellsAt t i = lPlaced_set dx dy r := by
-    simp [SetTileSet.cellsAt, lPlaced_set, dx, dy, r]
-  have h_sub : ∀ q, q ∈ SetTileSet.cellsAt t i → 0 ≤ q.1 ∧ q.1 < 1 := by
-    intro q hq
-    have hmem : q ∈ rect 0 0 1 (n : ℤ) := by
-      have : q ∈ ⋃ j, SetTileSet.cellsAt t j := Set.mem_iUnion.mpr ⟨i, hq⟩
-      have : q ∈ SetTileSet.coveredCells t := by simpa [SetTileSet.coveredCells] using this
-      rwa [hv.covers] at this
-    simp only [mem_rect] at hmem
-    exact ⟨hmem.1, hmem.2.1⟩
-  rw [hrep] at hi h_sub
-  have h_base : (dx, dy) ∈ lPlaced_set dx dy r :=
-    lPlaced_set_contains_origin_offset dx dy r
-  have _hbase := h_sub _ h_base
+  let dx := (t.tiles i).translation.1; let dy := (t.tiles i).translation.2
+  let r  := (t.tiles i).rotation
+  have hrep : SetTileSet.cellsAt t i = lPlaced_set dx dy r :=
+    by simp [SetTileSet.cellsAt, lPlaced_set, dx, dy, r]
+  -- Any cell in tile i has x-coordinate in [0, 1)
+  have h_sub : ∀ q, q ∈ lPlaced_set dx dy r → 0 ≤ q.1 ∧ q.1 < 1 := fun q hq => by
+    have : q ∈ rect 0 0 1 (n : ℤ) :=
+      hv.covers ▸ Set.mem_iUnion.mpr ⟨i, hrep ▸ hq⟩
+    simp only [mem_rect] at this; exact ⟨this.1, this.2.1⟩
+  -- The origin offset (dx, dy) is in the tile → 0 ≤ dx < 1
+  have hbnd := h_sub _ (lPlaced_set_contains_origin_offset dx dy r)
+  -- The tile spans ≥ 2 x-values → contradiction
   rcases lPlaced_set_x_span dx dy r with h2 | h2
-  · have := (h_sub _ h2).2
-    omega
-  · have := (h_sub _ h2).1
-    omega
+  · have := (h_sub _ h2).2; omega
+  · have := (h_sub _ h2).1; omega
 
 /-- Same result for the transposed strip (n×1) -/
 theorem not_LTileable_nx1_set (n : ℕ) (hn : 1 ≤ n) : ¬ SetTileable (rect 0 0 n 1) LProtoset_set := by
@@ -359,114 +342,67 @@ theorem not_LTileable_3x_odd_set (k : ℕ) : ¬ SetTileable (rect 0 0 3 (2*k+1))
     norm_cast
     exact not_LTileable_nx1_set 3 (by omega)
   | succ k' ih =>
-    -- The goal has form: ¬ SetTileable (rect 0 0 3 (2 * ↑(k'+1) + 1)) LProtoset_set
-    -- Rewrite to: ¬ SetTileable (rect 0 0 3 (2 * ↑k' + 3)) LProtoset_set
+    -- Rewrite goal: ¬ SetTileable (rect 0 0 3 (2*↑k' + 3))
     have hgoal : (2 : ℤ) * ↑(k' + 1) + 1 = 2 * (k' : ℤ) + 3 := by push_cast; omega
     rw [hgoal]
     intro ⟨ιₜ, hft, t, hv⟩
-    haveI : Fintype ιₜ := hft
-    haveI : DecidableEq ιₜ := Classical.decEq _
-    -- (0,0) and (2,0) are in the rectangle
-    have h00_in : ((0 : ℤ), (0 : ℤ)) ∈ rect 0 0 3 (2 * (k' : ℤ) + 3) := by
-      simp only [mem_rect]; omega
-    have h20_in : ((2 : ℤ), (0 : ℤ)) ∈ rect 0 0 3 (2 * (k' : ℤ) + 3) := by
-      simp only [mem_rect]; omega
-    -- Get the tiles covering each corner
+    haveI : Fintype ιₜ := hft; haveI : DecidableEq ιₜ := Classical.decEq _
+    -- Get tiles covering opposite corners (0,0) and (2,0)
+    have h00_in : ((0 : ℤ), (0 : ℤ)) ∈ rect 0 0 3 (2 * (k' : ℤ) + 3) := by simp [mem_rect]; omega
+    have h20_in : ((2 : ℤ), (0 : ℤ)) ∈ rect 0 0 3 (2 * (k' : ℤ) + 3) := by simp [mem_rect]; omega
     rw [← hv.covers, SetTileSet.coveredCells, Set.mem_iUnion] at h00_in h20_in
-    obtain ⟨i, hi⟩ := h00_in
-    obtain ⟨j, hj⟩ := h20_in
-    -- Express tiles as lPlaced_set
-    let dxi := (t.tiles i).translation.1
-    let dyi := (t.tiles i).translation.2
+    obtain ⟨i, hi⟩ := h00_in; obtain ⟨j, hj⟩ := h20_in
+    -- Name tile parameters
+    let dxi := (t.tiles i).translation.1; let dyi := (t.tiles i).translation.2
     let ri  := (t.tiles i).rotation
-    let dxj := (t.tiles j).translation.1
-    let dyj := (t.tiles j).translation.2
+    let dxj := (t.tiles j).translation.1; let dyj := (t.tiles j).translation.2
     let rj  := (t.tiles j).rotation
     have hi_eq : t.cellsAt i = lPlaced_set dxi dyi ri := by
       simp [SetTileSet.cellsAt, lPlaced_set, dxi, dyi, ri]
     have hj_eq : t.cellsAt j = lPlaced_set dxj dyj rj := by
       simp [SetTileSet.cellsAt, lPlaced_set, dxj, dyj, rj]
-    -- Use ▸ to transport membership through the cellsAt equations
     have hi' : ((0 : ℤ), (0 : ℤ)) ∈ lPlaced_set dxi dyi ri := hi_eq ▸ hi
     have hj' : ((2 : ℤ), (0 : ℤ)) ∈ lPlaced_set dxj dyj rj := hj_eq ▸ hj
-    -- i ≠ j: one tile can't cover both corners (x-span ≤ 1)
+    -- i ≠ j and tiles are disjoint
     have hij : i ≠ j := by
-      intro heq; subst heq
-      -- After j := i, dxj/dyj/rj become dxi/dyi/ri (let-bindings)
-      exact lPlaced_set_not_cover_x02 dxi dyi ri hi' hj'
-    -- Tiles i and j are disjoint (from validity)
+      intro heq; subst heq; exact lPlaced_set_not_cover_x02 dxi dyi ri hi' hj'
     have hdisj : Disjoint (lPlaced_set dxi dyi ri) (lPlaced_set dxj dyj rj) := by
       rw [← hi_eq, ← hj_eq]; exact hv.disjoint i j hij
-    -- Helper: any cell of tile i is in rect 0 0 3 (2k'+3)
-    have hi_sub_full : ∀ q, q ∈ lPlaced_set dxi dyi ri →
-        q ∈ rect 0 0 3 (2 * (k' : ℤ) + 3) := by
-      intro q hq
-      have hcell : q ∈ t.cellsAt i := hi_eq ▸ hq
-      have hmem : q ∈ SetTileSet.coveredCells t :=
-        Set.mem_iUnion.mpr ⟨i, hcell⟩
-      rwa [hv.covers] at hmem
-    -- Helper: any cell of tile j is in rect 0 0 3 (2k'+3)
-    have hj_sub_full : ∀ q, q ∈ lPlaced_set dxj dyj rj →
-        q ∈ rect 0 0 3 (2 * (k' : ℤ) + 3) := by
-      intro q hq
-      have hcell : q ∈ t.cellsAt j := hj_eq ▸ hq
-      have hmem : q ∈ SetTileSet.coveredCells t :=
-        Set.mem_iUnion.mpr ⟨j, hcell⟩
-      rwa [hv.covers] at hmem
-    -- Tile i ⊆ rect 0 0 3 2
-    have hi_sub_3x2 : lPlaced_set dxi dyi ri ⊆ rect 0 0 3 2 := by
-      intro q hq
-      have hfull := hi_sub_full q hq
-      simp only [mem_rect] at hfull ⊢
-      exact ⟨hfull.1, hfull.2.1, hfull.2.2.1,
-        lPlaced_set_ybnd_of_cover_00 dxi dyi ri hi' q hq hfull.2.2.1⟩
-    -- Tile j ⊆ rect 0 0 3 2
-    have hj_sub_3x2 : lPlaced_set dxj dyj rj ⊆ rect 0 0 3 2 := by
-      intro q hq
-      have hfull := hj_sub_full q hq
-      simp only [mem_rect] at hfull ⊢
-      exact ⟨hfull.1, hfull.2.1, hfull.2.2.1,
-        lPlaced_set_ybnd_of_cover_20 dxj dyj rj hj' q hq hfull.2.2.1⟩
-    -- The union of tiles i and j equals rect 0 0 3 2
+    -- Any cell of any tile is in rect 0 0 3 (2k'+3)
+    have sub_full : ∀ (ii : ιₜ) q, q ∈ SetTileSet.cellsAt t ii →
+        q ∈ rect 0 0 3 (2 * (k' : ℤ) + 3) :=
+      fun ii q hq => hv.covers ▸ Set.mem_iUnion.mpr ⟨ii, hq⟩
+    have hi_sub_full : ∀ q, q ∈ lPlaced_set dxi dyi ri → q ∈ rect 0 0 3 (2 * (k' : ℤ) + 3) := by
+      intro q hq; rw [← hi_eq] at hq; exact sub_full i q hq
+    have hj_sub_full : ∀ q, q ∈ lPlaced_set dxj dyj rj → q ∈ rect 0 0 3 (2 * (k' : ℤ) + 3) := by
+      intro q hq; rw [← hj_eq] at hq; exact sub_full j q hq
+    -- Each corner tile is contained in the bottom strip rect 0 0 3 2
+    have hi_sub_3x2 : lPlaced_set dxi dyi ri ⊆ rect 0 0 3 2 := fun q hq => by
+      have hf := hi_sub_full q hq; simp only [mem_rect] at hf ⊢
+      exact ⟨hf.1, hf.2.1, hf.2.2.1, lPlaced_set_ybnd_of_cover_00 dxi dyi ri hi' q hq hf.2.2.1⟩
+    have hj_sub_3x2 : lPlaced_set dxj dyj rj ⊆ rect 0 0 3 2 := fun q hq => by
+      have hf := hj_sub_full q hq; simp only [mem_rect] at hf ⊢
+      exact ⟨hf.1, hf.2.1, hf.2.2.1, lPlaced_set_ybnd_of_cover_20 dxj dyj rj hj' q hq hf.2.2.1⟩
+    -- Their union fills rect 0 0 3 2 exactly (two disjoint 3-cell tiles in a 6-cell rect)
     have hunion_eq : lPlaced_set dxi dyi ri ∪ lPlaced_set dxj dyj rj = rect 0 0 3 2 := by
-      have h_union_card : (lPlaced_set dxi dyi ri ∪ lPlaced_set dxj dyj rj).ncard = 6 := by
+      have hcard : (lPlaced_set dxi dyi ri ∪ lPlaced_set dxj dyj rj).ncard = 6 := by
         rw [Set.ncard_union_eq hdisj (lPlaced_set_finite _ _ _) (lPlaced_set_finite _ _ _),
             lPlaced_set_ncard, lPlaced_set_ncard]
       have h_rect_card : (rect 0 0 3 (2 : ℤ)).ncard = 6 := by simp [rect_ncard]
-      -- eq_of_subset_of_ncard_le (h : s ⊆ t) : s = t; with s = union, t = rect → union = rect ✓
       exact Set.eq_of_subset_of_ncard_le (Set.union_subset hi_sub_3x2 hj_sub_3x2)
         (by linarith) (rect_finite _ _ _ _)
-    -- The remaining region after removing tiles i and j is tileable
-    have hS : t.cellsAt i ∪ t.cellsAt j = rect 0 0 3 2 := by
-      rw [hi_eq, hj_eq]; exact hunion_eq
-    have h_remain : SetTileable (rect 0 0 3 (2 * (k' : ℤ) + 3) \ rect 0 0 3 2) LProtoset_set :=
-      SetTileable.remove_two t hv i j hij hS
-    -- The remaining region equals translate 0 2 (rect 0 0 3 (2*k'+1))
+    -- Remove the two bottom tiles; the remainder is the translated smaller rect
+    have hS : t.cellsAt i ∪ t.cellsAt j = rect 0 0 3 2 := by rw [hi_eq, hj_eq]; exact hunion_eq
+    have h_remain := SetTileable.remove_two t hv i j hij hS
     have h_diff_eq : rect 0 0 3 (2 * (k' : ℤ) + 3) \ rect 0 0 3 2 =
         translate 0 2 (rect 0 0 3 (2 * (k' : ℤ) + 1)) := by
-      ext ⟨x, y⟩
-      simp only [Set.mem_diff, mem_rect, mem_translate]
-      constructor
-      · rintro ⟨⟨hx1, hx2, hy1, hy2⟩, hnotmem⟩
-        push_neg at hnotmem
-        -- hnotmem : 0 ≤ x → x < 3 → 0 ≤ y → 2 ≤ y
-        have hy2' : 2 ≤ y := hnotmem hx1 hx2 hy1
-        simp only [sub_zero]
-        exact ⟨hx1, hx2, by linarith, by linarith⟩
-      · rintro ⟨hx1, hx2, hy1, hy2⟩
-        simp only [sub_zero] at *
-        refine ⟨⟨hx1, hx2, by linarith, by linarith⟩, ?_⟩
-        simp only [not_and, not_lt]
-        intro _ _ _; linarith
+      ext ⟨x, y⟩; simp only [Set.mem_diff, mem_rect, mem_translate]; omega
     rw [h_diff_eq] at h_remain
-    -- Translate back to get SetTileable (rect 0 0 3 (2*k'+1))
+    -- Translate back and apply IH
     have h_back : SetTileable (rect 0 0 3 (2 * (k' : ℤ) + 1)) LProtoset_set := by
       have h := h_remain.translate 0 (-2)
-      have h_eq : translate 0 (-2) (translate 0 2 (rect 0 0 3 (2 * (k' : ℤ) + 1))) =
-          rect 0 0 3 (2 * (k' : ℤ) + 1) := by
-        ext ⟨x, y⟩; simp only [mem_translate, mem_rect]; omega
-      rwa [h_eq] at h
-    -- Contradict the IH (cast: 2 * ↑k' + 1 = 2 * (k':ℤ) + 1 definitionally)
+      rwa [show translate 0 (-2) (translate 0 2 (rect 0 0 3 (2 * ↑k' + 1))) =
+          rect 0 0 3 (2 * ↑k' + 1) from by ext ⟨x, y⟩; simp only [mem_translate, mem_rect]; omega] at h
     exact ih h_back
 
 -- ============================================================
@@ -511,15 +447,7 @@ theorem LTileable_3xn_iff_set (n : ℕ) : SetTileable (rect 0 0 3 n) LProtoset_s
 /-- n×3 is L-tileable iff n is even (by symmetry with 3×n) -/
 theorem LTileable_nx3_iff_set (n : ℕ) : SetTileable (rect 0 0 n 3) LProtoset_set ↔ 2 ∣ n := by
   rw [← LTileable_3xn_iff_set]
-  constructor
-  · intro h
-    have := LTileable_swap_set h
-    rwa [show Set.swapRegion (rect 0 0 (n : ℤ) 3) = rect 0 0 3 n from by
-      ext ⟨x, y⟩; simp [mem_swapRegion, mem_rect]; omega] at this
-  · intro h
-    have := LTileable_swap_set h
-    rwa [show Set.swapRegion (rect 0 0 3 (n : ℤ)) = rect 0 0 n 3 from by
-      ext ⟨x, y⟩; simp [mem_swapRegion, mem_rect]; omega] at this
+  constructor <;> intro h <;> simpa [swapRegion_rect] using LTileable_swap_set h
 
 -- ============================================================
 -- General 2D families via refine
