@@ -1,13 +1,54 @@
 # TilingPolyomino — To-Do List
 
+## ⚠️ TOP PRIORITY — Strategic Goal: Native Set Proofs (No Bridge Shortcuts)
+
+The purpose of the Set framework (`TilingSet.lean` / `LTrominoSet.lean`) is to provide
+**simpler, independent proofs** of all major L-tromino theorems — not to delegate back to
+the Finset framework via the bridge.
+
+The bridge (`LTrominoSetBridge.lean`) is a **two-way compatibility layer** for later use:
+if some theorem is easier to prove in one framework, the bridge lets you transport it.
+But using the bridge to prove Set theorems defeats the entire point.
+
+**Currently violating this principle** (all three main theorems proved via bridge):
+1. `LTileable_rect_iff_set` — in Bridge.lean, uses `LTileable_iff_set` → `rect_tileable_iff`
+2. `LTileable_rectMinusCorner_iff_set` — in Bridge.lean, uses bridge
+3. `LTileable_rectMinus2Corner_set` — in Bridge.lean, uses bridge
+
+**Required**: Move all three into `LTrominoSet.lean` with direct Set proofs (no bridge).
+
 ## In Progress
 - (nothing active)
 
 ## Up Next
-- [ ] **Genuine Set proofs for corner theorems**: `LTileable_rectMinusCorner_iff_set` and
-      `LTileable_rectMinus2Corner_set` are currently bridge-based (via `LTileable_iff_set`).
-      Goal: replace with independent Set proofs (no bridge), mirroring the structure of
-      `not_LTileable_3x_odd_set` and `LTileable_3xn_iff_set`.
+
+### P1 — `LTileable_3x2_set` as a 1-liner via swap (quick win)
+- `LTileable_swap_set` and `swapRegion_rect` already exist
+- Unprivate `swapRegion_rect`; replace the 14-line proof with:
+  `swapRegion_rect 2 3 ▸ LTileable_swap_set LTileable_2x3_set`
+
+### P2 — Native `LTileable_rect_iff_set` in LTrominoSet.lean (no bridge)
+- Sufficient condition: use `scale_rect` + base cases + `union` — should be short
+- Necessary condition: `ncard_dvd` (area divisible by 3) + `not_LTileable_3x_odd_set` + iff theorems
+- Remove from Bridge.lean once done in LTrominoSet.lean
+
+### P3 — Native `LTileable_rectMinusCorner_iff_set` in LTrominoSet.lean (no bridge)
+- Define `rectMinusCorner` as an RExp (big expected win — all decomposition lemmas in Finset
+  used `rexp` style; Set framework should do the same)
+- Port the decomposition lemmas from `LTromino.lean` into `LTrominoSet.lean` using RExp
+- Stefan's hypothesis: `rect_omega` / `rexp_omega` on RExp-defined regions will collapse
+  the decomposition proofs dramatically
+
+### P4 — Native `LTileable_rectMinus2Corner_set` in LTrominoSet.lean (no bridge)
+- Same strategy as P3: define `rectMinus2Corner` as RExp, port decomposition lemmas
+
+### P5 — RExp experiment: redefine `LShape_cells` as `rect 0 0 1 2 ∪ rect 1 0 2 1`
+- Question: does this collapse the `simp [LShape_cells, mem_translate, ...]; omega` blocks
+  in coverage proofs to single `rexp_omega` calls?
+- Cost: `LPrototile_set_ncard` becomes harder (ncard of a union); bridge proofs may need updating
+- Try on a branch; measure before committing
+
+## Backlog
 
 ## Backlog
 - [ ] **rect_omega for Set.mem_diff goals**: `h_diff_eq` style proofs now use
@@ -18,6 +59,11 @@
       Leave as-is unless doing a structural refactor.
 
 ## Done (recent)
+- [x] **Lint fix: scale_rect_vert unused var + line-too-long** (`feat/set-tiling`, 25343f7):
+      - `scale_rect_vert`: renamed `hc` → `_hc` (unused variable warning).
+      - `scale_rect`: split long one-liner (line 476) across two lines (100-char limit).
+      - These were introduced by the `scale_rect_horiz + scale_rect_vert` decomposition commit.
+      - TilingSet.lean: 649 → 650 lines (+1). Build clean, 0 sorries. Pushed to fork.
 - [x] **PR-readiness pass** (`feat/set-tiling`, 775fc1f):
       - Removed stale `TASK_next.md` (131L scratch planning file; all 4 tasks it described
         are long complete in LTrominoSet.lean and LTrominoSetBridge.lean).
