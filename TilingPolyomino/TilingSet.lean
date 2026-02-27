@@ -444,7 +444,7 @@ theorem SetTileable.scale_rect_horiz {ι : Type*} {ps : SetProtoset ι} {a b : �
 
 /-- If ps tiles an a×b rectangle (b > 0), it tiles a c×(m·b) rectangle (m ≥ 1). -/
 theorem SetTileable.scale_rect_vert {ι : Type*} {ps : SetProtoset ι} {c b : ℤ}
-    (h : SetTileable (rect 0 0 c b) ps) (hb : 0 < b) (hc : 0 ≤ c)
+    (h : SetTileable (rect 0 0 c b) ps) (hb : 0 < b) (_hc : 0 ≤ c)
     (m : ℕ) (hm : 1 ≤ m) :
     SetTileable (rect 0 0 c ((m : ℤ) * b)) ps := by
   obtain ⟨k, rfl⟩ := Nat.exists_eq_succ_of_ne_zero (by omega : m ≠ 0)
@@ -473,7 +473,8 @@ theorem SetTileable.scale_rect {ι : Type*} {ps : SetProtoset ι} {a b : ℤ}
     (h : SetTileable (rect 0 0 a b) ps) (ha : 0 < a) (hb : 0 < b)
     (n m : ℕ) (_hn : 1 ≤ n) (_hm : 1 ≤ m) :
     SetTileable (rect 0 0 ((n : ℤ) * a) ((m : ℤ) * b)) ps :=
-  (h.scale_rect_horiz ha n _hn).scale_rect_vert hb (mul_nonneg (Nat.cast_nonneg _) (le_of_lt ha)) m _hm
+  (h.scale_rect_horiz ha n _hn).scale_rect_vert hb
+    (mul_nonneg (Nat.cast_nonneg _) (le_of_lt ha)) m _hm
 
 -- ============================================================
 -- Empty rectangle
