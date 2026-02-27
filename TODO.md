@@ -19,27 +19,16 @@ But using the bridge to prove Set theorems defeats the entire point.
 
 ## In Progress
 
-### P2 — Native `LTileable_rect_iff_set` in LTrominoSet.lean (no bridge)
-**Status (2026-02-27 08:28):** Scaffolding committed (`68577e1`). 5 lemmas added to
-LTrominoSet.lean (lines 455–483), all with `sorry` placeholders:
-- `LTileable_5x9_set` — explicit 15-tile base case
-- `LTileable_5x_6iplus3_set` — 5 × (6i+3) via vertical union
-- `LTileable_odd_ge5_x_6iplus3_set` — odd n≥5 × (6i+3) by stripping 2-col slabs
-- `LTileable_odd_x_mult3_set` — odd n≥3 × 3k (k≥2, with exclusion condition)
-- `LTileable_rect_iff_set` — main iff theorem using the 4 lemmas above
-
-**Remaining:** Fill in all 5 sorries; then remove bridge copy from LTrominoSetBridge.lean.
-LTrominoSet.lean: 483L. LTrominoSetBridge.lean: 115L (bridge copy still present).
+_Nothing currently in progress._
 
 ## Up Next
 
-### P2 (continued) — Prove the 5 sorry lemmas
-- `LTileable_5x9_set`: explicit disjoint-cover proof for 15 L-trominoes in a 5×9 grid
-- `LTileable_5x_6iplus3_set`: induction using vertical_union of 5×9 and 5×(6*(i-1)) blocks
-- `LTileable_odd_ge5_x_6iplus3_set`: strong induction stripping 2×(6i+3) column slabs
-- `LTileable_odd_x_mult3_set`: case split k even (use existing even families) / k odd (use 6i+3 lemma)
-- `LTileable_rect_iff_set`: wire up necessary (ncard_dvd + not_LTileable_3x_odd_set) and sufficient
-- When all sorry gone: remove bridge copy from LTrominoSetBridge.lean
+### P2b — Remove bridge copy of `LTileable_rect_iff_set` from LTrominoSetBridge.lean
+- Line 56 in Bridge.lean is annotated "now proved natively in LTrominoSet.lean" but the theorem
+  (and its proof via bridge) is still present.
+- Delete the bridge copy; ensure no downstream users import it from Bridge.lean.
+- LTrominoSetBridge.lean should shrink from 115L to ~100L.
+- Build + lint check after deletion.
 
 ### P3 — Native `LTileable_rectMinusCorner_iff_set` in LTrominoSet.lean (no bridge)
 - Define `rectMinusCorner` as an RExp (big expected win — all decomposition lemmas in Finset
@@ -85,6 +74,15 @@ LTrominoSet.lean: 483L. LTrominoSetBridge.lean: 115L (bridge copy still present)
       Leave as-is unless doing a structural refactor.
 
 ## Done (recent)
+- [x] **P2 — Native `LTileable_rect_iff_set` in LTrominoSet.lean (no bridge)** (`feat/set-tiling`, `f62afd4`, 2026-02-27):
+      - All 5 sorry lemmas proved. LTrominoSet.lean: 483 → 679L (+196). 0 sorries. Build clean.
+      - `LTileable_5x9_set`: explicit 15-tile disjoint cover.
+      - `LTileable_5x_6iplus3_set`: induction via vertical_union of 5×9 and 5×(6i) blocks.
+      - `LTileable_odd_ge5_x_6iplus3_set`: strong induction stripping 2-col slabs.
+      - `LTileable_odd_x_mult3_set`: case split k even / k odd (6i+3 lemma).
+      - `LTileable_rect_iff_set` (line 677): main iff, wired to ncard_dvd + not_LTileable_3x_odd_set.
+      - **Note**: Bridge copy in LTrominoSetBridge.lean (line 56) annotated "now proved natively" but
+        not yet removed (bridge still 115L). Remove it in next cleanup pass.
 - [x] **P1 — `LTileable_3x2_set` as 1-liner via swap** (`feat/set-tiling`, `dd1ffba`, 2026-02-27):
       - Unprivated `swapRegion_rect`; replaced 14-line proof with:
         `swapRegion_rect 2 3 ▸ LTileable_swap_set LTileable_2x3_set`
