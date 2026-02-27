@@ -20,6 +20,14 @@
       (currently only `2xn` and `3xn` are biconditionals).
 
 ## Done (recent)
+- [x] **Fifth simplification pass** (`feat/set-tiling`):
+      - `not_LTileable_1xn_set`: 23 → 19 lines (−4): merged intro+haveI, compressed hcell
+        to `by simp [mem_rect]; omega`, collapsed h_sub inner have to 1 line.
+      - `not_LTileable_3x_odd_set`: 68 → 67 lines (−1): merged hgoal+rw into single
+        `rw [show ... from by push_cast; omega]`.
+      - Total: LTrominoSet.lean 466 → 462 lines (−4). 0 sorries.
+      - **Note**: Linter suggests `LTileable_2x3_set`/`LTileable_3x2_set` disjointness
+        case can use `simp_all only [Fin.isValue, Fin.zero_eta, Fin.mk_one]` — future pass.
 - [x] **Fourth simplification pass** (`feat/set-tiling`):
       - Merged `lPlaced_set_ybnd_of_cover_00` + `lPlaced_set_ybnd_of_cover_20` into a single
         `lPlaced_set_ybnd_of_y0` (generalised hypothesis: `∃ cx, (cx,0) ∈ tile`).
