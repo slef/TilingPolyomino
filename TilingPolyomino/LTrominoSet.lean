@@ -888,3 +888,68 @@ theorem LTileable_7x7_minus_corner_set :
       fin_cases i <;> simp_all <;> omega
     · intro ⟨⟨h1, h2, h3, h4⟩, hne⟩
       interval_cases x <;> interval_cases y <;> simp_all <;> omega
+
+-- ============================================================
+-- Family Lemmas: rectMinusCorner_set by decomposition
+-- ============================================================
+
+/-- For any k, the (3k+2) × 2 rectangle with a missing corner is L-tileable.
+    
+    Base case: 2 × 2 minus corner is tileable (1 L-tromino).
+    Step: split off a 3 × 2 rectangle (tileable), leaving (3k+2) × 2 minus corner.
+-/
+theorem LTileable_3kplus2_x2_minus_corner_set (k : ℕ) :
+    SetTileable (rectMinusCorner_set (3 * k + 2) 2) LProtoset_set := by
+  induction k with
+  | zero => exact LTileable_2x2_minus_corner_set
+  | succ k ih =>
+    -- Split: (3*(k+1)+2) = 3 + (3*k+2)
+    have heq : (3 * (↑(k+1) : ℤ) + 2) = 3 + (3 * ↑k + 2) := by push_cast; ring
+    rw [heq]
+    apply LTileable_horiz_union_rectMinusCorner_set
+    · norm_num
+    · push_cast; omega
+    · norm_num
+    · exact LTileable_3x2_set
+    · convert setTileable_translate ih 3 0 using 1
+      ext ⟨x, y⟩
+      simp only [mem_translate, rectMinusCorner_set, Set.mem_diff, mem_rect,
+        Set.mem_singleton_iff, Prod.mk.injEq]
+      push_cast; omega
+
+/-- The 4×7 rectangle with a missing corner is L-tileable. -/
+theorem LTileable_4x7_minus_corner_set :
+    SetTileable (rectMinusCorner_set 4 7) LProtoset_set := by
+  -- Split vertically: 7 = 3 + 4
+  have h_rect : SetTileable (rect 0 0 4 3) LProtoset_set := LTileable_4x3_set
+  have h_minus : SetTileable (rectMinusCorner_set 4 4) LProtoset_set :=
+    LTileable_4x4_minus_corner_set
+  have h_union :
+      SetTileable (rectMinusCorner_set 4 (3 + 4)) LProtoset_set :=
+    LTileable_vert_union_rectMinusCorner_set (by norm_num) (by norm_num) (by norm_num) h_rect
+      (setTileable_translate h_minus 0 3)
+  simpa using h_union
+
+/-- For any k, the 4 × (7 + 6k) rectangle with a missing corner is L-tileable.
+    
+    Base case: 4 × 7 is tileable.
+    Step: split off a 4 × 6 rectangle (tileable), leaving 4 × (7 + 6k) minus corner.
+-/
+theorem LTileable_4x_7plus6k_minus_corner_set (k : ℕ) :
+    SetTileable (rectMinusCorner_set 4 (7 + 6 * k)) LProtoset_set := by
+  induction k with
+  | zero => simp; exact LTileable_4x7_minus_corner_set
+  | succ k ih =>
+    -- Split: 7 + 6*(k+1) = (7 + 6*k) + 6
+    have heq : (7 + 6 * (↑(k+1) : ℤ)) = (7 + 6 * ↑k) + 6 := by push_cast; ring
+    rw [heq]
+    apply LTileable_vert_union_rectMinusCorner_set
+    · norm_num
+    · norm_num
+    · norm_num
+    · exact LTileable_4x6_set
+    · convert setTileable_translate ih 0 (7 + 6 * ↑k) using 1
+      ext ⟨x, y⟩
+      simp only [mem_translate, rectMinusCorner_set, Set.mem_diff, mem_rect,
+        Set.mem_singleton_iff, Prod.mk.injEq]
+      push_cast; omega
