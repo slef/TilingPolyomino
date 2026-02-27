@@ -14,8 +14,10 @@
       `ext ⟨x,y⟩; simp only [...]; omega` — consider adding this as a `rect_omega` extension.
 - [ ] **Linter: disjointness in LTileable_2x3_set / LTileable_3x2_set** uses unused simp
       args (`Fin.isValue`, etc.). Not possible to save lines by splitting into two simp calls
-      (that adds lines). The `decide` approach doesn't compile for `Set Cell` goals (not
-      a `Decidable` type). Leave as-is; suppress linter if it becomes noisy.
+      (that adds lines). `decide` doesn't compile (Set Cell not Decidable).
+      Also tried `simp_all only [Fin.isValue, Fin.zero_eta, Fin.mk_one]` alone —
+      fails (unsolved goals: can't close geometric disjointness without the full simp list + rect_omega).
+      Leave as-is; suppress linter if it becomes noisy.
 
 ## Done (recent)
 - [x] **`LTileable_nx2_iff_set`** added (`feat/set-tiling`):
