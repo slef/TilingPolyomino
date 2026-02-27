@@ -20,6 +20,21 @@
       Leave as-is; suppress linter if it becomes noisy.
 
 ## Done (recent)
+- [x] **Lint cleanup pass 2** (`feat/set-tiling`, 021ca62):
+      - `LTileable_2x2_minus_set` simp call: removed `Fin.exists_fin_one`, `rotateCell_1/2/3`
+        (all unused — single tile at rotation 0, only `rotateCell_0` needed).
+      - 4 family theorems (`LTileable_2x_mult3_set`, `LTileable_3x_even_set`,
+        `LTileable_mult3_x_2_set`, `LTileable_even_x_3_set`):
+        `convert h using 2 <;> ring` → `convert h using 2; ring`
+        (linter: `unnecessarySeqFocus` — `convert` leaves exactly 1 goal here).
+      - **Note**: `LTileable_rect_area_dvd_set` cron claim of "27L" confirmed stale.
+        Current proof: 4L (single `simpa [rect_ncard, ...]`), well under 15L target.
+      - **Priority 2 check**: `LTileable_rect_iff_set` vs `rect_tileable_iff` — no discrepancy.
+        Bridge reuses `RectTileableConditions` directly; conditions identical by construction.
+      - Remaining pre-existing warnings (unfixable without structural changes):
+          * Unused simp args in `LTileable_2x3/3x2_set` disjointness (see Backlog)
+          * `[Fintype ...]` typeclass not in return type of `remove_two`/`refine_partition`
+      - LTrominoSet.lean: 466L (unchanged — edits within existing lines). 0 sorries.
 - [x] **Lint cleanup + area-dvd compression** (`feat/set-tiling`):
       - `LTileable_rect_area_dvd_set`: 7L → 4L (single `simpa [rect_ncard, ...]`).
         **Note**: cron claim of "27L" was stale; prior passes already reduced it to 7L.
@@ -33,8 +48,9 @@
         simp arg in `remove_two`.
       - Remaining warnings (pre-existing, not fixable without structural changes):
           * Unused simp args in `LTileable_2x3/3x2_set` disjointness (see Backlog below)
-          * `unnecessarySeqFocus` for `convert <;> ring` in 4 family theorems
           * `[Fintype ...]` typeclass not in return type of `remove_two`/`refine_partition`
+          * `unnecessarySeqFocus` for `convert <;> ring` in 4 family theorems
+            (FIXED in lint cleanup pass 2)
       - LTrominoSet.lean 467 → 466L (−1). TilingSet.lean 675L (no line change). 0 sorries.
 - [x] **`LTileable_nx2_iff_set`** added (`feat/set-tiling`):
       5 lines via swap + `LTileable_2xn_iff_set` (mirrors `LTileable_nx3_iff_set` pattern).
