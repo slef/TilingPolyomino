@@ -12,14 +12,26 @@
 ## Backlog
 - [ ] **rect_omega for Set.mem_diff goals**: `h_diff_eq` style proofs now use
       `ext ⟨x,y⟩; simp only [...]; omega` — consider adding this as a `rect_omega` extension.
-- [ ] **Linter: disjointness in LTileable_2x3_set / LTileable_3x2_set** uses unused simp
-      args (`Fin.isValue`, etc.). Not possible to save lines by splitting into two simp calls
-      (that adds lines). `decide` doesn't compile (Set Cell not Decidable).
-      Also tried `simp_all only [Fin.isValue, Fin.zero_eta, Fin.mk_one]` alone —
-      fails (unsolved goals: can't close geometric disjointness without the full simp list + rect_omega).
-      Leave as-is; suppress linter if it becomes noisy.
+- [ ] **TilingSet.lean structural linter warnings** (pre-existing, unfixable without restructure):
+      `remove_two` and `refine_partition` have `[Fintype ι]` hypotheses not appearing in their
+      return types. Fixing requires switching to `Finite` + `Fintype.ofFinite` in the proofs.
+      Leave as-is unless doing a structural refactor.
 
 ## Done (recent)
+- [x] **Lint cleanup pass 3 — disjointness simp warnings** (`feat/set-tiling`, 3e665a0):
+      - `LTileable_2x3_set` / `LTileable_3x2_set` disjointness: switched from
+        `simp_all [...]` to `simp_all only [Fin.isValue, Fin.zero_eta, Fin.mk_one,
+        Set.disjoint_iff_inter_eq_empty, SetTileSet.cellsAt, SetPlacedTile.cells,
+        LProtoset_set, LPrototile_set, LShape_cells]` — eliminates all 'flexible tactic'
+        and 'unused simp arg' linter warnings for these theorems.
+      - Coverage simp: removed `rotateCell_1`, `rotateCell_3` (unused; tiles use only rot-0
+        and rot-2, so only `rotateCell_0` and `rotateCell_2` are needed).
+      - Key insight: `rect_omega` already includes `mem_translate`, `mem_rotate`,
+        `rotateCell_*` internally — those were redundant in the `simp_all` list.
+      - LTrominoSet.lean: 466 → 464 lines (−2). 0 sorries. Build clean.
+      - **Remaining warnings** (unavoidable without structural changes):
+          * TilingSet.lean `[Fintype ι]` warnings in `remove_two`/`refine_partition`
+          * LTromino.lean line 1832: `info: ring_nf` suggestion (info only, not a warning)
 - [x] **Lint cleanup pass 2** (`feat/set-tiling`, 021ca62):
       - `LTileable_2x2_minus_set` simp call: removed `Fin.exists_fin_one`, `rotateCell_1/2/3`
         (all unused — single tile at rotation 0, only `rotateCell_0` needed).
