@@ -17,25 +17,59 @@ But using the bridge to prove Set theorems defeats the entire point.
 
 **Required**: Move items 2 and 3 into `LTrominoSet.lean` with direct Set proofs (no bridge).
 
+## 🚨 BLOCKER — LTileable_5x9_set proof broken (toolchain regression)
+**Detected by cron: 2026-02-27 12:40**
+
+`LTileable_5x9_set` (LTrominoSet.lean ~line 460) times out in the current Lean 4.27.0
+environment with the default 200K-heartbeat budget. The proof was borderline at commit time
+(`f62afd4`) and the whnf evaluation cost has since increased.
+
+**Symptom**: `(deterministic) timeout at whnf, maximum number of heartbeats (200000)`
+at the `refine ⟨Fin 15, inferInstance, ⟨![...], ...⟩⟩` line.
+
+**Effect**: Both the committed HEAD (1057L) and working-tree (STEP 6-7 draft, 1306L)
+fail to build. All downstream theorems (`LTileable_5x_6iplus3_set`, `LTileable_odd_ge5_x...`,
+`LTileable_rect_iff_set`, and all rectMinusCorner work) produce cascade errors.
+
+**Root cause**: The `![...tile...tile...]` matrix literal + `inferInstance` for `Fintype (Fin 15)`
+triggers expensive kernel reduction. Increasing `set_option maxHeartbeats N` alone doesn't
+help — with N large enough for whnf to pass, `simp_all` in the coverage case becomes too
+aggressive and causes omega failures.
+
+**Fix required** (for Stefan or next sub-agent):
+Option A — `native_decide` for disjointness + coverage: rewrite both proof goals as
+decidable propositions if possible (may need a `Decidable` instance for `SetTileable`).
+Option B — explicit proof term: avoid `inferInstance` + `![...]`, use a manually constructed
+`Fintype` instance and named tile definitions.
+Option C — bridge base case: note `tileable_5x9 : LTileable (rectangle 5 9)` is already
+proved in LTromino.lean (line 635, by `decide`). Since LTrominoSet can't import Bridge, 
+temporarily allow an internal bridge-like workaround for just this base case, or restructure
+the imports so LTromino.lean's `tileable_5x9` is available earlier.
+Option D — split proof into pieces: extract disjointness and coverage as `@[noinline]`
+helper lemmas with their own heartbeat budgets.
+
+**Immediate action**: Fix `LTileable_5x9_set` before resuming STEP 6-7 work.
+
 ## In Progress
 
 ### P3 — Native `LTileable_rectMinusCorner_iff_set` in LTrominoSet.lean (no bridge)
-**Status: STEP 5/7 complete** (sub-agent burst, a466cf0, 2026-02-27 10:48)
+**Status: STEP 6-7 draft written (uncommitted), build BLOCKED** (cron, 2026-02-27 12:40)
 
-Completed steps (all in LTrominoSet.lean, 0 sorries, build clean):
+Completed steps (all committed, build was clean at commit time):
 - [x] STEP 1 (`46fee68`): `rectMinusCorner_set` def + split lemmas (horiz/vert)
 - [x] STEP 2 (`dc3fce3`): union helper lemmas (`LTileable_horiz_union_rectMinusCorner_set`, etc.)
 - [x] STEP 3 (`622b39b`): base cases (2×2, 5×2, 4×4, 5×5, 7×7)
 - [x] STEP 4 (`4f55fd6`, `4e19012`): family lemmas ((3k+2)×2, 4×(7+6k), 5×(6k+2), 5×(6k+5))
 - [x] STEP 5 (`a466cf0`): main mod-2 case `LTileable_rectMinusCorner_mod2_set` (j,k≥2)
 
-Remaining:
-- [ ] STEP 6: Forward direction (impossibility): if SetTileable rectMinusCorner_set n m then
-      (n*m-1) % 3 = 0 — should follow from `SetTileable.ncard_dvd` + `rectMinusCorner_set_ncard`
-- [ ] STEP 7: Assemble full `LTileable_rectMinusCorner_iff_set` iff in LTrominoSet.lean,
-      then remove bridge copy (Bridge.lean line 78, currently 115 lines total)
+Uncommitted STEP 6-7 draft (working tree, ~249 new lines):
+- [~] STEP 6 (drafted): `LTileable_rectMinusCorner_ncard_set` (necessity)
+- [~] STEP 7 (drafted): `LTileable_rectMinusCorner_iff_set` full iff assembly
+  - mod-1 helper: `LTileable_rectMinusCorner_mod1_set` + supporting lemmas
+  - Bridge copy still present (will need removal after verification)
+  - BLOCKED: can't verify / commit until `LTileable_5x9_set` is fixed
 
-Note: sub-agent not detected active; may need re-spawn for STEP 6-7.
+**Next step**: Fix the blocker above, then verify STEP 6-7 draft compiles, then commit.
 
 ## Up Next
 
