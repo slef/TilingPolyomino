@@ -416,90 +416,64 @@ theorem SetTileable.vertical_union {ι : Type*} {ps : SetProtoset ι} {n a b : �
 -- Scale rect: tiling a×b implies tiling (n·a)×(m·b)
 -- ============================================================
 
+/-- If ps tiles an a×b rectangle (a > 0), it tiles an (n·a)×b rectangle (n ≥ 1). -/
+theorem SetTileable.scale_rect_horiz {ι : Type*} {ps : SetProtoset ι} {a b : ℤ}
+    (h : SetTileable (rect 0 0 a b) ps) (ha : 0 < a)
+    (n : ℕ) (hn : 1 ≤ n) :
+    SetTileable (rect 0 0 ((n : ℤ) * a) b) ps := by
+  obtain ⟨k, rfl⟩ := Nat.exists_eq_succ_of_ne_zero (by omega : n ≠ 0)
+  clear hn
+  induction k with
+  | zero => norm_num; exact h
+  | succ k ih =>
+    have h_left : SetTileable (rect 0 0 ((↑(k + 1) : ℤ) * a) b) ps := ih
+    have h_right : SetTileable (rect ((↑(k + 1) : ℤ) * a) 0 ((↑(k + 1) : ℤ) * a + a) b) ps := by
+      have translate_eq : rect ((↑(k + 1) : ℤ) * a) 0 ((↑(k + 1) : ℤ) * a + a) b =
+                         _root_.translate ((↑(k + 1) : ℤ) * a) 0 (rect 0 0 a b) := by
+        ext ⟨x, y⟩; simp only [mem_rect, mem_translate]; constructor
+        · intro ⟨h1, h2, h3, h4⟩; exact ⟨by omega, by omega, by omega, by omega⟩
+        · intro ⟨h1, h2, h3, h4⟩; exact ⟨by omega, by omega, by omega, by omega⟩
+      rw [translate_eq]
+      exact setTileable_translate h _ _
+    have ha_nonneg : 0 ≤ (↑(k + 1) : ℤ) * a := mul_nonneg (Nat.cast_nonneg _) (le_of_lt ha)
+    have ha_pos : 0 ≤ a := le_of_lt ha
+    have succ_eq : (↑(k + 1).succ : ℤ) * a = (↑(k + 1) : ℤ) * a + a := by
+      simp only [Nat.cast_succ]; ring
+    rw [succ_eq]
+    exact SetTileable.horizontal_union ha_nonneg ha_pos h_left h_right
+
+/-- If ps tiles an a×b rectangle (b > 0), it tiles a c×(m·b) rectangle (m ≥ 1). -/
+theorem SetTileable.scale_rect_vert {ι : Type*} {ps : SetProtoset ι} {c b : ℤ}
+    (h : SetTileable (rect 0 0 c b) ps) (hb : 0 < b) (hc : 0 ≤ c)
+    (m : ℕ) (hm : 1 ≤ m) :
+    SetTileable (rect 0 0 c ((m : ℤ) * b)) ps := by
+  obtain ⟨k, rfl⟩ := Nat.exists_eq_succ_of_ne_zero (by omega : m ≠ 0)
+  clear hm
+  induction k with
+  | zero => norm_num; exact h
+  | succ k ih =>
+    have h_left : SetTileable (rect 0 0 c ((↑(k + 1) : ℤ) * b)) ps := ih
+    have h_right : SetTileable (rect 0 ((↑(k + 1) : ℤ) * b) c ((↑(k + 1) : ℤ) * b + b)) ps := by
+      have translate_eq : rect 0 ((↑(k + 1) : ℤ) * b) c ((↑(k + 1) : ℤ) * b + b) =
+                         _root_.translate 0 ((↑(k + 1) : ℤ) * b) (rect 0 0 c b) := by
+        ext ⟨x, y⟩; simp only [mem_rect, mem_translate]; constructor
+        · intro ⟨h1, h2, h3, h4⟩; exact ⟨by omega, by omega, by omega, by omega⟩
+        · intro ⟨h1, h2, h3, h4⟩; exact ⟨by omega, by omega, by omega, by omega⟩
+      rw [translate_eq]
+      exact setTileable_translate h _ _
+    have hb_nonneg : 0 ≤ (↑(k + 1) : ℤ) * b := mul_nonneg (Nat.cast_nonneg _) (le_of_lt hb)
+    have hb_pos : 0 ≤ b := le_of_lt hb
+    have succ_eq : (↑(k + 1).succ : ℤ) * b = (↑(k + 1) : ℤ) * b + b := by
+      simp only [Nat.cast_succ]; ring
+    rw [succ_eq]
+    exact SetTileable.vertical_union hb_nonneg hb_pos h_left h_right
+
 /-- If ps tiles an a×b rectangle (a,b > 0), it tiles any (n·a)×(m·b) rectangle (n,m ≥ 1). -/
 theorem SetTileable.scale_rect {ι : Type*} {ps : SetProtoset ι} {a b : ℤ}
     (h : SetTileable (rect 0 0 a b) ps) (ha : 0 < a) (hb : 0 < b)
     (n m : ℕ) (_hn : 1 ≤ n) (_hm : 1 ≤ m) :
-    SetTileable (rect 0 0 ((n : ℤ) * a) ((m : ℤ) * b)) ps := by
-  -- Auxiliary: two intervals [p*c, (p+1)*c) and [q*c, (q+1)*c) sharing a point => p = q
-  have interval_unique : ∀ (c : ℤ) (_ : 0 < c) (p q : ℤ) (w : ℤ)
-      (_ : p * c ≤ w) (_ : w < (p + 1) * c) (_ : q * c ≤ w) (_ : w < (q + 1) * c), p = q :=
-    fun c hc p q w hp1 hp2 hq1 hq2 => le_antisymm
-      (by by_contra h; push_neg at h
-          linarith [mul_le_mul_of_nonneg_right (show q + 1 ≤ p from by linarith) (le_of_lt hc)])
-      (by by_contra h; push_neg at h
-          linarith [mul_le_mul_of_nonneg_right (show p + 1 ≤ q from by linarith) (le_of_lt hc)])
-  apply SetTileable.refine_partition
-    (pieces := fun (p : Fin n × Fin m) =>
-      rect ((p.1.val : ℤ) * a) ((p.2.val : ℤ) * b)
-           (((p.1.val : ℤ) + 1) * a) (((p.2.val : ℤ) + 1) * b))
-  · -- Covers: ⋃ pieces = rect 0 0 (n*a) (m*b)
-    ext ⟨x, y⟩
-    simp only [Set.mem_iUnion, mem_rect]
-    constructor
-    · rintro ⟨⟨⟨i, hi⟩, ⟨j, hj⟩⟩, hx1, hx2, hy1, hy2⟩
-      have hi' : (i : ℤ) + 1 ≤ (n : ℤ) := by exact_mod_cast Nat.succ_le_iff.mpr hi
-      have hj' : (j : ℤ) + 1 ≤ (m : ℤ) := by exact_mod_cast Nat.succ_le_iff.mpr hj
-      exact ⟨by linarith [mul_nonneg (Nat.cast_nonneg (α := ℤ) i) (le_of_lt ha)],
-             by linarith [mul_le_mul_of_nonneg_right hi' (le_of_lt ha)],
-             by linarith [mul_nonneg (Nat.cast_nonneg (α := ℤ) j) (le_of_lt hb)],
-             by linarith [mul_le_mul_of_nonneg_right hj' (le_of_lt hb)]⟩
-    · rintro ⟨hx1, hx2, hy1, hy2⟩
-      have ha' : a ≠ 0 := ne_of_gt ha
-      have hb' : b ≠ 0 := ne_of_gt hb
-      have hxq_nn : 0 ≤ x / a := Int.ediv_nonneg (by linarith) (le_of_lt ha)
-      have hyq_nn : 0 ≤ y / b := Int.ediv_nonneg (by linarith) (le_of_lt hb)
-      have hx_div : a * (x / a) + x % a = x := Int.mul_ediv_add_emod x a
-      have hy_div : b * (y / b) + y % b = y := Int.mul_ediv_add_emod y b
-      have hx_mod_nn : 0 ≤ x % a := Int.emod_nonneg x ha'
-      have hy_mod_nn : 0 ≤ y % b := Int.emod_nonneg y hb'
-      have hx_mod_lt : x % a < a := Int.emod_lt_of_pos x ha
-      have hy_mod_lt : y % b < b := Int.emod_lt_of_pos y hb
-      have hxq_lt : (x / a).toNat < n := by
-        rw [← Nat.cast_lt (α := ℤ), Int.toNat_of_nonneg hxq_nn]
-        exact lt_of_mul_lt_mul_left (by linarith [mul_comm (n : ℤ) a]) (le_of_lt ha)
-      have hyq_lt : (y / b).toNat < m := by
-        rw [← Nat.cast_lt (α := ℤ), Int.toNat_of_nonneg hyq_nn]
-        exact lt_of_mul_lt_mul_left (by linarith [mul_comm (m : ℤ) b]) (le_of_lt hb)
-      refine ⟨⟨⟨(x / a).toNat, hxq_lt⟩, ⟨(y / b).toNat, hyq_lt⟩⟩, ?_, ?_, ?_, ?_⟩
-      · -- (x/a)*a ≤ x
-        rw [Int.toNat_of_nonneg hxq_nn]
-        linarith [mul_comm a (x / a)]
-      · -- x < ((x/a)+1)*a
-        rw [Int.toNat_of_nonneg hxq_nn]
-        have : (x / a + 1) * a = a * (x / a) + a := by ring
-        linarith
-      · -- (y/b)*b ≤ y
-        rw [Int.toNat_of_nonneg hyq_nn]
-        linarith [mul_comm b (y / b)]
-      · -- y < ((y/b)+1)*b
-        rw [Int.toNat_of_nonneg hyq_nn]
-        have : (y / b + 1) * b = b * (y / b) + b := by ring
-        linarith
-  · -- Pairwise disjoint
-    intro ⟨⟨i₁, _⟩, ⟨j₁, _⟩⟩ ⟨⟨i₂, _⟩, ⟨j₂, _⟩⟩ hne
-    simp only [Function.onFun, Set.disjoint_iff_inter_eq_empty]
-    ext ⟨x, y⟩
-    simp only [Set.mem_inter_iff, mem_rect, Set.mem_empty_iff_false, iff_false]
-    rintro ⟨⟨hx1, hx2, hy1, hy2⟩, hx1', hx2', hy1', hy2'⟩
-    apply hne
-    push_cast at *
-    have heqi_int : (i₁:ℤ) = i₂ := interval_unique a ha _ _ x hx1 hx2 hx1' hx2'
-    have heqj_int : (j₁:ℤ) = j₂ := interval_unique b hb _ _ y hy1 hy2 hy1' hy2'
-    have heqi : i₁ = i₂ := by exact_mod_cast heqi_int
-    have heqj : j₁ = j₂ := by exact_mod_cast heqj_int
-    exact Prod.ext (Fin.ext heqi) (Fin.ext heqj)
-  · -- Each piece is tileable
-    intro ⟨⟨i, _⟩, ⟨j, _⟩⟩
-    have heq : rect ((i : ℤ) * a) ((j : ℤ) * b) (((i : ℤ) + 1) * a) (((j : ℤ) + 1) * b)
-             = _root_.translate ((i : ℤ) * a) ((j : ℤ) * b) (rect 0 0 a b) := by
-      ext ⟨x, y⟩; simp only [mem_rect, mem_translate]
-      have hai : ((i : ℤ) + 1) * a = (i : ℤ) * a + a := by ring
-      have hbj : ((j : ℤ) + 1) * b = (j : ℤ) * b + b := by ring
-      constructor <;> rintro ⟨h1, h2, h3, h4⟩ <;>
-        exact ⟨by linarith, by linarith, by linarith, by linarith⟩
-    rw [heq]
-    exact setTileable_translate h _ _
+    SetTileable (rect 0 0 ((n : ℤ) * a) ((m : ℤ) * b)) ps :=
+  (h.scale_rect_horiz ha n _hn).scale_rect_vert hb (mul_nonneg (Nat.cast_nonneg _) (le_of_lt ha)) m _hm
 
 -- ============================================================
 -- Empty rectangle
