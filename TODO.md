@@ -18,6 +18,17 @@
       Leave as-is unless doing a structural refactor.
 
 ## Done (recent)
+- [x] **PR-readiness pass** (`feat/set-tiling`, 775fc1f):
+      - Removed stale `TASK_next.md` (131L scratch planning file; all 4 tasks it described
+        are long complete in LTrominoSet.lean and LTrominoSetBridge.lean).
+      - **Priority 1 already done** (`5ee8c77`): `LTileable_rect_area_dvd_set` is 4L
+        (single `simpa [rect_ncard, ...]`), well below the 15L target. Cron claim of "27L" was stale.
+      - **Priority 2 already done** (`021ca62`): `LTileable_rect_iff_set` exactly matches
+        `rect_tileable_iff` conditions via `RectTileableConditions` — no discrepancy.
+      - Remaining linter warnings (pre-existing, documented in Backlog):
+          * `TilingSet.lean` `[Fintype ι]` not-in-return-type for `remove_two`/`refine_partition`
+          * `LTromino.lean:1832` `ring_nf` info suggestion (info only, not an error)
+      - Build: clean, 0 sorries. Branch is synced with fork/feat/set-tiling.
 - [x] **Lint cleanup pass 3 — disjointness simp warnings** (`feat/set-tiling`, 3e665a0):
       - `LTileable_2x3_set` / `LTileable_3x2_set` disjointness: switched from
         `simp_all [...]` to `simp_all only [Fin.isValue, Fin.zero_eta, Fin.mk_one,
