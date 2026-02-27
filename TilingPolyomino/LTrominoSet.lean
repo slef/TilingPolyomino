@@ -720,3 +720,39 @@ theorem rectMinusCorner_set_split_vert (n a b : ℤ) (ha : 0 < a) (hb : 0 < b) (
   simp only [rectMinusCorner_set, Set.mem_diff, mem_rect, Set.mem_singleton_iff,
     Prod.mk.injEq, Set.mem_union, mem_translate]
   omega
+
+/-- If ps tiles rect 0 0 a m and ps tiles translate a 0 (rectMinusCorner_set b m),
+    then ps tiles rectMinusCorner_set (a+b) m. -/
+theorem LTileable_horiz_union_rectMinusCorner_set {a b m : ℤ} (ha : 0 < a) (hb : 0 < b) (hm : 0 < m)
+    (hleft : SetTileable (rect 0 0 a m) LProtoset_set)
+    (hright : SetTileable (translate a 0 (rectMinusCorner_set b m)) LProtoset_set) :
+    SetTileable (rectMinusCorner_set (a + b) m) LProtoset_set := by
+  rw [rectMinusCorner_set_split_horiz a b m ha hb hm]
+  apply SetTileable.union hleft hright
+  rw [Set.disjoint_left]
+  intro ⟨x, y⟩ h1 h2
+  simp only [mem_rect] at h1
+  simp only [mem_translate, rectMinusCorner_set, Set.mem_diff, mem_rect] at h2
+  obtain ⟨⟨x', y', ⟨⟨hx'1, _, _, _⟩, _⟩, hxeq, _⟩⟩ := h2
+  linarith [h1.2, hxeq ▸ hx'1]
+
+/-- Vertical union analogue -/
+theorem LTileable_vert_union_rectMinusCorner_set {n a b : ℤ} (ha : 0 < a) (hb : 0 < b) (hn : 0 < n)
+    (hbottom : SetTileable (rect 0 0 n a) LProtoset_set)
+    (htop : SetTileable (translate 0 a (rectMinusCorner_set n b)) LProtoset_set) :
+    SetTileable (rectMinusCorner_set n (a + b)) LProtoset_set := by
+  rw [rectMinusCorner_set_split_vert n a b ha hb hn]
+  apply SetTileable.union hbottom htop
+  rw [Set.disjoint_left]
+  intro ⟨x, y⟩ h1 h2
+  simp only [mem_rect] at h1
+  simp only [mem_translate, rectMinusCorner_set, Set.mem_diff, mem_rect] at h2
+  obtain ⟨⟨x', y', ⟨⟨_, _, hy'1, _⟩, _⟩, _, hyeq⟩⟩ := h2
+  linarith [h1.4, hyeq ▸ hy'1]
+
+/-- Swap tileability for rectMinusCorner_set -/
+theorem LTileable_swap_rectMinusCorner_set {n m : ℤ}
+    (h : SetTileable (rectMinusCorner_set n m) LProtoset_set) :
+    SetTileable (rectMinusCorner_set m n) LProtoset_set := by
+  have := LTileable_swap_set h
+  rwa [swapRegion_rectMinusCorner_set] at this
