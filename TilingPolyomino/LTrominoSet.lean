@@ -129,20 +129,13 @@ theorem LTileable_3x2_set : SetTileable (rect 0 0 3 2) LProtoset_set := by
 
 theorem LTileable_2x2_minus_set : SetTileable (rect 0 0 2 2 \ {(1, 1)}) LProtoset_set := by
   refine ⟨Fin 1, inferInstance, ⟨![⟨(), (0, 0), 0⟩]⟩, ⟨?_, ?_⟩⟩
-  · intro i j hij
-    fin_cases i
-    fin_cases j
-    exact (hij rfl).elim
-  · have h_sing : ({(1, 1)} : Set Cell) = rect 1 1 2 2 := by
-      ext ⟨x, y⟩
-      simp
-      omega
-    ext ⟨x, y⟩
+  · intro i j hij; fin_cases i; fin_cases j; exact (hij rfl).elim
+  · ext ⟨x, y⟩
     simp [SetTileSet.coveredCells, Set.mem_iUnion, Fin.exists_fin_one,
       SetTileSet.cellsAt, SetPlacedTile.cells,
       LProtoset_set, LPrototile_set, LShape_cells,
       mem_translate, mem_rotate, mem_rect, inverseRot,
-      rotateCell_0, rotateCell_1, rotateCell_2, rotateCell_3, h_sing]
+      rotateCell_0, rotateCell_1, rotateCell_2, rotateCell_3, Prod.mk.injEq]
     omega
 
 -- ============================================================
@@ -200,25 +193,14 @@ theorem LTileable_6x_of_ge2_set (k : Nat) (hk : 2 ≤ k) :
   · exact LTileable_6x2_set
   · rcases eq_or_lt_of_le (show 3 ≤ n from hn2) with rfl | hn3
     · exact LTileable_6x3_set
-    · have h_prev_nat : SetTileable (rect 0 0 6 (n - 2 : Nat)) LProtoset_set :=
-        ih (n - 2) (by omega) (by omega)
-      have h_prev : SetTileable (rect 0 0 6 (n - 2 : ℤ)) LProtoset_set := by
-        have h_eq : ((n - 2 : Nat) : ℤ) = (n : ℤ) - 2 := by omega
-        exact h_eq ▸ h_prev_nat
-      have h_2 : SetTileable (rect 0 (n - 2 : ℤ) 6 n) LProtoset_set := by
-        have h_trans : rect 0 (n - 2 : ℤ) 6 n = translate 0 (n - 2 : ℤ) (rect 0 0 6 2) := by
-          ext ⟨x, y⟩
-          simp only [mem_rect, mem_translate]
-          omega
-        rw [h_trans]
-        exact setTileable_translate LTileable_6x2_set 0 (n - 2 : ℤ)
-      have h_union := @SetTileable.vertical_union Unit LProtoset_set 6 (n - 2 : ℤ) 2 (by omega) (by omega)
-        h_prev (by
-          have h_eq : (n - 2 : ℤ) + 2 = (n : ℤ) := by omega
-          exact h_eq.symm ▸ h_2)
-      have h_eq : (n - 2 : ℤ) + 2 = n := by omega
-      rw [h_eq] at h_union
-      exact h_union
+    · have h_prev : SetTileable (rect 0 0 6 ((n : ℤ) - 2)) LProtoset_set := by
+        have h := ih (n - 2) (by omega) (by omega)
+        convert h using 2; push_cast; omega
+      have h_stripe : SetTileable (rect 0 ((n : ℤ) - 2) 6 ((n : ℤ) - 2 + 2)) LProtoset_set := by
+        convert setTileable_translate LTileable_6x2_set 0 ((n : ℤ) - 2) using 1
+        ext ⟨x, y⟩; simp only [mem_rect, mem_translate]; omega
+      have h_un := SetTileable.vertical_union (by omega) (by omega) h_prev h_stripe
+      rwa [show ((n : ℤ) - 2 + 2) = n from by omega] at h_un
 
 theorem LTileable_kx6_of_ge2_set (k : Nat) (hk : 2 ≤ k) :
     SetTileable (rect 0 0 k 6) LProtoset_set := by
@@ -252,8 +234,7 @@ private lemma lPlaced_set_x_span (dx dy : ℤ) (r : Fin 4) :
   fin_cases r <;>
     simp [lPlaced_set_eq, mem_translate, mem_rotate, LShape_cells, inverseRot,
       rotateCell_0, rotateCell_1, rotateCell_2, rotateCell_3,
-      Set.mem_insert_iff, Set.mem_singleton_iff, Prod.mk.injEq] <;>
-    omega
+      Set.mem_insert_iff, Set.mem_singleton_iff, Prod.mk.injEq]
 
 /-- No 1×n strip (n ≥ 1) is L-tileable: placed copies always span ≥ 2 x-values -/
 theorem not_LTileable_1xn_set (n : ℕ) (hn : 1 ≤ n) : ¬ SetTileable (rect 0 0 1 n) LProtoset_set := by
@@ -479,20 +460,14 @@ theorem LTileable_odd_x_6_set (n : ℕ) (hn_odd : n % 2 = 1) (hn_ge : 3 ≤ n) :
   induction' n using Nat.strong_induction_on with n ih
   rcases Nat.eq_or_lt_of_le hn_ge with rfl | hn_gt
   · exact LTileable_3x6_set
-  · have ih2 : SetTileable (rect 0 0 (n - 2 : Nat) 6) LProtoset_set :=
-      ih (n - 2) (by omega) (by omega) (by omega)
-    have h_cast : ((n - 2 : Nat) : ℤ) = (n : ℤ) - 2 := by omega
-    have ih2' : SetTileable (rect 0 0 ((n : ℤ) - 2) 6) LProtoset_set := h_cast ▸ ih2
-    have h_sum : (n : ℤ) - 2 + 2 = (n : ℤ) := by omega
-    rw [← h_sum]
-    apply SetTileable.horizontal_union (by omega) (by omega) ih2'
-    have h_trans : rect ((n : ℤ) - 2) 0 ((n : ℤ) - 2 + 2) 6 =
-        translate ((n : ℤ) - 2) 0 (rect 0 0 2 6) := by
-      ext ⟨x, y⟩
-      simp only [mem_rect, mem_translate]
-      omega
-    rw [h_trans]
-    exact setTileable_translate LTileable_2x6_set ((n : ℤ) - 2) 0
+  · have h_prev : SetTileable (rect 0 0 ((n : ℤ) - 2) 6) LProtoset_set := by
+      have h := ih (n - 2) (by omega) (by omega) (by omega)
+      convert h using 2; omega
+    have h_stripe : SetTileable (rect ((n : ℤ) - 2) 0 ((n : ℤ) - 2 + 2) 6) LProtoset_set := by
+      convert setTileable_translate LTileable_2x6_set ((n : ℤ) - 2) 0 using 1
+      ext ⟨x, y⟩; simp only [mem_rect, mem_translate]; omega
+    have h_un := SetTileable.horizontal_union (by omega) (by omega) h_prev h_stripe
+    rwa [show ((n : ℤ) - 2 + 2) = n from by omega] at h_un
 
 /-- 6×n is L-tileable for all odd n ≥ 3 (by swap) -/
 theorem LTileable_6x_odd_set (n : ℕ) (hn_odd : n % 2 = 1) (hn_ge : 3 ≤ n) :
