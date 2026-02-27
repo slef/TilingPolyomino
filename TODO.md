@@ -8,18 +8,29 @@
       `LTileable_rectMinus2Corner_set` are currently bridge-based (via `LTileable_iff_set`).
       Goal: replace with independent Set proofs (no bridge), mirroring the structure of
       `not_LTileable_3x_odd_set` and `LTileable_3xn_iff_set`.
-- [ ] **Fair line-count comparison**: compare `LTrominoSet.lean` + `LTrominoSetBridge.lean`
-      against `LTromino.lean` for matching theorem sets.
-- [ ] **`LTileable_2xn_iff_set` and `LTileable_nx2_iff_set`** companion symmetry (only `2xn`/`3xn`
-      are biconditionals; `nx2` and `nx3` directions are missing or need checking).
 
 ## Backlog
 - [ ] **rect_omega for Set.mem_diff goals**: `h_diff_eq` style proofs now use
       `ext ⟨x,y⟩; simp only [...]; omega` — consider adding this as a `rect_omega` extension.
-- [ ] **`LTileable_nx2_iff_set`** and **`LTileable_2xn_iff_set`** companion symmetry theorems
-      (currently only `2xn` and `3xn` are biconditionals).
+- [ ] **Linter: disjointness in LTileable_2x3_set / LTileable_3x2_set** uses unused simp
+      args (`Fin.isValue`, etc.). Not possible to save lines by splitting into two simp calls
+      (that adds lines). The `decide` approach doesn't compile for `Set Cell` goals (not
+      a `Decidable` type). Leave as-is; suppress linter if it becomes noisy.
 
 ## Done (recent)
+- [x] **`LTileable_nx2_iff_set`** added (`feat/set-tiling`):
+      5 lines via swap + `LTileable_2xn_iff_set` (mirrors `LTileable_nx3_iff_set` pattern).
+      LTrominoSet.lean 462 → 467 lines (+5). 0 sorries.
+- [x] **Fair line-count comparison** completed (`feat/set-tiling`):
+      11 matched theorem pairs (Set vs Finset framework, same theorems):
+        Set total: 201L | Finset total: 245L | Ratio: 0.82x (Set 18% shorter overall)
+      Excluding Finset `decide`-shortcut base cases (tileable_2x3, tileable_3x2):
+        Set: 167L | Finset: 236L | Ratio: 0.71x (Set 29% shorter on non-trivial proofs)
+      Key wins for Set: LTileable_swap_set 27L vs 63L (0.43x),
+        LTileable_3x_even_set 5L vs 17L (0.29x), LTileable_mult3_mult2_set 6L vs 19L (0.32x).
+      Key losses for Set: LTileable_rect_area_dvd_set 27L vs 15L (1.8x — ncard harder than card).
+- [x] **Deleted `LTrominoSet_original.lean`** scratch file (616L, pre-refactor old-naming copy).
+      Added `*.lean.bak` and `*_original.lean` to `.gitignore`.
 - [x] **Fifth simplification pass** (`feat/set-tiling`):
       - `not_LTileable_1xn_set`: 23 → 19 lines (−4): merged intro+haveI, compressed hcell
         to `by simp [mem_rect]; omega`, collapsed h_sub inner have to 1 line.

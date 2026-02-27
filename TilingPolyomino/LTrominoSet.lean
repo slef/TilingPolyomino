@@ -410,6 +410,11 @@ theorem LTileable_nx3_iff_set (n : ℕ) : SetTileable (rect 0 0 n 3) LProtoset_s
   rw [← LTileable_3xn_iff_set]
   constructor <;> intro h <;> simpa [swapRegion_rect] using LTileable_swap_set h
 
+/-- n×2 is L-tileable iff 3 ∣ n (by symmetry with 2×n) -/
+theorem LTileable_nx2_iff_set (n : ℕ) : SetTileable (rect 0 0 n 2) LProtoset_set ↔ 3 ∣ n := by
+  rw [← LTileable_2xn_iff_set]
+  constructor <;> intro h <;> simpa [swapRegion_rect] using LTileable_swap_set h
+
 -- ============================================================
 -- General 2D families via refine
 -- ============================================================
