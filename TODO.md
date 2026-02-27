@@ -20,6 +20,22 @@
       Leave as-is; suppress linter if it becomes noisy.
 
 ## Done (recent)
+- [x] **Lint cleanup + area-dvd compression** (`feat/set-tiling`):
+      - `LTileable_rect_area_dvd_set`: 7L → 4L (single `simpa [rect_ncard, ...]`).
+        **Note**: cron claim of "27L" was stale; prior passes already reduced it to 7L.
+        Now at 4L, comfortably below the 15L Finset comparison.
+      - 6 concrete base-case theorems (`LTileable_2x6_set` etc.): removed dead `<;> ring`
+        (linter: `ring` never executed since `convert h using 2` already closes).
+      - `push_cast` in `LTileable_6x_of_ge2_set` removed (linter: tactic does nothing).
+      - 2 long theorem signatures split to stay under 100-char limit.
+      - `TilingSet.lean`: fixed deprecated `Int.ediv_add_emod` → `Int.mul_ediv_add_emod`;
+        removed unused `_hR`/`_hi`/`_hn`/`_hm` variable prefixes; dropped unused `Set.mem_diff`
+        simp arg in `remove_two`.
+      - Remaining warnings (pre-existing, not fixable without structural changes):
+          * Unused simp args in `LTileable_2x3/3x2_set` disjointness (see Backlog below)
+          * `unnecessarySeqFocus` for `convert <;> ring` in 4 family theorems
+          * `[Fintype ...]` typeclass not in return type of `remove_two`/`refine_partition`
+      - LTrominoSet.lean 467 → 466L (−1). TilingSet.lean 675L (no line change). 0 sorries.
 - [x] **`LTileable_nx2_iff_set`** added (`feat/set-tiling`):
       5 lines via swap + `LTileable_2xn_iff_set` (mirrors `LTileable_nx3_iff_set` pattern).
       LTrominoSet.lean 462 → 467 lines (+5). 0 sorries.

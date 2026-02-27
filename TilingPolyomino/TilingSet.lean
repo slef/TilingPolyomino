@@ -128,7 +128,7 @@ private theorem translate_disjoint_iff (dx dy : ℤ) {A B : Set Cell} :
 -- ============================================================
 
 theorem SetTileable.ncard_dvd {R : Set Cell} {ι : Type*} {ps : SetProtoset ι}
-    [Subsingleton ι] (hR : R.Finite) (ht : SetTileable R ps) :
+    [Subsingleton ι] (_hR : R.Finite) (ht : SetTileable R ps) :
     ∀ i : ι, (ps i).cells.ncard ∣ R.ncard := by
   obtain ⟨ιₜ, hft, t, hv⟩ := ht
   haveI : Fintype ιₜ := hft
@@ -252,7 +252,7 @@ theorem SetTileable.union {ι : Type*} {ps : SetProtoset ι} {R S : Set Cell}
 
 theorem SetTileable.remove_two {ι : Type*} {ps : SetProtoset ι} {R S : Set Cell} {ιₜ : Type}
     [Fintype ιₜ] (t : SetTileSet ps ιₜ) (hv : t.Valid R)
-    (i₀ i₁ : ιₜ) (hi : i₀ ≠ i₁) (hS : t.cellsAt i₀ ∪ t.cellsAt i₁ = S) :
+    (i₀ i₁ : ιₜ) (_hi : i₀ ≠ i₁) (hS : t.cellsAt i₀ ∪ t.cellsAt i₁ = S) :
     SetTileable (R \ S) ps := by
   let ιₜ' : Type := {j : ιₜ // j ≠ i₀ ∧ j ≠ i₁}
   haveI : DecidableEq ιₜ := Classical.decEq _
@@ -267,7 +267,7 @@ theorem SetTileable.remove_two {ι : Type*} {ps : SetProtoset ι} {R S : Set Cel
       simp only [h_cell]
       exact hv.disjoint i j (fun h => hne (Subtype.ext h))),
     (by
-      simp only [SetTileSet.coveredCells, Set.mem_diff]
+      simp only [SetTileSet.coveredCells]
       ext p
       constructor
       · intro hp
@@ -419,7 +419,7 @@ theorem SetTileable.vertical_union {ι : Type*} {ps : SetProtoset ι} {n a b : �
 /-- If ps tiles an a×b rectangle (a,b > 0), it tiles any (n·a)×(m·b) rectangle (n,m ≥ 1). -/
 theorem SetTileable.scale_rect {ι : Type*} {ps : SetProtoset ι} {a b : ℤ}
     (h : SetTileable (rect 0 0 a b) ps) (ha : 0 < a) (hb : 0 < b)
-    (n m : ℕ) (hn : 1 ≤ n) (hm : 1 ≤ m) :
+    (n m : ℕ) (_hn : 1 ≤ n) (_hm : 1 ≤ m) :
     SetTileable (rect 0 0 ((n : ℤ) * a) ((m : ℤ) * b)) ps := by
   -- Auxiliary: two intervals [p*c, (p+1)*c) and [q*c, (q+1)*c) sharing a point => p = q
   have interval_unique : ∀ (c : ℤ) (_ : 0 < c) (p q : ℤ) (w : ℤ)
@@ -449,8 +449,8 @@ theorem SetTileable.scale_rect {ι : Type*} {ps : SetProtoset ι} {a b : ℤ}
       have hb' : b ≠ 0 := ne_of_gt hb
       have hxq_nn : 0 ≤ x / a := Int.ediv_nonneg (by linarith) (le_of_lt ha)
       have hyq_nn : 0 ≤ y / b := Int.ediv_nonneg (by linarith) (le_of_lt hb)
-      have hx_div : a * (x / a) + x % a = x := Int.ediv_add_emod x a
-      have hy_div : b * (y / b) + y % b = y := Int.ediv_add_emod y b
+      have hx_div : a * (x / a) + x % a = x := Int.mul_ediv_add_emod x a
+      have hy_div : b * (y / b) + y % b = y := Int.mul_ediv_add_emod y b
       have hx_mod_nn : 0 ≤ x % a := Int.emod_nonneg x ha'
       have hy_mod_nn : 0 ≤ y % b := Int.emod_nonneg y hb'
       have hx_mod_lt : x % a < a := Int.emod_lt_of_pos x ha

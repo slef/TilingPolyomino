@@ -144,27 +144,27 @@ theorem LTileable_2x2_minus_set : SetTileable (rect 0 0 2 2 \ {(1, 1)}) LProtose
 
 theorem LTileable_2x6_set : SetTileable (rect 0 0 2 6) LProtoset_set := by
   have h := LTileable_2x3_set.scale_rect (by norm_num) (by norm_num) 1 2 (by omega) (by omega)
-  convert h using 2 <;> ring
+  convert h using 2
 
 theorem LTileable_6x2_set : SetTileable (rect 0 0 6 2) LProtoset_set := by
   have h := LTileable_3x2_set.scale_rect (by norm_num) (by norm_num) 2 1 (by omega) (by omega)
-  convert h using 2 <;> ring
+  convert h using 2
 
 theorem LTileable_3x4_set : SetTileable (rect 0 0 3 4) LProtoset_set := by
   have h := LTileable_3x2_set.scale_rect (by norm_num) (by norm_num) 1 2 (by omega) (by omega)
-  convert h using 2 <;> ring
+  convert h using 2
 
 theorem LTileable_3x6_set : SetTileable (rect 0 0 3 6) LProtoset_set := by
   have h := LTileable_3x2_set.scale_rect (by norm_num) (by norm_num) 1 3 (by omega) (by omega)
-  convert h using 2 <;> ring
+  convert h using 2
 
 theorem LTileable_6x3_set : SetTileable (rect 0 0 6 3) LProtoset_set := by
   have h := LTileable_2x3_set.scale_rect (by norm_num) (by norm_num) 3 1 (by omega) (by omega)
-  convert h using 2 <;> ring
+  convert h using 2
 
 theorem LTileable_6x6_set : SetTileable (rect 0 0 6 6) LProtoset_set := by
   have h := LTileable_2x3_set.scale_rect (by norm_num) (by norm_num) 3 2 (by omega) (by omega)
-  convert h using 2 <;> ring
+  convert h using 2
 
 theorem LTileable_2x_mult3_set (k : ℕ) (hk : 1 ≤ k) :
     SetTileable (rect 0 0 2 (3 * k)) LProtoset_set := by
@@ -195,7 +195,7 @@ theorem LTileable_6x_of_ge2_set (k : Nat) (hk : 2 ≤ k) :
     · exact LTileable_6x3_set
     · have h_prev : SetTileable (rect 0 0 6 ((n : ℤ) - 2)) LProtoset_set := by
         have h := ih (n - 2) (by omega) (by omega)
-        convert h using 2; push_cast; omega
+        convert h using 2; omega
       have h_stripe : SetTileable (rect 0 ((n : ℤ) - 2) 6 ((n : ℤ) - 2 + 2)) LProtoset_set := by
         convert setTileable_translate LTileable_6x2_set 0 ((n : ℤ) - 2) using 1
         ext ⟨x, y⟩; simp only [mem_rect, mem_translate]; omega
@@ -212,11 +212,8 @@ theorem LTileable_kx6_of_ge2_set (k : Nat) (hk : 2 ≤ k) :
 
 theorem LTileable_rect_area_dvd_set (m n : Nat) (h : SetTileable (rect 0 0 m n) LProtoset_set) :
     3 ∣ m * n := by
-  have h1 := SetTileable.ncard_dvd (ι := Unit) (ps := LProtoset_set) (rect_finite 0 0 m n) h ()
-  have h3 : (rect 0 0 (m : ℤ) (n : ℤ)).ncard = m * n := by
-    rw [rect_ncard]
-    simp
-  simpa [LProtoset_set, LPrototile_set_ncard, h3] using h1
+  simpa [LProtoset_set, LPrototile_set_ncard, rect_ncard] using
+    SetTileable.ncard_dvd (ι := Unit) (ps := LProtoset_set) (rect_finite 0 0 m n) h ()
 
 -- ============================================================
 -- Impossibility theorems
@@ -237,7 +234,8 @@ private lemma lPlaced_set_x_span (dx dy : ℤ) (r : Fin 4) :
       Set.mem_insert_iff, Set.mem_singleton_iff, Prod.mk.injEq]
 
 /-- No 1×n strip (n ≥ 1) is L-tileable: placed copies always span ≥ 2 x-values -/
-theorem not_LTileable_1xn_set (n : ℕ) (hn : 1 ≤ n) : ¬ SetTileable (rect 0 0 1 n) LProtoset_set := by
+theorem not_LTileable_1xn_set (n : ℕ) (hn : 1 ≤ n) :
+    ¬ SetTileable (rect 0 0 1 n) LProtoset_set := by
   intro ⟨ιₜ, hft, t, hv⟩; haveI : Fintype ιₜ := hft
   -- Get the tile covering (0,0)
   have hcell : ((0 : ℤ), (0 : ℤ)) ∈ rect 0 0 1 (n : ℤ) := by simp [mem_rect]; omega
@@ -259,7 +257,8 @@ theorem not_LTileable_1xn_set (n : ℕ) (hn : 1 ≤ n) : ¬ SetTileable (rect 0 
   · have := (h_sub _ h2).1; omega
 
 /-- Same result for the transposed strip (n×1) -/
-theorem not_LTileable_nx1_set (n : ℕ) (hn : 1 ≤ n) : ¬ SetTileable (rect 0 0 n 1) LProtoset_set := by
+theorem not_LTileable_nx1_set (n : ℕ) (hn : 1 ≤ n) :
+    ¬ SetTileable (rect 0 0 n 1) LProtoset_set := by
   intro h
   exact not_LTileable_1xn_set n hn (swapRegion_rect n 1 ▸ LTileable_swap_set h)
 
