@@ -953,3 +953,46 @@ theorem LTileable_4x_7plus6k_minus_corner_set (k : ℕ) :
       simp only [mem_translate, rectMinusCorner_set, Set.mem_diff, mem_rect,
         Set.mem_singleton_iff, Prod.mk.injEq]
       push_cast; omega
+
+/-- For any k, the 5 × (6k+2) rectangle with a missing corner is L-tileable. -/
+theorem LTileable_5x_6kplus2_minus_corner_set (k : ℕ) :
+    SetTileable (rectMinusCorner_set 5 (6 * k + 2)) LProtoset_set := by
+  induction k with
+  | zero => simp; exact LTileable_5x2_minus_corner_set
+  | succ k ih =>
+    -- Split: 6*(k+1)+2 = (6*k+2) + 6
+    have heq : (6 * (↑(k+1) : ℤ) + 2) = (6 * ↑k + 2) + 6 := by push_cast; ring
+    rw [heq]
+    apply LTileable_vert_union_rectMinusCorner_set
+    · norm_num
+    · norm_num
+    · norm_num
+    · exact LTileable_5x6_set
+    · convert setTileable_translate ih 0 (6 * ↑k + 2) using 1
+      ext ⟨x, y⟩
+      simp only [mem_translate, rectMinusCorner_set, Set.mem_diff, mem_rect,
+        Set.mem_singleton_iff, Prod.mk.injEq]
+      push_cast; omega
+
+/-- For any k, the 5 × (6k+5) rectangle with a missing corner is L-tileable. -/
+theorem LTileable_5x_6kplus5_minus_corner_set (k : ℕ) :
+    SetTileable (rectMinusCorner_set 5 (6 * k + 5)) LProtoset_set := by
+  induction k with
+  | zero =>
+    simp
+    -- 6*0+5 = 5, so this is 5×5 minus corner
+    exact LTileable_5x5_minus_corner_set
+  | succ k ih =>
+    -- Split: 6*(k+1)+5 = (6*k+5) + 6
+    have heq : (6 * (↑(k+1) : ℤ) + 5) = (6 * ↑k + 5) + 6 := by push_cast; ring
+    rw [heq]
+    apply LTileable_vert_union_rectMinusCorner_set
+    · norm_num
+    · norm_num
+    · norm_num
+    · exact LTileable_5x6_set
+    · convert setTileable_translate ih 0 (6 * ↑k + 5) using 1
+      ext ⟨x, y⟩
+      simp only [mem_translate, rectMinusCorner_set, Set.mem_diff, mem_rect,
+        Set.mem_singleton_iff, Prod.mk.injEq]
+      push_cast; omega
