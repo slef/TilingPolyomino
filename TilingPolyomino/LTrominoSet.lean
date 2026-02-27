@@ -996,3 +996,62 @@ theorem LTileable_5x_6kplus5_minus_corner_set (k : ℕ) :
       simp only [mem_translate, rectMinusCorner_set, Set.mem_diff, mem_rect,
         Set.mem_singleton_iff, Prod.mk.injEq]
       push_cast; omega
+
+-- ============================================================
+-- Main Cases: rectMinusCorner_set iff conditions
+-- ============================================================
+
+/-- Main mod-2 case: when n ≡ m ≡ 2 (mod 3) and both ≥ 2,
+    the three-cornered rectangle is L-tileable.
+    
+    The proof splits vertically: m = (3k) + 2
+    - Bottom: n × (3k) full rectangle (tileable by classification)
+    - Top: n × 2 three-cornered rectangle (Family 1 lemma)
+-/
+theorem LTileable_rectMinusCorner_mod2_set
+    (j k : ℕ) (hj2 : j ≥ 2) (hk2 : k ≥ 2) :
+    SetTileable (rectMinusCorner_set (3 * j + 2) (3 * k + 2)) LProtoset_set := by
+  -- n = 3j+2, m = 3k+2
+  let n := 3 * j + 2
+  let m := 3 * k + 2
+  have hn : (n : ℤ) ≥ 2 := by push_cast; omega
+  have hm : (m : ℤ) ≥ 2 := by push_cast; omega
+  
+  -- Bottom part: full n × (3k) rectangle (use rect classification)
+  have h_bottom : SetTileable (rect 0 0 (n : ℤ) (3 * k)) LProtoset_set := by
+    apply LTileable_rect_of_conditions_set
+    right; right
+    refine ⟨?_, ?_, ?_, ?_, ?_⟩
+    · -- 3 ∣ n * (3k)
+      have : 3 ∣ (3 * k : ℤ) := ⟨k, by ring⟩
+      have : 3 ∣ (n : ℤ) * (3 * k : ℤ) := dvd_mul_of_dvd_right this _
+      rw [Nat.dvd_iff_mod_eq_zero]
+      omega
+    · -- n ≥ 2
+      push_cast; omega
+    · -- 3k ≥ 2
+      push_cast; omega
+    · -- ¬(n = 3 ∧ Odd (3k))
+      intro ⟨hn3, _⟩
+      have : (n : ℤ) ≥ 8 := by push_cast; omega
+      omega
+    · -- ¬(Odd n ∧ 3k = 3)
+      intro ⟨_, hm3⟩
+      have : (3 * k : ℤ) ≥ 6 := by push_cast; omega
+      omega
+  
+  -- Top part: n × 2 three-cornered (use Family 1)
+  have h_top : SetTileable (rectMinusCorner_set (n : ℤ) 2) LProtoset_set :=
+    LTileable_3kplus2_x2_minus_corner_set j
+  
+  -- Combine: m = (3k) + 2
+  have h_union : SetTileable (rectMinusCorner_set (n : ℤ) ((3 * k) + 2)) LProtoset_set :=
+    LTileable_vert_union_rectMinusCorner_set (by norm_num : (0 : ℤ) < 3 * k)
+      (by norm_num : (0 : ℤ) < 2) (by norm_num : (0 : ℤ) < n) h_bottom
+      (setTileable_translate h_top 0 (3 * k))
+  
+  convert h_union using 1
+  ext ⟨x, y⟩
+  simp only [rectMinusCorner_set, Set.mem_diff, mem_rect, Set.mem_singleton_iff,
+    Prod.mk.injEq]
+  push_cast; omega
