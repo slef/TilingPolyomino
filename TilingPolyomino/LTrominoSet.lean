@@ -26,7 +26,7 @@ private def lPlaced_set (dx dy : ℤ) (r : Fin 4) : Set Cell :=
     lPlaced_set dx dy r = translate dx dy (rotate r LShape_cells) := by
   rfl
 
-private theorem LShape_eq_rects : LShape_cells = rect 0 0 1 2 ∪ rect 1 0 2 1 := by
+theorem LShape_eq_rects : LShape_cells = rect 0 0 1 2 ∪ rect 1 0 2 1 := by
   ext ⟨x, y⟩
   simp [LShape_cells]
   omega
@@ -457,27 +457,214 @@ theorem LTileable_odd_x_mult6_set (n k : ℕ) (hn_odd : n % 2 = 1) (hn_ge : 3 �
 
 /-- Base case: 5×9 rectangle with explicit tiling of 15 L-trominoes -/
 theorem LTileable_5x9_set : SetTileable (rect 0 0 5 9) LProtoset_set := by
-  sorry  -- Placeholder: explicit tiling construction with 15 tiles
-  -- TODO: Prove disjointness and coverage by cases
+  refine ⟨Fin 15, inferInstance, ⟨![
+    ⟨(), (1, 0), 1⟩, ⟨(), (0, 2), 3⟩, ⟨(), (0, 4), 3⟩, ⟨(), (2, 3), 2⟩,
+    ⟨(), (0, 6), 3⟩, ⟨(), (2, 5), 2⟩, ⟨(), (0, 8), 3⟩, ⟨(), (2, 7), 1⟩,
+    ⟨(), (3, 6), 1⟩, ⟨(), (4, 8), 2⟩, ⟨(), (4, 5), 1⟩, ⟨(), (2, 1), 3⟩,
+    ⟨(), (4, 0), 1⟩, ⟨(), (4, 2), 1⟩, ⟨(), (3, 4), 3⟩]⟩,
+    ⟨?_, ?_⟩⟩
+  · -- Disjointness: 225 cases, each handled by rect_omega after LShape_eq_rects
+    intro i j hij
+    fin_cases i <;> fin_cases j <;>
+      simp_all only [ne_eq, not_false_eq_true, Set.disjoint_iff_inter_eq_empty,
+        SetTileSet.cellsAt, SetPlacedTile.cells, LProtoset_set, LPrototile_set, LShape_cells,
+        LShape_eq_rects] <;>
+      rect_omega
+  · -- Coverage: the 15 tiles exactly cover rect 0 0 5 9
+    ext ⟨x, y⟩
+    simp only [SetTileSet.coveredCells, Set.mem_iUnion, SetTileSet.cellsAt, SetPlacedTile.cells,
+      LProtoset_set, LPrototile_set, LShape_cells, LShape_eq_rects,
+      mem_translate, mem_rotate, mem_rect, inverseRot,
+      rotateCell_0, rotateCell_1, rotateCell_2, rotateCell_3]
+    constructor
+    · -- forward: membership in union → membership in rect 0 0 5 9
+      rintro ⟨i, hi⟩
+      fin_cases i <;> simp_all <;> omega
+    · -- backward: membership in rect 0 0 5 9 → in some tile
+      intro ⟨hx1, hx2, hy1, hy2⟩
+      interval_cases x <;> interval_cases y <;> simp_all <;>
+        first
+        | exact ⟨0, by simp_all; omega⟩
+        | exact ⟨1, by simp_all; omega⟩
+        | exact ⟨2, by simp_all; omega⟩
+        | exact ⟨3, by simp_all; omega⟩
+        | exact ⟨4, by simp_all; omega⟩
+        | exact ⟨5, by simp_all; omega⟩
+        | exact ⟨6, by simp_all; omega⟩
+        | exact ⟨7, by simp_all; omega⟩
+        | exact ⟨8, by simp_all; omega⟩
+        | exact ⟨9, by simp_all; omega⟩
+        | exact ⟨10, by simp_all; omega⟩
+        | exact ⟨11, by simp_all; omega⟩
+        | exact ⟨12, by simp_all; omega⟩
+        | exact ⟨13, by simp_all; omega⟩
+        | exact ⟨14, by simp_all; omega⟩
 
 /-- 5 × (6i+3) is L-tileable for i ≥ 1 -/
 theorem LTileable_5x_6iplus3_set (i : ℕ) (hi : i ≥ 1) :
     SetTileable (rect 0 0 5 (6 * i + 3)) LProtoset_set := by
-  sorry  -- Use vertical_union of 5×9 and 5×(6*(i-1))
+  obtain ⟨j, rfl⟩ := Nat.exists_eq_succ_of_ne_zero (by omega : i ≠ 0)
+  -- i = j + 1, 6*(j+1)+3 = 9 + 6*j
+  induction j with
+  | zero => 
+    norm_num
+    exact LTileable_5x9_set
+  | succ k ih =>
+    -- 6*(k+2)+3 = 6*(k+1)+3 + 6
+    have h_left : SetTileable (rect 0 0 5 (6*(k+1)+3)) LProtoset_set := ih
+    have h_right_base : SetTileable (rect 0 0 5 6) LProtoset_set := 
+      LTileable_kx6_of_ge2_set 5 (by omega)
+    have h_right : SetTileable (rect 0 (↑(6*(k+1)+3) : ℤ) 5 (↑(6*(k+1)+3) + 6)) LProtoset_set := by
+      convert setTileable_translate h_right_base 0 (↑(6*(k+1)+3) : ℤ) using 1
+      ext ⟨x,y⟩; simp [mem_rect, mem_translate]; push_cast; omega
+    have hun := SetTileable.vertical_union (by norm_num) (by norm_num) h_left h_right
+    convert hun using 2; push_cast; ring
 
 /-- n × (6i+3) is L-tileable for odd n ≥ 5 and i ≥ 1 -/
 theorem LTileable_odd_ge5_x_6iplus3_set (n : ℕ) (hn : n ≥ 5) (hodd : n % 2 = 1)
     (i : ℕ) (hi : i ≥ 1) :
     SetTileable (rect 0 0 n (6 * i + 3)) LProtoset_set := by
-  sorry  -- Strong induction on n, stripping 2×(6i+3) columns
+  induction n using Nat.strong_induction_on with
+  | _ n ih => 
+    rcases Nat.eq_or_lt_of_le hn with rfl | hn_gt
+    · exact LTileable_5x_6iplus3_set i hi
+    · -- n ≥ 7 odd: strip a 2×(6i+3) column on the right
+      have hn2 : n - 2 ≥ 5 := by omega
+      have hodd2 : (n - 2) % 2 = 1 := by omega
+      have h_left := ih (n - 2) (by omega) (by omega) hodd2
+      -- h_left : SetTileable (rect 0 0 (n-2) (6i+3))
+      have h_strip_base : SetTileable (rect 0 0 2 (6*i+3)) LProtoset_set := by
+        -- 2×(6i+3) = 2×(3*(2i+1)) — use LTileable_2x_mult3_set
+        have := LTileable_2x_mult3_set (2*i+1) (by omega)
+        convert this using 2; ring
+      have h_strip : SetTileable (rect (↑(n-2) : ℤ) 0 (↑(n-2) + 2) (6*i+3)) LProtoset_set := by
+        convert setTileable_translate h_strip_base (↑(n-2) : ℤ) 0 using 1
+        ext ⟨x,y⟩; simp [mem_rect, mem_translate]; push_cast; omega
+      have hun := SetTileable.horizontal_union (by positivity) (by positivity) h_left h_strip
+      convert hun using 2; push_cast; omega
 
 /-- n × (3k) is L-tileable for odd n ≥ 3, k ≥ 2, and ¬(n=3 ∧ k odd) -/
 theorem LTileable_odd_x_mult3_set (n k : ℕ) (hn : n ≥ 3) (hodd : n % 2 = 1) (hk : k ≥ 2)
     (h_not : ¬(n = 3 ∧ k % 2 = 1)) :
     SetTileable (rect 0 0 n (3 * k)) LProtoset_set := by
-  sorry  -- Case split on k even/odd
+  rcases Nat.even_or_odd k with ⟨j, rfl⟩ | ⟨j, rfl⟩
+  · -- k = 2j even, 3k = 6j, j ≥ 1
+    have hj : j ≥ 1 := by omega
+    exact LTileable_odd_x_mult6_set n j hodd (by omega) hj
+  · -- k = 2j+1 odd, 3k = 6j+3, need n ≥ 5
+    have hj : j ≥ 1 := by omega
+    have hn5 : n ≥ 5 := by
+      rcases Nat.eq_or_lt_of_le hn with rfl | hn_gt
+      · -- n = 3
+        exfalso; apply h_not
+        exact ⟨rfl, by omega⟩
+      · -- n ≥ 4, n odd → n ≥ 5
+        omega
+    exact LTileable_odd_ge5_x_6iplus3_set n hn5 hodd j hj
 
 /-- Main theorem: native proof of rect tileability characterization -/
 theorem LTileable_rect_iff_set (n m : ℕ) :
     SetTileable (rect 0 0 (n : ℤ) m) LProtoset_set ↔ RectTileableConditions n m := by
-  sorry  -- Necessary and sufficient conditions using lemmas 1-4
+  unfold RectTileableConditions
+  constructor
+  · intro h
+    -- Necessary conditions
+    rcases Nat.eq_or_lt_of_le (Nat.zero_le n) with rfl | hn_pos
+    · left; simp
+    rcases Nat.eq_or_lt_of_le (Nat.zero_le m) with rfl | hm_pos
+    · right; left; simp
+    right; right
+    refine ⟨?_, ?_, ?_, ?_, ?_⟩
+    · -- 3 ∣ n * m
+      have := LTileable_rect_area_dvd_set n m h
+      simp [Nat.dvd_iff_mod_eq_zero] at this ⊢
+      omega
+    · -- n ≥ 2
+      by_contra h_not
+      push_neg at h_not
+      interval_cases n
+      · omega
+      · exact not_LTileable_1xn_set m (by omega) h
+    · -- m ≥ 2
+      by_contra h_not
+      push_neg at h_not
+      interval_cases m
+      · omega
+      · exact not_LTileable_nx1_set n (by omega) h
+    · -- ¬(n = 3 ∧ Odd m)
+      intro ⟨rfl, hm_odd⟩
+      obtain ⟨k, rfl⟩ := hm_odd
+      exact not_LTileable_3x_odd_set k h
+    · -- ¬(Odd n ∧ m = 3)
+      intro ⟨hn_odd, rfl⟩
+      rw [LTileable_nx3_iff_set] at h
+      have : ¬(2 ∣ n) := by
+        rw [← Nat.not_even_iff_odd]
+        exact hn_odd
+      omega
+  · intro ⟨rfl | rfl | ⟨hdiv, hn2, hm2, h_not_3_odd, h_not_odd_3⟩⟩
+    · -- n = 0: rect 0 0 0 m = ∅
+      norm_num [rect]
+      exact SetTileable.empty LProtoset_set
+    · -- m = 0: rect 0 0 n 0 = ∅
+      norm_num [rect]
+      exact SetTileable.empty LProtoset_set
+    · -- Main case: 3 ∣ n*m, n ≥ 2, m ≥ 2, ¬(n=3 ∧ Odd m), ¬(Odd n ∧ m=3)
+      have h3div : 3 ∣ n ∨ 3 ∣ m := by
+        rw [Nat.dvd_iff_mod_eq_zero] at hdiv ⊢
+        apply (Nat.Prime.dvd_mul Nat.prime_three).mp
+        exact Nat.dvd_of_mod_eq_zero hdiv
+      rcases h3div with ⟨a, rfl⟩ | ⟨b, rfl⟩
+      · -- n = 3a
+        rcases Nat.even_or_odd m with ⟨c, rfl⟩ | hm_odd
+        · -- m = 2c, use LTileable_mult3_mult2_set
+          have ha1 : 1 ≤ a := by omega
+          have hc1 : 1 ≤ c := by omega
+          exact LTileable_mult3_mult2_set a c ha1 hc1
+        · -- m = 2c+1 odd
+          have ha2 : a ≥ 2 := by
+            by_contra h
+            push_neg at h
+            interval_cases a
+            · omega
+            · exact h_not_3_odd ⟨rfl, hm_odd⟩
+          have hm_ge3 : m ≥ 3 := by omega
+          have h_not' : ¬(m = 3 ∧ a % 2 = 1) := by
+            intro ⟨hm_eq, ha_odd_mod⟩
+            subst hm_eq
+            apply h_not_odd_3
+            constructor
+            · -- Odd (3*a)
+              rw [Nat.odd_iff, Nat.odd_mul]
+              left
+              exact ⟨by decide, ha_odd_mod⟩
+            · rfl
+          have := LTileable_swap_set (LTileable_odd_x_mult3_set m a hm_ge3 
+            (Nat.odd_iff.mp hm_odd) ha2 h_not')
+          rwa [swapRegion_rect] at this
+      · -- m = 3b
+        rcases Nat.even_or_odd n with ⟨c, rfl⟩ | hn_odd
+        · -- n = 2c, use LTileable_mult3_mult2_set (swap)
+          have hb1 : 1 ≤ b := by omega
+          have hc1 : 1 ≤ c := by omega
+          have h_tiling := LTileable_mult3_mult2_set b c hb1 hc1
+          simpa [swapRegion_rect] using LTileable_swap_set h_tiling
+        · -- n = 2c+1 odd
+          have hb2 : b ≥ 2 := by
+            by_contra h
+            push_neg at h
+            interval_cases b
+            · omega
+            · exact h_not_odd_3 ⟨hn_odd, rfl⟩
+          have hn_ge3 : n ≥ 3 := by omega
+          have h_not' : ¬(n = 3 ∧ b % 2 = 1) := by
+            intro ⟨hn_eq, hb_odd⟩
+            subst hn_eq
+            apply h_not_3_odd
+            constructor
+            · rfl
+            · -- Odd m: m = 3*b with b odd
+              rw [Nat.odd_iff, Nat.odd_mul]
+              left
+              exact ⟨by decide, hb_odd⟩
+          exact LTileable_odd_x_mult3_set n b hn_ge3 (Nat.odd_iff.mp hn_odd) hb2 h_not'
