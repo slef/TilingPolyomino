@@ -19,16 +19,28 @@ But using the bridge to prove Set theorems defeats the entire point.
 
 ## In Progress
 
-_Nothing currently in progress._
+### P3 — Native `LTileable_rectMinusCorner_iff_set` in LTrominoSet.lean (no bridge)
+**Status: STEP 5/7 complete** (sub-agent burst, a466cf0, 2026-02-27 10:48)
+
+Completed steps (all in LTrominoSet.lean, 0 sorries, build clean):
+- [x] STEP 1 (`46fee68`): `rectMinusCorner_set` def + split lemmas (horiz/vert)
+- [x] STEP 2 (`dc3fce3`): union helper lemmas (`LTileable_horiz_union_rectMinusCorner_set`, etc.)
+- [x] STEP 3 (`622b39b`): base cases (2×2, 5×2, 4×4, 5×5, 7×7)
+- [x] STEP 4 (`4f55fd6`, `4e19012`): family lemmas ((3k+2)×2, 4×(7+6k), 5×(6k+2), 5×(6k+5))
+- [x] STEP 5 (`a466cf0`): main mod-2 case `LTileable_rectMinusCorner_mod2_set` (j,k≥2)
+
+Remaining:
+- [ ] STEP 6: Forward direction (impossibility): if SetTileable rectMinusCorner_set n m then
+      (n*m-1) % 3 = 0 — should follow from `SetTileable.ncard_dvd` + `rectMinusCorner_set_ncard`
+- [ ] STEP 7: Assemble full `LTileable_rectMinusCorner_iff_set` iff in LTrominoSet.lean,
+      then remove bridge copy (Bridge.lean line 78, currently 115 lines total)
+
+Note: sub-agent not detected active; may need re-spawn for STEP 6-7.
 
 ## Up Next
 
-### P3 — Native `LTileable_rectMinusCorner_iff_set` in LTrominoSet.lean (no bridge)
-- Define `rectMinusCorner` as an RExp (big expected win — all decomposition lemmas in Finset
-  used `rexp` style; Set framework should do the same)
-- Port the decomposition lemmas from `LTromino.lean` into `LTrominoSet.lean` using RExp
-- Stefan's hypothesis: `rect_omega` / `rexp_omega` on RExp-defined regions will collapse
-  the decomposition proofs dramatically
+### P3 — Native `LTileable_rectMinusCorner_iff_set` continued (STEP 6-7)
+See "In Progress" above — nearly done.
 
 ### P4 — Native `LTileable_rectMinus2Corner_set` in LTrominoSet.lean (no bridge)
 - Same strategy as P3: define `rectMinus2Corner` as RExp, port decomposition lemmas
@@ -67,6 +79,14 @@ _Nothing currently in progress._
       Leave as-is unless doing a structural refactor.
 
 ## Done (recent)
+- [x] **P3 STEPS 1–5 — Native rectMinusCorner work in LTrominoSet.lean** (`feat/set-tiling`, `a466cf0`..`46fee68`, 2026-02-27 10:48):
+      - `rectMinusCorner_set` defined as `rect 0 0 n m \ {(n-1, m-1)}` in Set framework.
+      - Split/union lemmas, swap, ncard proved.
+      - 5 explicit base cases: 2×2, 5×2, 4×4, 5×5, 7×7.
+      - 4 family lemmas: (3k+2)×2, 4×(7+6k), 5×(6k+2), 5×(6k+5).
+      - Main mod-2 case: `LTileable_rectMinusCorner_mod2_set` (both dims ≡ 2 mod 3).
+      - LTrominoSet.lean: 679 → 1057L (+378). 0 sorries. Build clean.
+      - Remaining: STEP 6 (forward/impossibility) + STEP 7 (full iff assembly) — see In Progress.
 - [x] **P2b — Bridge copy of `LTileable_rect_iff_set` removed** (cron check 2026-02-27 09:40):
       - Inspection confirmed: `theorem LTileable_rect_iff_set` is NOT present in Bridge.lean.
       - Only a 2-line NOTE comment remains at lines 56-57 (cosmetic; can be deleted at will).
