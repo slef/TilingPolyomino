@@ -28,7 +28,37 @@ _Nothing in progress. P4 just completed (2026-02-27 16:10). Next up: P5 or P6._
 
 ## Up Next
 
-### P5 — Auto-tactic for explicit tiling verification (side project — do only if more explicit tilings needed)
+### P5 (NEW TOP PRIORITY) — General Two-Corner Defects Theorem (new work, new file)
+
+See `FUTURE_PLANS.md` Extension 1 for full statement, proof sketch, and diagrams.
+
+**Informal statement**: Every n×m rectangle (n,m ≥ 9) with at most two corner defects
+(each defect removing 1 or 2 adjacent cells from a corner) and area ≡ 0 (mod 3) is
+L-tromino tileable.
+
+**New file**: `LTrominoDefects.lean` (imports `LTrominoSet.lean`; Set framework throughout).
+
+**Proof strategy** (Stefan's sketch, 2026-02-27):
+- Strong induction on m, case split on `m % 3`:
+  - `m % 3 ≠ 0`: vertical cut — each piece gets one defect and area ≡ 0 (mod 3);
+    apply `LTileable_rectMinusCorner_iff_set` (size-1) or Remark 2 analogue (size-2).
+  - `m % 3 = 0`: strip a 2-row band covering both defects, recurse on remaining
+    (m-2 ≢ 0 mod 3 → falls to Case 1). The band has 3×3 = 9 configurations.
+
+**Prerequisites (all done)**:
+- `LTileable_rectMinusCorner_iff_set` ✓
+- `LTileable_rectMinus2Corner_set` ✓ (size-2 defect analogue)
+- `SetTileable.horizontal_union`, `vertical_union`, `scale_rect` ✓
+- `LTileable_2xn_iff_set` ✓
+
+**Sub-tasks**:
+- [ ] Define `rectMinus2Corners_set` (region with two arbitrary corner defects d1,d2 ∈ {1,2})
+- [ ] Prove the 2-row band lemma (9 configurations: 3 left-defect × 3 right-defect shapes)
+- [ ] Prove the vertical-cut lemma (Case 1)
+- [ ] Prove the main theorem by induction
+- [ ] Verify / tighten bound B = 9
+
+### P6 — Auto-tactic for explicit tiling verification (side project — do only if more explicit tilings needed)
 - Pattern: all explicit tiling proofs have the same structure: provide tile list, prove pairwise
   disjointness by `fin_cases` + `rect_omega`, prove coverage by `interval_cases` + witnesses
 - Idea: a `decide_tiling` tactic (or `norm_num` extension) that takes a tile list and a region
@@ -37,13 +67,13 @@ _Nothing in progress. P4 just completed (2026-02-27 16:10). Next up: P5 or P6._
   5×2 minus corner), we'll need several more — an auto-tactic would collapse all to ~3 lines each
 - Only worth building if we need ≥4 more explicit tiling base cases; assess after deficient rect work
 
-### P6 — RExp experiment: redefine `LShape_cells` as `rect 0 0 1 2 ∪ rect 1 0 2 1`
+### P7 — RExp experiment: redefine `LShape_cells` as `rect 0 0 1 2 ∪ rect 1 0 2 1`
 - Question: does this collapse the `simp [LShape_cells, mem_translate, ...]; omega` blocks
   in coverage proofs to single `rexp_omega` calls?
 - Cost: `LPrototile_set_ncard` becomes harder (ncard of a union); bridge proofs may need updating
 - Try on a branch; measure before committing
 
-### P6 — Blueprint for the Set framework (do when out of proof tasks)
+### P7 — Blueprint for the Set framework (do when out of proof tasks)
 - Extend the existing blueprint (`blueprint/` dir) to cover the Set framework theorems
 - Add dependency nodes for: `SetTileable`, `scale_rect`, `LTileable_rect_iff_set`,
   `LTileable_rectMinusCorner_iff_set`, `LTileable_rectMinus2Corner_set`
