@@ -668,3 +668,55 @@ theorem LTileable_rect_iff_set (n m : ℕ) :
               left
               exact ⟨by decide, hb_odd⟩
           exact LTileable_odd_x_mult3_set n b hn_ge3 (Nat.odd_iff.mp hn_odd) hb2 h_not'
+
+
+-- ============================================================
+-- Deficient Rectangles: rectMinusCorner_set
+-- ============================================================
+
+/-- n×m rectangle with the top-right corner cell (n-1, m-1) removed. -/
+def rectMinusCorner_set (n m : ℤ) : Set Cell :=
+  rect 0 0 n m \ {(n - 1, m - 1)}
+
+/-- rectMinusCorner_set is finite -/
+theorem rectMinusCorner_set_finite (n m : ℤ) : (rectMinusCorner_set n m).Finite :=
+  (rect_finite 0 0 n m).diff {(n - 1, m - 1)}
+
+/-- ncard of rectMinusCorner_set -/
+theorem rectMinusCorner_set_ncard (n m : ℕ) (hn : 1 ≤ n) (hm : 1 ≤ m) :
+    (rectMinusCorner_set n m).ncard = n * m - 1 := by
+  unfold rectMinusCorner_set
+  have h_mem : (n - 1 : ℤ, m - 1 : ℤ) ∈ rect 0 0 (n : ℤ) m := by
+    simp only [mem_rect]; push_cast; omega
+  rw [diff_ncard (rect 0 0 (n : ℤ) m) {(n - 1, m - 1)} (rect_finite 0 0 (n : ℤ) m)]
+  simp only [Set.inter_singleton_eq_if_mem, h_mem, ite_true]
+  rw [rect_ncard 0 0 (n : ℤ) m, Set.ncard_singleton]
+  simp only [Int.toNat_natCast]
+  omega
+
+
+/-- Swapping coordinates sends rectMinusCorner_set n m to rectMinusCorner_set m n -/
+theorem swapRegion_rectMinusCorner_set (n m : ℤ) :
+    swapRegion (rectMinusCorner_set n m) = rectMinusCorner_set m n := by
+  ext ⟨x, y⟩
+  simp only [mem_swapRegion, rectMinusCorner_set, Set.mem_diff, mem_rect,
+    Set.mem_singleton_iff, Prod.mk.injEq]
+  omega
+
+/-- Horizontal split: rectMinusCorner_set (a+b) m = left_rect ∪ shifted_defect_rect -/
+theorem rectMinusCorner_set_split_horiz (a b m : ℤ) (ha : 0 < a) (hb : 0 < b) (hm : 0 < m) :
+    rectMinusCorner_set (a + b) m =
+    rect 0 0 a m ∪ translate a 0 (rectMinusCorner_set b m) := by
+  ext ⟨x, y⟩
+  simp only [rectMinusCorner_set, Set.mem_diff, mem_rect, Set.mem_singleton_iff,
+    Prod.mk.injEq, Set.mem_union, mem_translate]
+  omega
+
+/-- Vertical split: rectMinusCorner_set n (a+b) = bottom_rect ∪ shifted_defect_rect -/
+theorem rectMinusCorner_set_split_vert (n a b : ℤ) (ha : 0 < a) (hb : 0 < b) (hn : 0 < n) :
+    rectMinusCorner_set n (a + b) =
+    rect 0 0 n a ∪ translate 0 a (rectMinusCorner_set n b) := by
+  ext ⟨x, y⟩
+  simp only [rectMinusCorner_set, Set.mem_diff, mem_rect, Set.mem_singleton_iff,
+    Prod.mk.injEq, Set.mem_union, mem_translate]
+  omega
