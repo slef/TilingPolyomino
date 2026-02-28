@@ -742,8 +742,12 @@ theorem rectMinusCorner_set_ncard (n m : ℕ) (hn : 1 ≤ n) (hm : 1 ≤ m) :
   unfold rectMinusCorner_set
   have h_mem : ((n : ℤ) - 1, (m : ℤ) - 1) ∈ rect 0 0 (n : ℤ) m := by
     simp only [mem_rect]; push_cast; omega
-  rw [Set.ncard_diff_singleton_of_mem h_mem, rect_ncard]
-  push_cast
+  rw [diff_ncard (rect 0 0 (n : ℤ) m) {((n : ℤ) - 1, (m : ℤ) - 1)} (rect_finite 0 0 (n : ℤ) m)]
+  have hinter : rect 0 0 (n : ℤ) m ∩ {((n : ℤ) - 1, (m : ℤ) - 1)} =
+      {((n : ℤ) - 1, (m : ℤ) - 1)} :=
+    Set.inter_eq_right.mpr (Set.singleton_subset_iff.mpr h_mem)
+  rw [hinter, Set.ncard_singleton, rect_ncard 0 0 (n : ℤ) m]
+  simp only [sub_zero, Int.toNat_natCast]
   omega
 
 
@@ -1148,7 +1152,7 @@ theorem LTileable_rectMinusCorner_mod2_set
   
   -- Bottom part: full n × (3k) rectangle (use rect classification)
   have h_bottom : SetTileable (rect 0 0 (n : ℤ) (3 * k)) LProtoset_set := by
-    apply LTileable_rect_of_conditions_set
+    apply LTileable_rect_of_conditions_set n (3*k)
     right; right
     refine ⟨?_, ?_, ?_, ?_, ?_⟩
     · -- n * (3k) % 3 = 0
@@ -1165,8 +1169,9 @@ theorem LTileable_rectMinusCorner_mod2_set
       omega
     · -- ¬(Odd n ∧ 3k = 3)
       rintro ⟨_, hm3⟩
-      have : (3 * k : ℤ) ≥ 6 := by push_cast; omega
-      omega
+      have hm3' : (3 * k : ℤ) = 3 := by exact_mod_cast hm3
+      have hk2' : (k : ℤ) ≥ 2 := by exact_mod_cast hk2
+      linarith
   
   -- Top part: n × 2 three-cornered (use Family 1)
   have h_top : SetTileable (rectMinusCorner_set (n : ℤ) 2) LProtoset_set :=
@@ -1226,7 +1231,7 @@ theorem LTileable_rectMinusCorner_mod1_jk_ge_set
   have hn_pos : (n : ℤ) > 0 := by simp only [n]; push_cast; omega
   -- Bottom: full n × a rectangle
   have h_bottom : SetTileable (rect 0 0 (n : ℤ) (a : ℤ)) LProtoset_set := by
-    apply LTileable_rect_of_conditions_set
+    apply LTileable_rect_of_conditions_set n a
     right; right
     refine ⟨?_, ?_, ?_, ?_, ?_⟩
     · -- n * a % 3 = 0: a = 3*(j-1), so 3 ∣ n*a
@@ -1270,7 +1275,7 @@ theorem LTileable_rectMinusCorner_mod1_recurrence_k_ge3_set
   have hb_pos : (b : ℤ) > 0 := by simp only [b]; push_cast; omega
   -- Left: full b × m rectangle
   have h_left : SetTileable (rect 0 0 (b : ℤ) (m : ℤ)) LProtoset_set := by
-    apply LTileable_rect_of_conditions_set
+    apply LTileable_rect_of_conditions_set b m
     right; right
     refine ⟨?_, ?_, ?_, ?_, ?_⟩
     · -- b * m % 3 = 0: b = 3*(k-1), so 3 ∣ b*m
@@ -1596,7 +1601,7 @@ theorem LTileable_3jplus2_x_3kplus1_minus_2corner_set (j k : ℕ) (hj : j ≥ 1)
   have hB : SetTileable (translate 0 (3 * (k : ℤ) - 1) (rect 0 0 (3 * (j : ℤ)) 2))
       LProtoset_set := by
     apply setTileable_translate
-    apply LTileable_rect_of_conditions_set
+    apply LTileable_rect_of_conditions_set (3*j) 2
     unfold RectTileableConditions
     right; right
     refine ⟨?_, ?_, ?_, ?_, ?_⟩
@@ -1656,7 +1661,7 @@ theorem LTileable_3jplus1_x_3kplus2_minus_2corner_set (j k : ℕ) (hj : j ≥ 1)
               Set.mem_insert_iff, Set.mem_singleton_iff, Prod.mk.injEq] at h1 h2
             push_cast at *; omega
           have hleft : SetTileable (rect 0 0 3 (3 * (k : ℤ) + 2)) LProtoset_set := by
-            apply LTileable_rect_of_conditions_set
+            apply LTileable_rect_of_conditions_set 3 (3*k+2)
             unfold RectTileableConditions; right; right
             refine ⟨?_, ?_, ?_, ?_, ?_⟩
             · have : 3 * (3 * k + 2) % 3 = 0 := by omega
@@ -1728,7 +1733,7 @@ theorem LTileable_3jplus1_x_3kplus2_minus_2corner_set (j k : ℕ) (hj : j ≥ 1)
           have hC : SetTileable (translate 4 0 (rect 0 0 3 (3 * (k : ℤ) + 1))) LProtoset_set := by
             have : n = 1 := hn1eq
             apply setTileable_translate
-            apply LTileable_rect_of_conditions_set
+            apply LTileable_rect_of_conditions_set 3 (3*k+1)
             unfold RectTileableConditions; right; right
             refine ⟨?_, ?_, ?_, ?_, ?_⟩
             · have : 3 * (3 * k + 1) % 3 = 0 := by omega
@@ -1761,7 +1766,7 @@ theorem LTileable_3jplus1_x_3kplus2_minus_2corner_set (j k : ℕ) (hj : j ≥ 1)
           push_cast at *; omega
         -- n ≥ 2, so 3*n ≥ 6, avoiding the 3×odd forbidden case
         have hleft : SetTileable (rect 0 0 (3 * (n : ℤ)) (3 * k + 2)) LProtoset_set := by
-          apply LTileable_rect_of_conditions_set
+          apply LTileable_rect_of_conditions_set (3*n) (3*k+2)
           unfold RectTileableConditions; right; right
           refine ⟨?_, ?_, ?_, ?_, ?_⟩
           · have : 3 * n * (3 * k + 2) % 3 = 0 := by omega
