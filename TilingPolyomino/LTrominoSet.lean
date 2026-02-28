@@ -482,7 +482,7 @@ theorem LTileable_5x9_set : SetTileable (rect 0 0 5 9) LProtoset_set := by
       rintro ⟨i, hi⟩
       fin_cases i <;> simp_all <;> omega
     · -- backward: membership in rect 0 0 5 9 → in some tile
-      intro ⟨hx1, hx2, hy1, hy2⟩
+      rintro ⟨hx1, hx2, hy1, hy2⟩
       interval_cases x <;> interval_cases y <;> simp_all
       · exact ⟨0, by simp_all <;> omega⟩
       · exact ⟨1, by simp_all <;> omega⟩
@@ -740,14 +740,10 @@ theorem rectMinusCorner_set_finite (n m : ℤ) : (rectMinusCorner_set n m).Finit
 theorem rectMinusCorner_set_ncard (n m : ℕ) (hn : 1 ≤ n) (hm : 1 ≤ m) :
     (rectMinusCorner_set n m).ncard = n * m - 1 := by
   unfold rectMinusCorner_set
-  have h_mem : (((n : ℤ) - 1 : ℤ), ((m : ℤ) - 1 : ℤ)) ∈ rect 0 0 (n : ℤ) m := by
+  have h_mem : ((n : ℤ) - 1, (m : ℤ) - 1) ∈ rect 0 0 (n : ℤ) m := by
     simp only [mem_rect]; push_cast; omega
-  set B : Set Cell := {((n : ℤ) - 1, (m : ℤ) - 1)} with hB_def
-  have hdiff := diff_ncard (rect 0 0 (n : ℤ) m) B (rect_finite 0 0 (n : ℤ) m)
-  rw [hdiff]
-  simp only [hB_def, Set.inter_singleton_eq_if_mem, h_mem, ite_true]
-  rw [rect_ncard 0 0 (n : ℤ) m, Set.ncard_singleton]
-  simp only [Int.toNat_natCast]
+  rw [Set.ncard_diff_singleton_of_mem h_mem, rect_ncard]
+  push_cast
   omega
 
 
@@ -789,7 +785,6 @@ theorem LTileable_horiz_union_rectMinusCorner_set {a b m : ℤ} (ha : 0 < a) (hb
   intro ⟨x, y⟩ h1 h2
   simp only [mem_rect, mem_translate, rectMinusCorner_set, Set.mem_diff,
     Set.mem_singleton_iff, Prod.mk.injEq] at h1 h2
-  simp only [Prod.fst, Prod.snd] at *
   omega
 
 /-- Vertical union analogue -/
@@ -803,7 +798,6 @@ theorem LTileable_vert_union_rectMinusCorner_set {n a b : ℤ} (ha : 0 < a) (hb 
   intro ⟨x, y⟩ h1 h2
   simp only [mem_rect, mem_translate, rectMinusCorner_set, Set.mem_diff,
     Set.mem_singleton_iff, Prod.mk.injEq] at h1 h2
-  simp only [Prod.fst, Prod.snd] at *
   omega
 
 /-- Swap tileability for rectMinusCorner_set -/
@@ -857,7 +851,6 @@ theorem LTileable_5x2_minus_corner_set :
       · exact ⟨2, by simp_all <;> omega⟩
       · exact ⟨2, by simp_all <;> omega⟩
       · exact ⟨2, by simp_all <;> omega⟩
-      · simp_all  -- corner (4,1): hne gives False
 
 /-- The 4×4 rectangle with a missing top-right corner is L-tileable. -/
 theorem LTileable_4x4_minus_corner_set :
@@ -900,7 +893,6 @@ theorem LTileable_4x4_minus_corner_set :
       · exact ⟨1, by simp_all <;> omega⟩
       · exact ⟨1, by simp_all <;> omega⟩
       · exact ⟨3, by simp_all <;> omega⟩
-      · simp_all  -- corner (3,3): hne gives False
 
 /-- The 5×5 rectangle with a missing top-right corner is L-tileable. -/
 set_option maxHeartbeats 4000000 in
@@ -956,7 +948,6 @@ theorem LTileable_5x5_minus_corner_set :
       · exact ⟨3, by simp_all <;> omega⟩
       · exact ⟨7, by simp_all <;> omega⟩
       · exact ⟨7, by simp_all <;> omega⟩
-      · simp_all  -- corner (4,4): hne gives False
 
 /-- The 7×7 rectangle with a missing top-right corner is L-tileable. -/
 set_option maxHeartbeats 8000000 in
@@ -1044,7 +1035,6 @@ theorem LTileable_7x7_minus_corner_set :
       · exact ⟨14, by simp_all <;> omega⟩
       · exact ⟨14, by simp_all <;> omega⟩
       · exact ⟨15, by simp_all <;> omega⟩
-      · simp_all  -- corner (6,6): hne gives False
 
 -- ============================================================
 -- Family Lemmas: rectMinusCorner_set by decomposition
@@ -1170,11 +1160,11 @@ theorem LTileable_rectMinusCorner_mod2_set
     · -- 3k ≥ 2
       push_cast; omega
     · -- ¬(n = 3 ∧ Odd (3k))
-      intro ⟨hn3, _⟩
+      rintro ⟨hn3, _⟩
       simp only [n] at hn3
       omega
     · -- ¬(Odd n ∧ 3k = 3)
-      intro ⟨_, hm3⟩
+      rintro ⟨_, hm3⟩
       have : (3 * k : ℤ) ≥ 6 := by push_cast; omega
       omega
   
@@ -1248,9 +1238,9 @@ theorem LTileable_rectMinusCorner_mod1_jk_ge_set
     · -- a ≥ 2: j ≥ 3 → j-1 ≥ 2 → 3*(j-1) ≥ 6 ≥ 2
       simp only [a]; omega
     · -- ¬(n = 3 ∧ Odd a): n = 3*k+1 ≥ 4, so n ≠ 3
-      intro ⟨hn3, _⟩; simp only [n] at hn3; omega
+      rintro ⟨hn3, _⟩; simp only [n] at hn3; omega
     · -- ¬(Odd n ∧ a = 3): a ≥ 6, so a ≠ 3
-      intro ⟨_, ha3⟩; simp only [a] at ha3; omega
+      rintro ⟨_, ha3⟩; simp only [a] at ha3; omega
   -- Top: (3k+1) × 4 corner rect (via swap of 4 × (3k+1))
   have h4xn : SetTileable (rectMinusCorner_set 4 (n : ℤ)) LProtoset_set :=
     LTileable_4x_3kplus1_minus_corner_set k hk1
@@ -1292,9 +1282,9 @@ theorem LTileable_rectMinusCorner_mod1_recurrence_k_ge3_set
     · -- m ≥ 2: j ≥ 1 → 3*j+1 ≥ 4 ≥ 2
       simp only [m]; omega
     · -- ¬(b = 3 ∧ Odd m): b ≥ 6, so b ≠ 3
-      intro ⟨hb3, _⟩; simp only [b] at hb3; omega
+      rintro ⟨hb3, _⟩; simp only [b] at hb3; omega
     · -- ¬(Odd b ∧ m = 3): m ≥ 4, so m ≠ 3
-      intro ⟨_, hm3⟩; simp only [m] at hm3; omega
+      rintro ⟨_, hm3⟩; simp only [m] at hm3; omega
   -- Right: 4 × (3j+1) corner rect
   have h_right : SetTileable (rectMinusCorner_set 4 (m : ℤ)) LProtoset_set :=
     LTileable_4x_3kplus1_minus_corner_set j hj1
@@ -1475,7 +1465,6 @@ lemma LTileable_piece2_base_set :
       · exact ⟨0, by simp_all <;> omega⟩  -- (0,0)
       · exact ⟨0, by simp_all <;> omega⟩  -- (0,1)
       · exact ⟨1, by simp_all <;> omega⟩  -- (0,2)
-      · simp_all                            -- (0,3) corner: hne gives False
       · exact ⟨0, by simp_all <;> omega⟩  -- (1,0)
       · exact ⟨2, by simp_all <;> omega⟩  -- (1,1)
       · exact ⟨1, by simp_all <;> omega⟩  -- (1,2)
@@ -1747,7 +1736,7 @@ theorem LTileable_3jplus1_x_3kplus2_minus_2corner_set (j k : ℕ) (hj : j ≥ 1)
             · omega
             · omega
             · -- ¬(3=3 ∧ Odd(3k+1)): k odd → 3k is odd → 3k+1 is even → ¬Odd(3k+1)
-              intro ⟨_, hodd⟩
+              rintro ⟨_, hodd⟩
               rw [Nat.odd_iff] at hodd
               subst hm; omega
             · intro ⟨_, h2⟩; omega
