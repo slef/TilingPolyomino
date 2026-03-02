@@ -11,52 +11,52 @@ open Set Function
 -- ============================================================
 
 /-- A set-based prototile: a finite nonempty set of cells -/
-structure SetPrototile where
+structure Prototile_set where
   cells : Set Cell
   finite : cells.Finite
   nonempty : cells.Nonempty
 
 /-- A protoset is an indexed family of set-based prototiles -/
-def SetProtoset (ι : Type*) := ι → SetPrototile
+def Protoset_set (ι : Type*) := ι → Prototile_set
 
-instance {ι : Type*} : CoeFun (SetProtoset ι) (fun _ => ι → SetPrototile) where
+instance {ι : Type*} : CoeFun (Protoset_set ι) (fun _ => ι → Prototile_set) where
   coe ps := ps
 
 /-- A placed tile: index into protoset, translation, and rotation -/
-structure SetPlacedTile (ι : Type*) where
+structure PlacedTile_set (ι : Type*) where
   index : ι
   translation : Cell
   rotation : Fin 4
 
 /-- The cells covered by a placed tile under protoset ps -/
-def SetPlacedTile.cells {ι : Type*} (ps : SetProtoset ι) (pt : SetPlacedTile ι) : Set Cell :=
+def PlacedTile_set.cells {ι : Type*} (ps : Protoset_set ι) (pt : PlacedTile_set ι) : Set Cell :=
   translate pt.translation.1 pt.translation.2 (rotate pt.rotation (ps pt.index).cells)
 
 /-- An indexed family of placed tiles -/
-structure SetTileSet {ι : Type*} (ps : SetProtoset ι) (ιₜ : Type*) where
-  tiles : ιₜ → SetPlacedTile ι
+structure TileSet_set {ι : Type*} (ps : Protoset_set ι) (ιₜ : Type*) where
+  tiles : ιₜ → PlacedTile_set ι
 
-namespace SetTileSet
+namespace TileSet_set
 
-variable {ι : Type*} {ps : SetProtoset ι} {ιₜ : Type*}
+variable {ι : Type*} {ps : Protoset_set ι} {ιₜ : Type*}
 
-def cellsAt (t : SetTileSet ps ιₜ) (i : ιₜ) : Set Cell :=
+def cellsAt (t : TileSet_set ps ιₜ) (i : ιₜ) : Set Cell :=
   (t.tiles i).cells ps
 
 /-- All cells covered by the tiling (finite union over all tiles) -/
-def coveredCells (t : SetTileSet ps ιₜ) : Set Cell :=
+def coveredCells (t : TileSet_set ps ιₜ) : Set Cell :=
   ⋃ i : ιₜ, t.cellsAt i
 
 /-- A valid tiling: pairwise disjoint tiles that exactly cover R -/
-structure Valid (t : SetTileSet ps ιₜ) (R : Set Cell) : Prop where
+structure Valid (t : TileSet_set ps ιₜ) (R : Set Cell) : Prop where
   disjoint : ∀ i j : ιₜ, i ≠ j → Disjoint (t.cellsAt i) (t.cellsAt j)
   covers : t.coveredCells = R
 
-end SetTileSet
+end TileSet_set
 
 /-- R is tileable by protoset ps if there exists a finite valid tiling -/
-def SetTileable (R : Set Cell) {ι : Type*} (ps : SetProtoset ι) : Prop :=
-  ∃ (ιₜ : Type) (_ : Fintype ιₜ) (t : SetTileSet ps ιₜ), t.Valid R
+def Tileable_set (R : Set Cell) {ι : Type*} (ps : Protoset_set ι) : Prop :=
+  ∃ (ιₜ : Type) (_ : Fintype ιₜ) (t : TileSet_set ps ιₜ), t.Valid R
 
 -- ============================================================
 -- Finite lemmas for transformations
@@ -74,9 +74,9 @@ theorem rotate_finite (r : Fin 4) (s : Set Cell) (h : s.Finite) :
     (rotate r s).Finite :=
   h.preimage (rotateCell_injective (inverseRot r)).injOn
 
-namespace SetPlacedTile
+namespace PlacedTile_set
 
-variable {ι : Type*} {ps : SetProtoset ι} (pt : SetPlacedTile ι)
+variable {ι : Type*} {ps : Protoset_set ι} (pt : PlacedTile_set ι)
 
 theorem cells_finite : (pt.cells ps).Finite :=
   translate_finite _ _ _ (rotate_finite _ _ (ps pt.index).finite)
@@ -86,7 +86,7 @@ theorem cells_ncard_eq : (pt.cells ps).ncard = (ps pt.index).cells.ncard := by
   rw [translate_ncard _ _ _ (rotate_finite _ _ (ps pt.index).finite),
       rotate_ncard _ _ (ps pt.index).finite]
 
-end SetPlacedTile
+end PlacedTile_set
 
 -- ============================================================
 -- Translation helper lemmas
@@ -127,22 +127,22 @@ private theorem translate_disjoint_iff (dx dy : ℤ) {A B : Set Cell} :
 -- Cardinality necessary condition
 -- ============================================================
 
-theorem SetTileable.ncard_dvd {R : Set Cell} {ι : Type*} {ps : SetProtoset ι}
-    [Subsingleton ι] (_hR : R.Finite) (ht : SetTileable R ps) :
+theorem Tileable_set.ncard_dvd {R : Set Cell} {ι : Type*} {ps : Protoset_set ι}
+    [Subsingleton ι] (_hR : R.Finite) (ht : Tileable_set R ps) :
     ∀ i : ι, (ps i).cells.ncard ∣ R.ncard := by
   obtain ⟨ιₜ, hft, t, hv⟩ := ht
   haveI : Fintype ιₜ := hft
   haveI : Finite ιₜ := inferInstance
   intro i
   have h_card_eq : ∀ j : ιₜ, (t.cellsAt j).ncard = (ps i).cells.ncard := fun j => by
-    rw [SetTileSet.cellsAt, SetPlacedTile.cells_ncard_eq]
+    rw [TileSet_set.cellsAt, PlacedTile_set.cells_ncard_eq]
     rw [show (t.tiles j).index = i from Subsingleton.elim _ _]
-  have h_tile_fin : ∀ j : ιₜ, (t.cellsAt j).Finite := fun _ => SetPlacedTile.cells_finite _
+  have h_tile_fin : ∀ j : ιₜ, (t.cellsAt j).Finite := fun _ => PlacedTile_set.cells_finite _
   have h_union : (⋃ j : ιₜ, t.cellsAt j).ncard = ∑ᶠ j : ιₜ, (t.cellsAt j).ncard :=
     Set.ncard_iUnion_of_finite h_tile_fin (fun j k hjk => hv.disjoint j k hjk)
   have h_R : R.ncard = ∑ᶠ j : ιₜ, (t.cellsAt j).ncard := by
     have hcov : (⋃ j : ιₜ, t.cellsAt j) = R := by
-      have := hv.covers; simp only [SetTileSet.coveredCells] at this; exact this
+      have := hv.covers; simp only [TileSet_set.coveredCells] at this; exact this
     exact (congrArg Set.ncard hcov).symm.trans h_union
   rw [h_R, finsum_eq_sum_of_fintype,
       Finset.sum_congr rfl (fun j _ => h_card_eq j),
@@ -153,25 +153,25 @@ theorem SetTileable.ncard_dvd {R : Set Cell} {ι : Type*} {ps : SetProtoset ι}
 -- Empty region
 -- ============================================================
 
-theorem SetTileable.empty {ι : Type*} (ps : SetProtoset ι) :
-    SetTileable (∅ : Set Cell) ps :=
+theorem Tileable_set.empty {ι : Type*} (ps : Protoset_set ι) :
+    Tileable_set (∅ : Set Cell) ps :=
   ⟨Empty, inferInstance, ⟨Empty.elim⟩,
-    ⟨fun i => i.elim, by simp [SetTileSet.coveredCells]⟩⟩
+    ⟨fun i => i.elim, by simp [TileSet_set.coveredCells]⟩⟩
 
 -- ============================================================
 -- Translation
 -- ============================================================
 
-theorem SetTileable.translate {ι : Type*} {ps : SetProtoset ι} {R : Set Cell}
-    (h : SetTileable R ps) (dx dy : ℤ) :
-    SetTileable (_root_.translate dx dy R) ps := by
+theorem Tileable_set.translate {ι : Type*} {ps : Protoset_set ι} {R : Set Cell}
+    (h : Tileable_set R ps) (dx dy : ℤ) :
+    Tileable_set (_root_.translate dx dy R) ps := by
   obtain ⟨ιₜ, hft, t, hv⟩ := h
-  let t' : SetTileSet ps ιₜ := ⟨fun i => {
+  let t' : TileSet_set ps ιₜ := ⟨fun i => {
     index := (t.tiles i).index
     translation := (dx + (t.tiles i).translation.1, dy + (t.tiles i).translation.2)
     rotation := (t.tiles i).rotation }⟩
   have h_eq : ∀ j : ιₜ, t'.cellsAt j = _root_.translate dx dy (t.cellsAt j) := fun j => by
-    simp only [SetTileSet.cellsAt, SetPlacedTile.cells, t']
+    simp only [TileSet_set.cellsAt, PlacedTile_set.cells, t']
     rw [← translate_compose]
   have h_cov : ∀ j, t.cellsAt j ⊆ R := fun j p hp => by
     have : p ∈ t.coveredCells := Set.mem_iUnion.mpr ⟨j, hp⟩
@@ -180,7 +180,7 @@ theorem SetTileable.translate {ι : Type*} {ps : SetProtoset ι} {R : Set Cell}
   · intro i j hij
     rw [h_eq i, h_eq j]
     exact (translate_disjoint_iff dx dy).mpr (hv.disjoint i j hij)
-  · simp only [SetTileSet.coveredCells]
+  · simp only [TileSet_set.coveredCells]
     calc
       (⋃ j : ιₜ, t'.cellsAt j) = ⋃ j : ιₜ, _root_.translate dx dy (t.cellsAt j) := by
         simpa using iUnion_congr h_eq
@@ -188,35 +188,37 @@ theorem SetTileable.translate {ι : Type*} {ps : SetProtoset ι} {R : Set Cell}
         symm
         exact translate_iUnion_eq dx dy (fun j => t.cellsAt j)
       _ = _root_.translate dx dy R := by
-        simpa [SetTileSet.coveredCells] using congrArg (_root_.translate dx dy) hv.covers
+        simpa [TileSet_set.coveredCells] using congrArg (_root_.translate dx dy) hv.covers
 
-theorem SetTileable_translate {ι : Type*} {ps : SetProtoset ι} {R : Set Cell}
-    (h : SetTileable R ps) (dx dy : ℤ) :
-    SetTileable (_root_.translate dx dy R) ps := h.translate dx dy
+theorem Tileable_translate_set {ι : Type*} {ps : Protoset_set ι} {R : Set Cell}
+    (h : Tileable_set R ps) (dx dy : ℤ) :
+    Tileable_set (_root_.translate dx dy R) ps := h.translate dx dy
 
 /-- Alias -/
-theorem setTileable_translate {ι : Type*} {ps : SetProtoset ι} {R : Set Cell}
-    (h : SetTileable R ps) (dx dy : ℤ) :
-    SetTileable (_root_.translate dx dy R) ps := h.translate dx dy
+theorem tileable_translate_set {ι : Type*} {ps : Protoset_set ι} {R : Set Cell}
+    (h : Tileable_set R ps) (dx dy : ℤ) :
+    Tileable_set (_root_.translate dx dy R) ps := h.translate dx dy
 
 -- ============================================================
 -- Union
 -- ============================================================
 
-theorem SetTileable.union {ι : Type*} {ps : SetProtoset ι} {R S : Set Cell}
-    (hR : SetTileable R ps) (hS : SetTileable S ps) (hdisj : Disjoint R S) :
-    SetTileable (R ∪ S) ps := by
+theorem Tileable_set.union {ι : Type*} {ps : Protoset_set ι} {R S : Set Cell}
+    (hR : Tileable_set R ps) (hS : Tileable_set S ps) (hdisj : Disjoint R S) :
+    Tileable_set (R ∪ S) ps := by
   obtain ⟨ιR, hfR, tR, hvR⟩ := hR
   obtain ⟨ιS, hfS, tS, hvS⟩ := hS
   haveI : Fintype ιR := hfR; haveI : Fintype ιS := hfS
-  let t : SetTileSet ps (ιR ⊕ ιS) := ⟨Sum.elim tR.tiles tS.tiles⟩
+  let t : TileSet_set ps (ιR ⊕ ιS) := ⟨Sum.elim tR.tiles tS.tiles⟩
   have covR : (⋃ i : ιR, (tR.tiles i).cells ps) = R := by
-    have := hvR.covers; simp only [SetTileSet.coveredCells, SetTileSet.cellsAt] at this; exact this
+    have := hvR.covers
+    simp only [TileSet_set.coveredCells, TileSet_set.cellsAt] at this; exact this
   have covS : (⋃ i : ιS, (tS.tiles i).cells ps) = S := by
-    have := hvS.covers; simp only [SetTileSet.coveredCells, SetTileSet.cellsAt] at this; exact this
+    have := hvS.covers
+    simp only [TileSet_set.coveredCells, TileSet_set.cellsAt] at this; exact this
   refine ⟨ιR ⊕ ιS, inferInstance, t, ⟨?_, ?_⟩⟩
   · intro i j hij
-    simp only [SetTileSet.cellsAt, t]
+    simp only [TileSet_set.cellsAt, t]
     cases i <;> cases j <;> simp only [Sum.elim]
     · exact hvR.disjoint _ _ (fun h => hij (congrArg Sum.inl h))
     · apply Set.disjoint_left.mpr
@@ -230,7 +232,7 @@ theorem SetTileable.union {ι : Type*} {ps : SetProtoset ι} {R S : Set Cell}
       have hpR : p ∈ R := covR ▸ Set.mem_iUnion.mpr ⟨_, h2⟩
       exact absurd hpS (Set.disjoint_left.mp hdisj hpR)
     · exact hvS.disjoint _ _ (fun h => hij (congrArg Sum.inr h))
-  · simp only [SetTileSet.coveredCells, SetTileSet.cellsAt, t]
+  · simp only [TileSet_set.coveredCells, TileSet_set.cellsAt, t]
     ext p
     simp only [Set.mem_iUnion, Set.mem_union]
     constructor
@@ -250,25 +252,25 @@ theorem SetTileable.union {ι : Type*} {ps : SetProtoset ι} {R S : Set Cell}
 -- Remove two tiles
 -- ============================================================
 
-theorem SetTileable.remove_two {ι : Type*} {ps : SetProtoset ι} {R S : Set Cell} {ιₜ : Type}
-    [Finite ιₜ] (t : SetTileSet ps ιₜ) (hv : t.Valid R)
+theorem Tileable_set.remove_two {ι : Type*} {ps : Protoset_set ι} {R S : Set Cell} {ιₜ : Type}
+    [Finite ιₜ] (t : TileSet_set ps ιₜ) (hv : t.Valid R)
     (i₀ i₁ : ιₜ) (_hi : i₀ ≠ i₁) (hS : t.cellsAt i₀ ∪ t.cellsAt i₁ = S) :
-    SetTileable (R \ S) ps := by
+    Tileable_set (R \ S) ps := by
   let ιₜ' : Type := {j : ιₜ // j ≠ i₀ ∧ j ≠ i₁}
   haveI : DecidableEq ιₜ := Classical.decEq _
   haveI : Fintype ιₜ := Fintype.ofFinite ιₜ
   haveI : Fintype ιₜ' := inferInstance
-  let t' : SetTileSet ps ιₜ' := ⟨fun ⟨j, _⟩ => t.tiles j⟩
+  let t' : TileSet_set ps ιₜ' := ⟨fun ⟨j, _⟩ => t.tiles j⟩
   -- t'.cellsAt ⟨j, _⟩ = t.cellsAt j
   have h_cell : ∀ j (hj : j ≠ i₀ ∧ j ≠ i₁), t'.cellsAt ⟨j, hj⟩ = t.cellsAt j := fun _ _ => rfl
   have h_cov : (⋃ j : ιₜ, t.cellsAt j) = R := by
-    have := hv.covers; simp only [SetTileSet.coveredCells] at this; exact this
+    have := hv.covers; simp only [TileSet_set.coveredCells] at this; exact this
   exact ⟨ιₜ', inferInstance, t', ⟨
     (fun ⟨i, hi_ne⟩ ⟨j, hj_ne⟩ hne => by
       simp only [h_cell]
       exact hv.disjoint i j (fun h => hne (Subtype.ext h))),
     (by
-      simp only [SetTileSet.coveredCells]
+      simp only [TileSet_set.coveredCells]
       ext p
       constructor
       · intro hp
@@ -294,23 +296,24 @@ theorem SetTileable.remove_two {ι : Type*} {ps : SetProtoset ι} {R S : Set Cel
 
 /-- If R is tiled by psP, and each psP-placed-tile region can be tiled by psQ,
     then R is tiled by psQ -/
-theorem SetTileable.refine {R : Set Cell} {ιP ιQ : Type*} {psP : SetProtoset ιP}
-    {psQ : SetProtoset ιQ}
-    (hR : SetTileable R psP)
-    (hpieces : ∀ (pt : SetPlacedTile ιP), SetTileable (pt.cells psP) psQ) :
-    SetTileable R psQ := by
+theorem Tileable_set.refine {R : Set Cell} {ιP ιQ : Type*} {psP : Protoset_set ιP}
+    {psQ : Protoset_set ιQ}
+    (hR : Tileable_set R psP)
+    (hpieces : ∀ (pt : PlacedTile_set ιP), Tileable_set (pt.cells psP) psQ) :
+    Tileable_set R psQ := by
   obtain ⟨ιₜP, hfP, tP, hvP⟩ := hR
   haveI : Fintype ιₜP := hfP
   choose ιₜQ hfQ tQ hvQ using fun j : ιₜP => hpieces (tP.tiles j)
   haveI := fun j => hfQ j
-  let t : SetTileSet psQ (Σ j : ιₜP, ιₜQ j) := ⟨fun ⟨j, k⟩ => (tQ j).tiles k⟩
+  let t : TileSet_set psQ (Σ j : ιₜP, ιₜQ j) := ⟨fun ⟨j, k⟩ => (tQ j).tiles k⟩
   -- cells of t at (j, k) = cells of tQ j at k
   have h_cell : ∀ j k, t.cellsAt ⟨j, k⟩ = (tQ j).cellsAt k := fun _ _ => rfl
   -- cell coverage for each sub-tiling
   have h_cov_Q : ∀ j, (⋃ k : ιₜQ j, (tQ j).cellsAt k) = (tP.tiles j).cells psP := fun j => by
-    have := (hvQ j).covers; simp only [SetTileSet.coveredCells] at this; exact this
+    have := (hvQ j).covers; simp only [TileSet_set.coveredCells] at this; exact this
   have h_cov_P : (⋃ j : ιₜP, (tP.tiles j).cells psP) = R := by
-    have := hvP.covers; simp only [SetTileSet.coveredCells, SetTileSet.cellsAt] at this; exact this
+    have := hvP.covers
+    simp only [TileSet_set.coveredCells, TileSet_set.cellsAt] at this; exact this
   refine ⟨_, inferInstance, t, ⟨?_, ?_⟩⟩
   · intro ⟨j₁, k₁⟩ ⟨j₂, k₂⟩ hne
     simp only [h_cell]
@@ -321,7 +324,7 @@ theorem SetTileable.refine {R : Set Cell} {ιP ιQ : Type*} {psP : SetProtoset �
         (fun p hp => h_cov_Q j₁ ▸ Set.mem_iUnion.mpr ⟨k₁, hp⟩)
         (fun p hp => h_cov_Q j₂ ▸ Set.mem_iUnion.mpr ⟨k₂, hp⟩)
       exact hvP.disjoint j₁ j₂ hj
-  · simp only [SetTileSet.coveredCells]
+  · simp only [TileSet_set.coveredCells]
     ext p
     simp only [h_cell, Set.mem_iUnion, Sigma.exists]
     constructor
@@ -340,20 +343,20 @@ theorem SetTileable.refine {R : Set Cell} {ιP ιQ : Type*} {psP : SetProtoset �
 -- ============================================================
 
 /-- Partition-based refinement (Fintype index) -/
-theorem SetTileable.refine_partition {ι : Type} [Finite ι] {ιQ : Type*} {R : Set Cell}
-    {psQ : SetProtoset ιQ}
+theorem Tileable_set.refine_partition {ι : Type} [Finite ι] {ιQ : Type*} {R : Set Cell}
+    {psQ : Protoset_set ιQ}
     (pieces : ι → Set Cell)
     (hcover : ⋃ i, pieces i = R)
     (hdisj : Pairwise (Disjoint on pieces))
-    (htile : ∀ i, SetTileable (pieces i) psQ) :
-    SetTileable R psQ := by
+    (htile : ∀ i, Tileable_set (pieces i) psQ) :
+    Tileable_set R psQ := by
   choose ιₜ hft t hv using htile
   haveI : Fintype ι := Fintype.ofFinite ι
   haveI := fun i => hft i
-  let t' : SetTileSet psQ (Σ i : ι, ιₜ i) := ⟨fun ⟨i, j⟩ => (t i).tiles j⟩
+  let t' : TileSet_set psQ (Σ i : ι, ιₜ i) := ⟨fun ⟨i, j⟩ => (t i).tiles j⟩
   have h_cell : ∀ i j, t'.cellsAt ⟨i, j⟩ = (t i).cellsAt j := fun _ _ => rfl
   have h_cov : ∀ i, (⋃ j : ιₜ i, (t i).cellsAt j) = pieces i := fun i => by
-    have := (hv i).covers; simp only [SetTileSet.coveredCells] at this; exact this
+    have := (hv i).covers; simp only [TileSet_set.coveredCells] at this; exact this
   refine ⟨_, inferInstance, t', ⟨?_, ?_⟩⟩
   · intro ⟨i₁, j₁⟩ ⟨i₂, j₂⟩ hne
     simp only [h_cell]
@@ -364,7 +367,7 @@ theorem SetTileable.refine_partition {ι : Type} [Finite ι] {ιQ : Type*} {R : 
         (fun p hp => h_cov i₁ ▸ Set.mem_iUnion.mpr ⟨j₁, hp⟩)
         (fun p hp => h_cov i₂ ▸ Set.mem_iUnion.mpr ⟨j₂, hp⟩)
       exact hdisj hi
-  · simp only [SetTileSet.coveredCells]
+  · simp only [TileSet_set.coveredCells]
     ext p
     simp only [h_cell, Set.mem_iUnion, Sigma.exists]
     constructor
@@ -390,91 +393,91 @@ protected def Set.swapRegion (R : Set Cell) : Set Cell := {p | (p.2, p.1) ∈ R}
 -- Horizontal and vertical union
 -- ============================================================
 
-theorem SetTileable.horizontal_union {ι : Type*} {ps : SetProtoset ι} {a b m : ℤ}
+theorem Tileable_set.horizontal_union {ι : Type*} {ps : Protoset_set ι} {a b m : ℤ}
     (ha_pos : 0 ≤ a) (hb_pos : 0 ≤ b)
-    (ha : SetTileable (rect 0 0 a m) ps)
-    (hb : SetTileable (rect a 0 (a + b) m) ps) :
-    SetTileable (rect 0 0 (a + b) m) ps := by
+    (ha : Tileable_set (rect 0 0 a m) ps)
+    (hb : Tileable_set (rect a 0 (a + b) m) ps) :
+    Tileable_set (rect 0 0 (a + b) m) ps := by
   have h_eq : rect 0 0 (a + b) m = rect 0 0 a m ∪ rect a 0 (a + b) m := by
     ext p; simp only [mem_rect, Set.mem_union]; omega
   have h_disj : Disjoint (rect 0 0 a m) (rect a 0 (a + b) m) := by
     rw [Set.disjoint_left]; intro p h1 h2
     simp only [mem_rect] at h1 h2; omega
-  rw [h_eq]; exact SetTileable.union ha hb h_disj
+  rw [h_eq]; exact Tileable_set.union ha hb h_disj
 
-theorem SetTileable.vertical_union {ι : Type*} {ps : SetProtoset ι} {n a b : ℤ}
+theorem Tileable_set.vertical_union {ι : Type*} {ps : Protoset_set ι} {n a b : ℤ}
     (ha_pos : 0 ≤ a) (hb_pos : 0 ≤ b)
-    (ha : SetTileable (rect 0 0 n a) ps)
-    (hb : SetTileable (rect 0 a n (a + b)) ps) :
-    SetTileable (rect 0 0 n (a + b)) ps := by
+    (ha : Tileable_set (rect 0 0 n a) ps)
+    (hb : Tileable_set (rect 0 a n (a + b)) ps) :
+    Tileable_set (rect 0 0 n (a + b)) ps := by
   have h_eq : rect 0 0 n (a + b) = rect 0 0 n a ∪ rect 0 a n (a + b) := by
     ext p; simp only [mem_rect, Set.mem_union]; omega
   have h_disj : Disjoint (rect 0 0 n a) (rect 0 a n (a + b)) := by
     rw [Set.disjoint_left]; intro p h1 h2
     simp only [mem_rect] at h1 h2; omega
-  rw [h_eq]; exact SetTileable.union ha hb h_disj
+  rw [h_eq]; exact Tileable_set.union ha hb h_disj
 
 -- ============================================================
 -- Scale rect: tiling a×b implies tiling (n·a)×(m·b)
 -- ============================================================
 
 /-- If ps tiles an a×b rectangle (a > 0), it tiles an (n·a)×b rectangle (n ≥ 1). -/
-theorem SetTileable.scale_rect_horiz {ι : Type*} {ps : SetProtoset ι} {a b : ℤ}
-    (h : SetTileable (rect 0 0 a b) ps) (ha : 0 < a)
+theorem Tileable_set.scale_rect_horiz {ι : Type*} {ps : Protoset_set ι} {a b : ℤ}
+    (h : Tileable_set (rect 0 0 a b) ps) (ha : 0 < a)
     (n : ℕ) (hn : 1 ≤ n) :
-    SetTileable (rect 0 0 ((n : ℤ) * a) b) ps := by
+    Tileable_set (rect 0 0 ((n : ℤ) * a) b) ps := by
   obtain ⟨k, rfl⟩ := Nat.exists_eq_succ_of_ne_zero (by omega : n ≠ 0)
   clear hn
   induction k with
   | zero => norm_num; exact h
   | succ k ih =>
-    have h_left : SetTileable (rect 0 0 ((↑(k + 1) : ℤ) * a) b) ps := ih
-    have h_right : SetTileable (rect ((↑(k + 1) : ℤ) * a) 0 ((↑(k + 1) : ℤ) * a + a) b) ps := by
+    have h_left : Tileable_set (rect 0 0 ((↑(k + 1) : ℤ) * a) b) ps := ih
+    have h_right : Tileable_set (rect ((↑(k + 1) : ℤ) * a) 0 ((↑(k + 1) : ℤ) * a + a) b) ps := by
       have translate_eq : rect ((↑(k + 1) : ℤ) * a) 0 ((↑(k + 1) : ℤ) * a + a) b =
                          _root_.translate ((↑(k + 1) : ℤ) * a) 0 (rect 0 0 a b) := by
         ext ⟨x, y⟩; simp only [mem_rect, mem_translate]; constructor
         · intro ⟨h1, h2, h3, h4⟩; exact ⟨by omega, by omega, by omega, by omega⟩
         · intro ⟨h1, h2, h3, h4⟩; exact ⟨by omega, by omega, by omega, by omega⟩
       rw [translate_eq]
-      exact setTileable_translate h _ _
+      exact tileable_translate_set h _ _
     have ha_nonneg : 0 ≤ (↑(k + 1) : ℤ) * a := mul_nonneg (Nat.cast_nonneg _) (le_of_lt ha)
     have ha_pos : 0 ≤ a := le_of_lt ha
     have succ_eq : (↑(k + 1).succ : ℤ) * a = (↑(k + 1) : ℤ) * a + a := by
       simp only [Nat.cast_succ]; ring
     rw [succ_eq]
-    exact SetTileable.horizontal_union ha_nonneg ha_pos h_left h_right
+    exact Tileable_set.horizontal_union ha_nonneg ha_pos h_left h_right
 
 /-- If ps tiles an a×b rectangle (b > 0), it tiles a c×(m·b) rectangle (m ≥ 1). -/
-theorem SetTileable.scale_rect_vert {ι : Type*} {ps : SetProtoset ι} {c b : ℤ}
-    (h : SetTileable (rect 0 0 c b) ps) (hb : 0 < b) (_hc : 0 ≤ c)
+theorem Tileable_set.scale_rect_vert {ι : Type*} {ps : Protoset_set ι} {c b : ℤ}
+    (h : Tileable_set (rect 0 0 c b) ps) (hb : 0 < b) (_hc : 0 ≤ c)
     (m : ℕ) (hm : 1 ≤ m) :
-    SetTileable (rect 0 0 c ((m : ℤ) * b)) ps := by
+    Tileable_set (rect 0 0 c ((m : ℤ) * b)) ps := by
   obtain ⟨k, rfl⟩ := Nat.exists_eq_succ_of_ne_zero (by omega : m ≠ 0)
   clear hm
   induction k with
   | zero => norm_num; exact h
   | succ k ih =>
-    have h_left : SetTileable (rect 0 0 c ((↑(k + 1) : ℤ) * b)) ps := ih
-    have h_right : SetTileable (rect 0 ((↑(k + 1) : ℤ) * b) c ((↑(k + 1) : ℤ) * b + b)) ps := by
+    have h_left : Tileable_set (rect 0 0 c ((↑(k + 1) : ℤ) * b)) ps := ih
+    have h_right : Tileable_set (rect 0 ((↑(k + 1) : ℤ) * b) c ((↑(k + 1) : ℤ) * b + b)) ps := by
       have translate_eq : rect 0 ((↑(k + 1) : ℤ) * b) c ((↑(k + 1) : ℤ) * b + b) =
                          _root_.translate 0 ((↑(k + 1) : ℤ) * b) (rect 0 0 c b) := by
         ext ⟨x, y⟩; simp only [mem_rect, mem_translate]; constructor
         · intro ⟨h1, h2, h3, h4⟩; exact ⟨by omega, by omega, by omega, by omega⟩
         · intro ⟨h1, h2, h3, h4⟩; exact ⟨by omega, by omega, by omega, by omega⟩
       rw [translate_eq]
-      exact setTileable_translate h _ _
+      exact tileable_translate_set h _ _
     have hb_nonneg : 0 ≤ (↑(k + 1) : ℤ) * b := mul_nonneg (Nat.cast_nonneg _) (le_of_lt hb)
     have hb_pos : 0 ≤ b := le_of_lt hb
     have succ_eq : (↑(k + 1).succ : ℤ) * b = (↑(k + 1) : ℤ) * b + b := by
       simp only [Nat.cast_succ]; ring
     rw [succ_eq]
-    exact SetTileable.vertical_union hb_nonneg hb_pos h_left h_right
+    exact Tileable_set.vertical_union hb_nonneg hb_pos h_left h_right
 
 /-- If ps tiles an a×b rectangle (a,b > 0), it tiles any (n·a)×(m·b) rectangle (n,m ≥ 1). -/
-theorem SetTileable.scale_rect {ι : Type*} {ps : SetProtoset ι} {a b : ℤ}
-    (h : SetTileable (rect 0 0 a b) ps) (ha : 0 < a) (hb : 0 < b)
+theorem Tileable_set.scale_rect {ι : Type*} {ps : Protoset_set ι} {a b : ℤ}
+    (h : Tileable_set (rect 0 0 a b) ps) (ha : 0 < a) (hb : 0 < b)
     (n m : ℕ) (_hn : 1 ≤ n) (_hm : 1 ≤ m) :
-    SetTileable (rect 0 0 ((n : ℤ) * a) ((m : ℤ) * b)) ps :=
+    Tileable_set (rect 0 0 ((n : ℤ) * a) ((m : ℤ) * b)) ps :=
   (h.scale_rect_horiz ha n _hn).scale_rect_vert hb
     (mul_nonneg (Nat.cast_nonneg _) (le_of_lt ha)) m _hm
 
@@ -504,22 +507,22 @@ theorem rotateCell_inverseRot_cancel' (c : Cell) (r : Fin 4) :
   ext <;> simp [rotateCell_1, rotateCell_2, rotateCell_3]
 
 -- ============================================================
--- SetPrototile extensionality
+-- Prototile_set extensionality
 -- ============================================================
 
-/-- Two `SetPrototile` values are equal iff their `cells` fields are equal.
+/-- Two `Prototile_set` values are equal iff their `cells` fields are equal.
     (The `finite` and `nonempty` fields are propositions, hence proof-irrelevant.) -/
 @[ext]
-theorem SetPrototile.ext {a b : SetPrototile} (h : a.cells = b.cells) : a = b := by
+theorem Prototile_set.ext {a b : Prototile_set} (h : a.cells = b.cells) : a = b := by
   obtain ⟨c₁, _, _⟩ := a; obtain ⟨c₂, _, _⟩ := b; simp only at h; subst h; rfl
 
 -- ============================================================
 -- Generic Finset ↔ Set bridge
 -- ============================================================
 
-/-- A `SetProtoset sps` is *compatible* with a `Protoset ps` if their cell sets agree:
+/-- A `Protoset_set sps` is *compatible* with a `Protoset ps` if their cell sets agree:
     for all `i`, `(sps i).cells = ↑(ps i : Finset Cell)`. -/
-def ProtosetCompatible {ι : Type*} (ps : Protoset ι) (sps : SetProtoset ι) : Prop :=
+def ProtosetCompatible {ι : Type*} (ps : Protoset ι) (sps : Protoset_set ι) : Prop :=
   ∀ i : ι, (sps i).cells = ↑(ps i : Finset Cell)
 
 /-- `rotateProto p r` coerced to `Set Cell` equals `rotate r ↑p`. -/
@@ -548,24 +551,24 @@ private lemma coe_image_translateCell_eq (S : Finset Cell) (t : Cell) :
     exact ⟨(cx - t.1, cy - t.2), h, by ext <;> simp⟩
 
 /-- **Key lemma**: cells of a Finset-based `PlacedTile`, coerced to `Set Cell`, equal the cells
-    of the corresponding `SetPlacedTile` under any compatible `SetProtoset`. -/
-lemma placedTile_cells_compat {ι : Type*} (ps : Protoset ι) (sps : SetProtoset ι)
+    of the corresponding `PlacedTile_set` under any compatible `Protoset_set`. -/
+lemma placedTile_cells_compat {ι : Type*} (ps : Protoset ι) (sps : Protoset_set ι)
     (hc : ProtosetCompatible ps sps) (pt : PlacedTile ι) :
     ↑(pt.cells ps : Finset Cell) =
-    SetPlacedTile.cells sps ⟨pt.index, pt.translation, pt.rotation⟩ := by
-  simp only [PlacedTile.cells, SetPlacedTile.cells]
+    PlacedTile_set.cells sps ⟨pt.index, pt.translation, pt.rotation⟩ := by
+  simp only [PlacedTile.cells, PlacedTile_set.cells]
   rw [coe_image_translateCell_eq, coe_rotateProto_eq, hc]
 
-/-- **Generic bridge theorem**: `Tileable ps R` (Finset) ↔ `SetTileable ↑R sps` (Set)
+/-- **Generic bridge theorem**: `Tileable ps R` (Finset) ↔ `Tileable_set ↑R sps` (Set)
     for any compatible pair of protosets. -/
-theorem Tileable_iff_set {ι : Type*} (ps : Protoset ι) (sps : SetProtoset ι)
+theorem Tileable_iff_set {ι : Type*} (ps : Protoset ι) (sps : Protoset_set ι)
     (hc : ProtosetCompatible ps sps) (R : Finset Cell) :
-    Tileable ps R ↔ SetTileable (↑R : Set Cell) sps := by
+    Tileable ps R ↔ Tileable_set (↑R : Set Cell) sps := by
   constructor
   · -- Forward: Finset tiling → Set tiling
     -- hFin, hDec become local typeclass instances from the intro pattern
     intro ⟨ιₜ, hFin, hDec, t, hValid⟩
-    let t' : SetTileSet sps ιₜ :=
+    let t' : TileSet_set sps ιₜ :=
       ⟨fun i => ⟨(t.tiles i).index, (t.tiles i).translation, (t.tiles i).rotation⟩⟩
     -- t' is a let-binding, so t' can be used to unfold via simp
     have h_cells : ∀ i : ιₜ, t'.cellsAt i = ↑(t.cellsAt i : Finset Cell) := fun i =>
@@ -575,7 +578,7 @@ theorem Tileable_iff_set {ι : Type*} (ps : Protoset ι) (sps : SetProtoset ι)
       rw [h_cells i, h_cells j]
       exact Finset.disjoint_coe.mpr (hValid.disjoint i j hij)
     · -- Show ⋃ i, t'.cellsAt i = ↑R
-      simp only [SetTileSet.coveredCells]
+      simp only [TileSet_set.coveredCells]
       have h_eq : (⋃ i : ιₜ, t'.cellsAt i) = ↑(t.coveredCells) := by
         ext p
         simp only [Set.mem_iUnion, h_cells, Finset.mem_coe,
@@ -599,7 +602,7 @@ theorem Tileable_iff_set {ι : Type*} (ps : Protoset ι) (sps : SetProtoset ι)
       exact Finset.disjoint_coe.mp hdisj
     · -- Prove t.coveredCells = R
       have hcov := hValid.covers
-      simp only [SetTileSet.coveredCells] at hcov
+      simp only [TileSet_set.coveredCells] at hcov
       -- hcov : ⋃ i, t'.cellsAt i = ↑R
       apply Finset.ext; intro p
       simp only [TileSet.coveredCells, Finset.mem_biUnion, Finset.mem_univ, true_and]
@@ -620,27 +623,27 @@ theorem Tileable_iff_set {ι : Type*} (ps : Protoset ι) (sps : SetProtoset ι)
         exact ⟨i, Finset.mem_coe.mp hi⟩
 
 -- ============================================================
--- Canonical Protoset → SetProtoset conversion
+-- Canonical Protoset → Protoset_set conversion
 -- ============================================================
 
-/-- Convert a Finset-based `Prototile` to a `SetPrototile`.
+/-- Convert a Finset-based `Prototile` to a `Prototile_set`.
     Requires the underlying Finset to be nonempty. -/
-def toSetPrototile (p : Prototile) (h : (p : Finset Cell).Nonempty) : SetPrototile where
+def toPrototile_set (p : Prototile) (h : (p : Finset Cell).Nonempty) : Prototile_set where
   cells    := ↑(p : Finset Cell)
   finite   := Finset.finite_toSet _
   nonempty := Finset.coe_nonempty.mpr h
 
-/-- Convert a `Protoset ι` to a `SetProtoset ι` via `toSetPrototile`.
+/-- Convert a `Protoset ι` to a `Protoset_set ι` via `toPrototile_set`.
     Requires every prototile in the protoset to be nonempty. -/
-def toSetProtoset {ι : Type*} (ps : Protoset ι)
-    (h : ∀ i, (ps i : Finset Cell).Nonempty) : SetProtoset ι :=
-  fun i => toSetPrototile (ps i) (h i)
+def toProtoset_set {ι : Type*} (ps : Protoset ι)
+    (h : ∀ i, (ps i : Finset Cell).Nonempty) : Protoset_set ι :=
+  fun i => toPrototile_set (ps i) (h i)
 
-/-- `toSetProtoset ps h` is automatically compatible with `ps`:
-    `(toSetProtoset ps h i).cells = ↑(ps i)` holds by `rfl`. -/
-theorem toSetProtoset_compat {ι : Type*} (ps : Protoset ι)
+/-- `toProtoset_set ps h` is automatically compatible with `ps`:
+    `(toProtoset_set ps h i).cells = ↑(ps i)` holds by `rfl`. -/
+theorem toProtoset_compat_set {ι : Type*} (ps : Protoset ι)
     (h : ∀ i, (ps i : Finset Cell).Nonempty) :
-    ProtosetCompatible ps (toSetProtoset ps h) :=
+    ProtosetCompatible ps (toProtoset_set ps h) :=
   fun _ => rfl
 
 /-- Coercion of `rectangle` (Finset framework) to `rect` (Set framework). -/
@@ -649,10 +652,10 @@ lemma coe_rectangle_eq_rect (n m : ℕ) :
   ext ⟨x, y⟩
   simp [mem_rectangle, mem_rect]
 
-/-- **Generic bridge (canonical form)**: `Tileable ps R ↔ SetTileable ↑R (toSetProtoset ps h)`.
+/-- **Generic bridge (canonical form)**: `Tileable ps R ↔ Tileable_set ↑R (toProtoset_set ps h)`.
     No manual compatibility proof required — use this when you have a `Protoset` and want
-    the canonical `SetProtoset`. -/
-theorem Tileable_iff_toSet {ι : Type*} (ps : Protoset ι) (R : Finset Cell)
+    the canonical `Protoset_set`. -/
+theorem Tileable_iff_to_set {ι : Type*} (ps : Protoset ι) (R : Finset Cell)
     (h : ∀ i, (ps i : Finset Cell).Nonempty) :
-    Tileable ps R ↔ SetTileable (↑R : Set Cell) (toSetProtoset ps h) :=
-  Tileable_iff_set ps (toSetProtoset ps h) (toSetProtoset_compat ps h) R
+    Tileable ps R ↔ Tileable_set (↑R : Set Cell) (toProtoset_set ps h) :=
+  Tileable_iff_set ps (toProtoset_set ps h) (toProtoset_compat_set ps h) R

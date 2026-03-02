@@ -3,9 +3,13 @@
 ## Tiling Framework
 
 ### Generic (TilingSet.lean)
-Structures and predicates with no specific tile shape use plain names:
-- `SetPrototile`, `SetProtoset`, `SetPlacedTile`, `SetTileSet`, `SetTileable`
-- Lemmas: `SetTileable.refine`, `SetTileable.scale_rect`, `SetTileable.translate`, etc.
+All generic Set-framework names follow this scheme:
+
+**Rule 1**: `_set` is always a **suffix**, always **lowercase**.
+  Correct: `Prototile_set`, `Protoset_set`, `PlacedTile_set`, `TileSet_set`, `Tileable_set`
+  Wrong: `SetPrototile`, `setTileable`, `SetTileSet`
+
+- Lemmas: `Tileable_set.refine`, `Tileable_set.scale_rect`, `Tileable_set.translate`, etc.
 
 ### L-Tromino Specific (LTrominoSet.lean, LTrominoSetBridge.lean)
 All L-tromino-specific names follow this scheme:
@@ -65,6 +69,6 @@ The Set framework mirrors this with `_set` suffix:
 | General: odd×6 | `LTileable_odd_x_6_set` |
 | General: 6×odd | `LTileable_6x_odd_set` |
 | General: odd×(6k) | `LTileable_odd_x_mult6_set` |
-| Bridge: LTileable ↔ SetTileable | `LTileable_iff_set` |
+| Bridge: LTileable ↔ Tileable_set | `LTileable_iff_set` |
 | Bridge: rect iff | `LTileable_rect_iff_set` |
 | lTromino coercion to LShape_cells | `lTromino_coe_eq_LShape_set` |
