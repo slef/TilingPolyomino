@@ -257,7 +257,8 @@ def tiling_piece2_base_finset : TileSet_finset LTrominoSet_finset (Fin 5) := ⟨
   ⟨(), (3, 3), 2⟩
 ]⟩
 
-theorem tiling_piece2_base_valid_finset : tiling_piece2_base_finset.Valid_finset (rectangle 4 4 \ {(0, 3)}) := by decide
+theorem tiling_piece2_base_valid_finset :
+    tiling_piece2_base_finset.Valid_finset (rectangle 4 4 \ {(0, 3)}) := by decide
 
 theorem tileable_piece2_base_finset : LTileable_finset (rectangle 4 4 \ {(0, 3)}) :=
   ⟨Fin 5, inferInstance, inferInstance, tiling_piece2_base_finset, tiling_piece2_base_valid_finset⟩

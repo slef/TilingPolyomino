@@ -347,7 +347,8 @@ theorem not_LTileable_3x_odd (k : ℕ) : ¬ Tileable (rect 0 0 3 (2*k+1)) LProto
       exact Set.eq_of_subset_of_ncard_le (Set.union_subset hi_sub_3x2 hj_sub_3x2)
         (by simp [rect_ncard] at hcard ⊢; omega) (rect_finite _ _ _ _)
     -- Remove the two bottom tiles; the remainder is the translated smaller rect
-    have hS : t.cellsAt_finset i ∪ t.cellsAt_finset j = rect 0 0 3 2 := by rw [hi_eq, hj_eq]; exact hunion_eq
+    have hS : t.cellsAt_finset i ∪ t.cellsAt_finset j = rect 0 0 3 2 := by
+      rw [hi_eq, hj_eq]; exact hunion_eq
     have h_remain := Tileable.remove_two t hv i j hij hS
     have h_diff_eq : rect 0 0 3 (2 * (k' : ℤ) + 3) \ rect 0 0 3 2 =
         translate 0 2 (rect 0 0 3 (2 * (k' : ℤ) + 1)) := by

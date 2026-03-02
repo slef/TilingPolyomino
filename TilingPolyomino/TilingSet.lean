@@ -170,7 +170,8 @@ theorem Tileable.translate {ι : Type*} {ps : Protoset ι} {R : Set Cell}
     index := (t.tiles i).index
     translation := (dx + (t.tiles i).translation.1, dy + (t.tiles i).translation.2)
     rotation := (t.tiles i).rotation }⟩
-  have h_eq : ∀ j : ιₜ, t'.cellsAt_finset j = _root_.translate dx dy (t.cellsAt_finset j) := fun j => by
+  have h_eq : ∀ j : ιₜ, t'.cellsAt_finset j = _root_.translate dx dy (t.cellsAt_finset j) :=
+    fun j => by
     simp only [TileSet.cellsAt_finset, PlacedTile.cells, t']
     rw [← translate_compose]
   have h_cov : ∀ j, t.cellsAt_finset j ⊆ R := fun j p hp => by
@@ -262,7 +263,8 @@ theorem Tileable.remove_two {ι : Type*} {ps : Protoset ι} {R S : Set Cell} {ι
   haveI : Fintype ιₜ' := inferInstance
   let t' : TileSet ps ιₜ' := ⟨fun ⟨j, _⟩ => t.tiles j⟩
   -- t'.cellsAt_finset ⟨j, _⟩ = t.cellsAt_finset j
-  have h_cell : ∀ j (hj : j ≠ i₀ ∧ j ≠ i₁), t'.cellsAt_finset ⟨j, hj⟩ = t.cellsAt_finset j := fun _ _ => rfl
+  have h_cell : ∀ j (hj : j ≠ i₀ ∧ j ≠ i₁), t'.cellsAt_finset ⟨j, hj⟩ = t.cellsAt_finset j :=
+    fun _ _ => rfl
   have h_cov : (⋃ j : ιₜ, t.cellsAt_finset j) = R := by
     have := hv.covers; simp only [TileSet.coveredCells_finset] at this; exact this
   exact ⟨ιₜ', inferInstance, t', ⟨
@@ -550,8 +552,8 @@ private lemma coe_image_translateCell_eq (S : Finset Cell) (t : Cell) :
   · intro h
     exact ⟨(cx - t.1, cy - t.2), h, by ext <;> simp⟩
 
-/-- **Key lemma**: cells of a Finset-based `PlacedTile_finset`, coerced to `Set Cell`, equal the cells
-    of the corresponding `PlacedTile` under any compatible `Protoset`. -/
+/-- **Key lemma**: cells of a Finset-based `PlacedTile_finset`, coerced to `Set Cell`,
+    equal the cells of the corresponding `PlacedTile` under any compatible `Protoset`. -/
 lemma placedTile_cells_compat {ι : Type*} (ps : Protoset_finset ι) (sps : Protoset ι)
     (hc : ProtosetCompatible ps sps) (pt : PlacedTile_finset ι) :
     ↑(pt.cells ps : Finset Cell) =
@@ -582,7 +584,8 @@ theorem Tileable_iff {ι : Type*} (ps : Protoset_finset ι) (sps : Protoset ι)
       have h_eq : (⋃ i : ιₜ, t'.cellsAt_finset i) = ↑(t.coveredCells_finset) := by
         ext p
         simp only [Set.mem_iUnion, h_cells, Finset.mem_coe,
-                   TileSet_finset.coveredCells_finset, Finset.mem_biUnion, Finset.mem_univ, true_and]
+                   TileSet_finset.coveredCells_finset, Finset.mem_biUnion, Finset.mem_univ,
+                   true_and]
       rw [h_eq, hValid.covers]
   · -- Backward: Set tiling → Finset tiling
     -- hFin becomes a local typeclass instance from the intro pattern
@@ -609,13 +612,15 @@ theorem Tileable_iff {ι : Type*} (ps : Protoset_finset ι) (sps : Protoset ι)
       -- Goal: (∃ i, p ∈ t.cellsAt_finset i) ↔ p ∈ R
       constructor
       · rintro ⟨i, hi⟩
-        -- p ∈ t.cellsAt_finset i → p ∈ ↑(t.cellsAt_finset i) → p ∈ t'.cellsAt_finset i → p ∈ ↑R → p ∈ R
+        -- p ∈ t.cellsAt_finset i → p ∈ ↑(t.cellsAt_finset i) → p ∈ t'.cellsAt_finset i
+        -- → p ∈ ↑R → p ∈ R
         have h1 : p ∈ (↑(t.cellsAt_finset i) : Set Cell) := Finset.mem_coe.mpr hi
         rw [← h_cells i] at h1
         have h2 : p ∈ (↑R : Set Cell) := hcov ▸ Set.mem_iUnion.mpr ⟨i, h1⟩
         exact Finset.mem_coe.mp h2
       · intro hp
-        -- p ∈ R → p ∈ ↑R = ⋃ i, t'.cellsAt_finset i → p ∈ t'.cellsAt_finset i → p ∈ t.cellsAt_finset i
+        -- p ∈ R → p ∈ ↑R = ⋃ i, t'.cellsAt_finset i → p ∈ t'.cellsAt_finset i
+        -- → p ∈ t.cellsAt_finset i
         have h1 : p ∈ (↑R : Set Cell) := Finset.mem_coe.mpr hp
         rw [← hcov] at h1
         obtain ⟨i, hi⟩ := Set.mem_iUnion.mp h1
