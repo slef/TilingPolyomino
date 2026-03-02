@@ -251,11 +251,12 @@ theorem SetTileable.union {ι : Type*} {ps : SetProtoset ι} {R S : Set Cell}
 -- ============================================================
 
 theorem SetTileable.remove_two {ι : Type*} {ps : SetProtoset ι} {R S : Set Cell} {ιₜ : Type}
-    [Fintype ιₜ] (t : SetTileSet ps ιₜ) (hv : t.Valid R)
+    [Finite ιₜ] (t : SetTileSet ps ιₜ) (hv : t.Valid R)
     (i₀ i₁ : ιₜ) (_hi : i₀ ≠ i₁) (hS : t.cellsAt i₀ ∪ t.cellsAt i₁ = S) :
     SetTileable (R \ S) ps := by
   let ιₜ' : Type := {j : ιₜ // j ≠ i₀ ∧ j ≠ i₁}
   haveI : DecidableEq ιₜ := Classical.decEq _
+  haveI : Fintype ιₜ := Fintype.ofFinite ιₜ
   haveI : Fintype ιₜ' := inferInstance
   let t' : SetTileSet ps ιₜ' := ⟨fun ⟨j, _⟩ => t.tiles j⟩
   -- t'.cellsAt ⟨j, _⟩ = t.cellsAt j
@@ -339,7 +340,7 @@ theorem SetTileable.refine {R : Set Cell} {ιP ιQ : Type*} {psP : SetProtoset �
 -- ============================================================
 
 /-- Partition-based refinement (Fintype index) -/
-theorem SetTileable.refine_partition {ι : Type} [Fintype ι] {ιQ : Type*} {R : Set Cell}
+theorem SetTileable.refine_partition {ι : Type} [Finite ι] {ιQ : Type*} {R : Set Cell}
     {psQ : SetProtoset ιQ}
     (pieces : ι → Set Cell)
     (hcover : ⋃ i, pieces i = R)
@@ -347,6 +348,7 @@ theorem SetTileable.refine_partition {ι : Type} [Fintype ι] {ιQ : Type*} {R :
     (htile : ∀ i, SetTileable (pieces i) psQ) :
     SetTileable R psQ := by
   choose ιₜ hft t hv using htile
+  haveI : Fintype ι := Fintype.ofFinite ι
   haveI := fun i => hft i
   let t' : SetTileSet psQ (Σ i : ι, ιₜ i) := ⟨fun ⟨i, j⟩ => (t i).tiles j⟩
   have h_cell : ∀ i j, t'.cellsAt ⟨i, j⟩ = (t i).cellsAt j := fun _ _ => rfl
@@ -640,6 +642,12 @@ theorem toSetProtoset_compat {ι : Type*} (ps : Protoset ι)
     (h : ∀ i, (ps i : Finset Cell).Nonempty) :
     ProtosetCompatible ps (toSetProtoset ps h) :=
   fun _ => rfl
+
+/-- Coercion of `rectangle` (Finset framework) to `rect` (Set framework). -/
+lemma coe_rectangle_eq_rect (n m : ℕ) :
+    (↑(rectangle n m) : Set Cell) = rect 0 0 n m := by
+  ext ⟨x, y⟩
+  simp [mem_rectangle, mem_rect]
 
 /-- **Generic bridge (canonical form)**: `Tileable ps R ↔ SetTileable ↑R (toSetProtoset ps h)`.
     No manual compatibility proof required — use this when you have a `Protoset` and want

@@ -33,12 +33,6 @@ lemma lTromino_coe_eq_LShape_set : (↑(lTromino : Finset Cell) : Set Cell) = LS
     simp only [LShape_cells, Set.mem_insert_iff, Set.mem_singleton_iff] at hm
     exact hm
 
-/-- Coercion of rectangle (Finset) to rect (Set) -/
-lemma coe_rectangle_eq_rect (n m : ℕ) :
-    (↑(rectangle n m) : Set Cell) = rect 0 0 n m := by
-  ext ⟨x, y⟩
-  simp only [Finset.mem_coe, mem_rectangle, mem_rect]
-
 private lemma lTrominoSet_nonempty (i : Unit) : (lTrominoSet i : Finset Cell).Nonempty :=
   ⟨(0, 0), by simp [lTrominoSet, lTromino]⟩
 
