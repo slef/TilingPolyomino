@@ -236,8 +236,9 @@ L-tromino tileable.
         (style warning) with `revert … ; induction … using Nat.strong_induction_on;
         rename_i … ; intro …` (no line change, correct Lean 4 idiom).
       - Total: LTrominoSet.lean 482 → 475 lines (−7). 0 sorries.
-- [x] **Second simplification pass** (`feat/set-tiling`):
-      - `LTileable_2x2_minus_set`: 21 → 14 lines (−7): removed `h_sing` subproof, let `simp+Prod.mk.injEq+omega` close.
+- [x] **Inline LTileable_2x2_minus_set** (`main`):
+      - Moved inline into `LTileable_2x2_minus_corner_set`.
+      - Used `by simp` to automatically close the first disjointness goal instead of `fin_cases`.
       - `LTileable_6x_of_ge2_set`: 26 → 15 lines (−11): merged Nat→ℤ cast via `convert+push_cast+omega`; `h_stripe` compressed to 2 lines.
       - `LTileable_odd_x_6_set`: 21 → 15 lines (−6): same pattern as above.
       - `lPlaced_set_x_span`: removed dead `<;> omega` (simp now closes all branches).
@@ -261,13 +262,13 @@ L-tromino tileable.
       Added `SetPrototile.ext`, `toSetPrototile`, `toSetProtoset`, `toSetProtoset_compat`,
       and `Tileable_iff_toSet` (2-arg, no manual compat proof) to `TilingSet.lean`.
       `LTrominoSetBridge.lean` refactored: `LProtoset_set_eq_toSet` + `Tileable_iff_toSet`
-      replace `lTrominoSet_compat`; bridge proves `LProtoset_set = toSetProtoset lTrominoSet`.
+      replace `LTrominoSet_compat`; bridge proves `LProtoset_set = toSetProtoset LTrominoSet`.
       Line counts: TilingSet 633→675, Bridge 52→59. 0 sorries.
 - [x] **Generic bridge theorem** (`feat/set-tiling`):
       `ProtosetCompatible` predicate + `placedTile_cells_compat` key lemma +
       `Tileable_iff_set` in `TilingSet.lean` (generic, works for any protoset).
       `LTrominoSetBridge.lean` collapsed from 172 → 52 lines via one-liner corollary.
-      `lTrominoSet_compat` proves `LProtoset_set` compatible with `lTrominoSet`.
+      `LTrominoSet_compat` proves `LProtoset_set` compatible with `LTrominoSet`.
 - [x] All `sorry`s proved in `LTromino.lean`
 - [x] `rectMinus2Corner_tileable_of_area_mod2` complete
 - [x] Blueprint (`leanblueprint web`) with 288 declarations, dependency graph, TikZ figures

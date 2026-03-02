@@ -25,25 +25,25 @@ The L-tromino is a single prototile that looks like:
 -/
 
 /-- The L-tromino shape, anchored at origin -/
-def lTromino : Prototile := ⟨[(0, 0), (0, 1), (1, 0)], by decide⟩
+def LTromino : Prototile := ⟨[(0, 0), (0, 1), (1, 0)], by decide⟩
 
 /-- A protoset containing just the L-tromino -/
-def lTrominoSet : Protoset Unit := ⟨fun _ => lTromino⟩
+def LTrominoSet : Protoset Unit := ⟨fun _ => LTromino⟩
 
 /- ## Utility Lemmas -/
 
 /-- Each L-tromino covers exactly 3 cells -/
-theorem lTromino_covers_3 (pt : PlacedTile Unit) :
-    (pt.cells lTrominoSet).card = 3 :=
-  PlacedTile.cells_card lTrominoSet pt
+theorem LTromino_covers_3 (pt : PlacedTile Unit) :
+    (pt.cells LTrominoSet).card = 3 :=
+  PlacedTile.cells_card LTrominoSet pt
 
 /- ## Existential Tileability -/
 
 /-- A region is tileable by L-trominoes if there exists a valid tiling -/
-def LTileable (r : Region) : Prop := Tileable lTrominoSet r
+def LTileable (r : Region) : Prop := Tileable LTrominoSet r
 
 /-- 2×3 rectangle tiling -/
-def tiling_2x3 : TileSet lTrominoSet (Fin 2) := ⟨![
+def tiling_2x3 : TileSet LTrominoSet (Fin 2) := ⟨![
   ⟨(), (0, 0), 0⟩,
   ⟨(), (1, 2), 2⟩
 ]⟩
@@ -61,7 +61,7 @@ theorem LTileable.area_div_3 {r : Region} (h : LTileable r) : r.card % 3 = 0 := 
   obtain ⟨ιₜ, _, _, t, hvalid⟩ := h
   rw [← hvalid.covers]
   rw [t.card_coveredCells hvalid.disjoint]
-  have h3 : ∀ i : ιₜ, (t.cellsAt i).card = 3 := fun i => lTromino_covers_3 (t i)
+  have h3 : ∀ i : ιₜ, (t.cellsAt i).card = 3 := fun i => LTromino_covers_3 (t i)
   simp only [h3, Finset.sum_const, Finset.card_univ, smul_eq_mul]
   omega
 
@@ -72,23 +72,23 @@ example : ¬LTileable (rectangle 2 2) := by
   simp at this
 
 /-- Any rotated L-tromino has two cells with different x-coordinates -/
-theorem rotateProto_lTromino_x_span (r : Fin 4) :
-    ∃ c1 c2 : Cell, c1 ∈ rotateProto lTromino r ∧
-      c2 ∈ rotateProto lTromino r ∧ c1.1 ≠ c2.1 := by
+theorem rotateProto_LTromino_x_span (r : Fin 4) :
+    ∃ c1 c2 : Cell, c1 ∈ rotateProto LTromino r ∧
+      c2 ∈ rotateProto LTromino r ∧ c1.1 ≠ c2.1 := by
   use rotateCell (0, 1) r, rotateCell (1, 0) r
   constructor
   · simp only [rotateProto, Finset.mem_image]
-    exact ⟨(0, 1), by simp [lTromino], rfl⟩
+    exact ⟨(0, 1), by simp [LTromino], rfl⟩
   constructor
   · simp only [rotateProto, Finset.mem_image]
-    exact ⟨(1, 0), by simp [lTromino], rfl⟩
+    exact ⟨(1, 0), by simp [LTromino], rfl⟩
   · fin_cases r <;> simp [rotateCell, rotateCell90]
 
 /-- Any placed L-tromino has cells with different x-coordinates -/
-theorem lTromino_placed_x_span (pt : PlacedTile Unit) :
-    ∃ c1 c2 : Cell, c1 ∈ pt.cells lTrominoSet ∧ c2 ∈ pt.cells lTrominoSet ∧ c1.1 ≠ c2.1 := by
-  obtain ⟨c1, c2, h1, h2, hne⟩ := rotateProto_lTromino_x_span pt.rotation
-  simp only [PlacedTile.cells, lTrominoSet, Finset.mem_image, translateCell]
+theorem LTromino_placed_x_span (pt : PlacedTile Unit) :
+    ∃ c1 c2 : Cell, c1 ∈ pt.cells LTrominoSet ∧ c2 ∈ pt.cells LTrominoSet ∧ c1.1 ≠ c2.1 := by
+  obtain ⟨c1, c2, h1, h2, hne⟩ := rotateProto_LTromino_x_span pt.rotation
+  simp only [PlacedTile.cells, LTrominoSet, Finset.mem_image, translateCell]
   exact ⟨(c1.1 + pt.translation.1, c1.2 + pt.translation.2),
          (c2.1 + pt.translation.1, c2.2 + pt.translation.2),
          ⟨c1, h1, rfl⟩, ⟨c2, h2, rfl⟩, by omega⟩
@@ -123,7 +123,7 @@ theorem not_tileable_1_by_n {n : ℕ} (hn : n ≥ 1) : ¬LTileable (rectangle 1 
     rw [not_isEmpty_iff] at hempty
     obtain ⟨i⟩ := hempty
     -- That tile has two cells with different x-coordinates
-    obtain ⟨c1, c2, hc1, hc2, hne⟩ := lTromino_placed_x_span (t i)
+    obtain ⟨c1, c2, hc1, hc2, hne⟩ := LTromino_placed_x_span (t i)
     -- Both must be in the rectangle
     have hc1_rect : c1 ∈ rectangle 1 n := by
       rw [← hvalid.covers]
@@ -151,8 +151,8 @@ This lets us reduce symmetric cases (e.g., n×1 to 1×n).
 def swapRotation : Fin 4 → Fin 4 := ![0, 3, 2, 1]
 
 /-- Key lemma: swapping a rotated L-tromino gives another rotation -/
-theorem swap_rotateProto_lTromino (r : Fin 4) :
-    (rotateProto lTromino r).image swapCell = rotateProto lTromino (swapRotation r) := by
+theorem swap_rotateProto_LTromino (r : Fin 4) :
+    (rotateProto LTromino r).image swapCell = rotateProto LTromino (swapRotation r) := by
   fin_cases r <;> decide
 
 /-- Swapping cells commutes with translation (with swapped offset) -/
@@ -164,21 +164,21 @@ theorem swapCell_translateCell (c offset : Cell) :
 theorem LTileable_swap {r : Region} (h : LTileable r) : LTileable (swapRegion r) := by
   obtain ⟨ιₜ, _, _, t, hvalid⟩ := h
   -- Transform each placed tile: swap translation, adjust rotation
-  let t' : TileSet lTrominoSet ιₜ := ⟨fun i =>
+  let t' : TileSet LTrominoSet ιₜ := ⟨fun i =>
     ⟨(), swapCell (t i).translation, swapRotation (t i).rotation⟩⟩
   use ιₜ, inferInstance, inferInstance, t'
   -- Key: show that (t' i).cells = (t i).cells.image swapCell
   have cells_eq : ∀ i, t'.cellsAt i = (t.cellsAt i).image swapCell := by
     intro i
-    simp only [TileSet.cellsAt, PlacedTile.cells, lTrominoSet]
+    simp only [TileSet.cellsAt, PlacedTile.cells, LTrominoSet]
     -- t'.translation = swapCell (t.translation), so t'.translation.1 = t.translation.2
     have htrans : (t' i).translation = swapCell ((t i).translation) := rfl
     ext c
     simp only [Finset.mem_image]
     constructor
     · rintro ⟨b, hb, rfl⟩
-      -- b is in rotateProto lTromino (swapRotation (t i).rotation)
-      have hswap := swap_rotateProto_lTromino (t i).rotation
+      -- b is in rotateProto LTromino (swapRotation (t i).rotation)
+      have hswap := swap_rotateProto_LTromino (t i).rotation
       rw [← hswap] at hb
       simp only [Finset.mem_image] at hb
       obtain ⟨b', hb', rfl⟩ := hb
@@ -190,7 +190,7 @@ theorem LTileable_swap {r : Region} (h : LTileable r) : LTileable (swapRegion r)
       rfl
     · rintro ⟨c', ⟨b, hb, rfl⟩, rfl⟩
       use swapCell b
-      have hswap := swap_rotateProto_lTromino (t i).rotation
+      have hswap := swap_rotateProto_LTromino (t i).rotation
       rw [← hswap]
       refine ⟨Finset.mem_image_of_mem _ hb, ?_⟩
       simp only [translateCell, swapCell]
@@ -238,8 +238,8 @@ def rect3x2 : Region := rectangle 3 2
 /- ## Key Lemmas for the 3×odd Impossibility Proof -/
 
 /-- An L-tromino has y-span at most 1: all cells have y-coordinates within 1 of each other -/
-theorem lTromino_y_span_2 (pt : PlacedTile Unit) (c1 c2 : Cell)
-    (h1 : c1 ∈ pt.cells lTrominoSet) (h2 : c2 ∈ pt.cells lTrominoSet) :
+theorem LTromino_y_span_2 (pt : PlacedTile Unit) (c1 c2 : Cell)
+    (h1 : c1 ∈ pt.cells LTrominoSet) (h2 : c2 ∈ pt.cells LTrominoSet) :
     (c1.2 - c2.2).natAbs ≤ 1 := by
   simp only [PlacedTile.cells, Finset.mem_image] at h1 h2
   obtain ⟨r1, hr1, hc1⟩ := h1
@@ -247,8 +247,8 @@ theorem lTromino_y_span_2 (pt : PlacedTile Unit) (c1 c2 : Cell)
   simp only [rotateProto, Finset.mem_image] at hr1 hr2
   obtain ⟨o1, ho1, hro1⟩ := hr1
   obtain ⟨o2, ho2, hro2⟩ := hr2
-  -- o1, o2 ∈ lTromino.cells = [(0,0), (0,1), (1,0)]
-  simp only [lTrominoSet, lTromino] at ho1 ho2
+  -- o1, o2 ∈ LTromino.cells = [(0,0), (0,1), (1,0)]
+  simp only [LTrominoSet, LTromino] at ho1 ho2
   subst hc1 hc2 hro1 hro2
   simp only [translateCell]
   -- Now do case analysis on o1, o2, and rotation
@@ -259,23 +259,23 @@ theorem lTromino_y_span_2 (pt : PlacedTile Unit) (c1 c2 : Cell)
 
 /-- A tile covering (0,0) has all cells with y < 2 (assuming y ≥ 0) -/
 theorem tile_covering_00_y_bound (pt : PlacedTile Unit)
-    (hcover : pt.coversCell lTrominoSet (0, 0))
-    (c : Cell) (hc : c ∈ pt.cells lTrominoSet) (_hy_nonneg : c.2 ≥ 0) :
+    (hcover : pt.coversCell LTrominoSet (0, 0))
+    (c : Cell) (hc : c ∈ pt.cells LTrominoSet) (_hy_nonneg : c.2 ≥ 0) :
     c.2 < 2 := by
-  have hspan := lTromino_y_span_2 pt (0, 0) c hcover hc
+  have hspan := LTromino_y_span_2 pt (0, 0) c hcover hc
   omega
 
 /-- A tile covering (2,0) has all cells with y < 2 (assuming y ≥ 0) -/
 theorem tile_covering_20_y_bound (pt : PlacedTile Unit)
-    (hcover : pt.coversCell lTrominoSet (2, 0))
-    (c : Cell) (hc : c ∈ pt.cells lTrominoSet) (_hy_nonneg : c.2 ≥ 0) :
+    (hcover : pt.coversCell LTrominoSet (2, 0))
+    (c : Cell) (hc : c ∈ pt.cells LTrominoSet) (_hy_nonneg : c.2 ≥ 0) :
     c.2 < 2 := by
-  have hspan := lTromino_y_span_2 pt (2, 0) c hcover hc
+  have hspan := LTromino_y_span_2 pt (2, 0) c hcover hc
   omega
 
 /-- An L-tromino has x-span at most 1: all cells have x-coordinates within 1 of each other -/
-theorem lTromino_x_span_2 (pt : PlacedTile Unit) (c1 c2 : Cell)
-    (h1 : c1 ∈ pt.cells lTrominoSet) (h2 : c2 ∈ pt.cells lTrominoSet) :
+theorem LTromino_x_span_2 (pt : PlacedTile Unit) (c1 c2 : Cell)
+    (h1 : c1 ∈ pt.cells LTrominoSet) (h2 : c2 ∈ pt.cells LTrominoSet) :
     (c1.1 - c2.1).natAbs ≤ 1 := by
   simp only [PlacedTile.cells, Finset.mem_image] at h1 h2
   obtain ⟨r1, hr1, hc1⟩ := h1
@@ -283,7 +283,7 @@ theorem lTromino_x_span_2 (pt : PlacedTile Unit) (c1 c2 : Cell)
   simp only [rotateProto, Finset.mem_image] at hr1 hr2
   obtain ⟨o1, ho1, hro1⟩ := hr1
   obtain ⟨o2, ho2, hro2⟩ := hr2
-  simp only [lTrominoSet, lTromino] at ho1 ho2
+  simp only [LTrominoSet, LTromino] at ho1 ho2
   subst hc1 hc2 hro1 hro2
   simp only [translateCell]
   obtain ⟨_, _, rot⟩ := pt
@@ -295,9 +295,9 @@ theorem lTromino_x_span_2 (pt : PlacedTile Unit) (c1 c2 : Cell)
     then it's contained in rect3x2 -/
 theorem tile_covering_00_in_3x2 (n : ℕ) (_hn : n ≥ 2)
     (pt : PlacedTile Unit)
-    (hcover : pt.coversCell lTrominoSet (0, 0))
-    (hcontained : pt.containedIn lTrominoSet (rectangle 3 n)) :
-    pt.containedIn lTrominoSet rect3x2 := by
+    (hcover : pt.coversCell LTrominoSet (0, 0))
+    (hcontained : pt.containedIn LTrominoSet (rectangle 3 n)) :
+    pt.containedIn LTrominoSet rect3x2 := by
   intro c hc
   have hc_rect := hcontained hc
   rw [mem_rectangle] at hc_rect
@@ -310,9 +310,9 @@ theorem tile_covering_00_in_3x2 (n : ℕ) (_hn : n ≥ 2)
     then it's contained in rect3x2 -/
 theorem tile_covering_20_in_3x2 (n : ℕ) (_hn : n ≥ 2)
     (pt : PlacedTile Unit)
-    (hcover : pt.coversCell lTrominoSet (2, 0))
-    (hcontained : pt.containedIn lTrominoSet (rectangle 3 n)) :
-    pt.containedIn lTrominoSet rect3x2 := by
+    (hcover : pt.coversCell LTrominoSet (2, 0))
+    (hcontained : pt.containedIn LTrominoSet (rectangle 3 n)) :
+    pt.containedIn LTrominoSet rect3x2 := by
   intro c hc
   have hc_rect := hcontained hc
   rw [mem_rectangle] at hc_rect
@@ -323,47 +323,47 @@ theorem tile_covering_20_in_3x2 (n : ℕ) (_hn : n ≥ 2)
 
 /-- Tiles covering (0,0) and (2,0) in a 3×n tiling (n≥2) must be disjoint -/
 theorem tiles_00_20_disjoint {ιₜ : Type*} [Fintype ιₜ] [DecidableEq ιₜ]
-    (ts : TileSet lTrominoSet ιₜ) (n : ℕ) (_hn : n ≥ 2)
+    (ts : TileSet LTrominoSet ιₜ) (n : ℕ) (_hn : n ≥ 2)
     (hvalid : ts.Valid (rectangle 3 n))
-    (i j : ιₜ) (_hi : (ts i).coversCell lTrominoSet (0, 0))
-    (_hj : (ts j).coversCell lTrominoSet (2, 0)) (hij : i ≠ j) :
-    Disjoint ((ts i).cells lTrominoSet) ((ts j).cells lTrominoSet) :=
+    (i j : ιₜ) (_hi : (ts i).coversCell LTrominoSet (0, 0))
+    (_hj : (ts j).coversCell LTrominoSet (2, 0)) (hij : i ≠ j) :
+    Disjoint ((ts i).cells LTrominoSet) ((ts j).cells LTrominoSet) :=
   hvalid.disjoint_tiles i j hij
 
 /-- The two tiles covering (0,0) and (2,0) cover exactly rect3x2 -/
 theorem tiles_00_20_cover_3x2 {ιₜ : Type*} [Fintype ιₜ] [DecidableEq ιₜ]
-    (ts : TileSet lTrominoSet ιₜ) (n : ℕ) (hn : n ≥ 2)
+    (ts : TileSet LTrominoSet ιₜ) (n : ℕ) (hn : n ≥ 2)
     (hvalid : ts.Valid (rectangle 3 n))
-    (i j : ιₜ) (hi : (ts i).coversCell lTrominoSet (0, 0))
-    (hj : (ts j).coversCell lTrominoSet (2, 0)) (hij : i ≠ j) :
-    ((ts i).cells lTrominoSet) ∪ ((ts j).cells lTrominoSet) = rect3x2 := by
+    (i j : ιₜ) (hi : (ts i).coversCell LTrominoSet (0, 0))
+    (hj : (ts j).coversCell LTrominoSet (2, 0)) (hij : i ≠ j) :
+    ((ts i).cells LTrominoSet) ∪ ((ts j).cells LTrominoSet) = rect3x2 := by
   -- Both tiles are contained in rect3x2
-  have hci : (ts i).containedIn lTrominoSet (rectangle 3 n) := hvalid.tile_contained i
-  have hcj : (ts j).containedIn lTrominoSet (rectangle 3 n) := hvalid.tile_contained j
+  have hci : (ts i).containedIn LTrominoSet (rectangle 3 n) := hvalid.tile_contained i
+  have hcj : (ts j).containedIn LTrominoSet (rectangle 3 n) := hvalid.tile_contained j
   have hi_3x2 := tile_covering_00_in_3x2 n hn (ts i) hi hci
   have hj_3x2 := tile_covering_20_in_3x2 n hn (ts j) hj hcj
   -- They are disjoint
   have hdisj := tiles_00_20_disjoint ts n hn hvalid i j hi hj hij
   -- Each has 3 cells (L-tromino has 3 cells)
-  have hcard_i : ((ts i).cells lTrominoSet).card = 3 := lTromino_covers_3 (ts i)
-  have hcard_j : ((ts j).cells lTrominoSet).card = 3 := lTromino_covers_3 (ts j)
+  have hcard_i : ((ts i).cells LTrominoSet).card = 3 := LTromino_covers_3 (ts i)
+  have hcard_j : ((ts j).cells LTrominoSet).card = 3 := LTromino_covers_3 (ts j)
   have hcard_rect : rect3x2.card = 6 := by simp [rect3x2]
   -- Union is subset of rect3x2
-  have hunion_sub : (ts i).cells lTrominoSet ∪ (ts j).cells lTrominoSet ⊆ rect3x2 :=
+  have hunion_sub : (ts i).cells LTrominoSet ∪ (ts j).cells LTrominoSet ⊆ rect3x2 :=
     Finset.union_subset hi_3x2 hj_3x2
   -- Union has 6 cells (3 + 3 since disjoint)
-  have hcard_union : ((ts i).cells lTrominoSet ∪ (ts j).cells lTrominoSet).card = 6 := by
+  have hcard_union : ((ts i).cells LTrominoSet ∪ (ts j).cells LTrominoSet).card = 6 := by
     rw [Finset.card_union_of_disjoint hdisj, hcard_i, hcard_j]
   -- Equal by cardinality
   exact Finset.eq_of_subset_of_card_le hunion_sub (by omega)
 
 /-- The remaining tiles (excluding i and j) cover exactly rectangle 3 n minus rect3x2 -/
 theorem remaining_tiles_cover {ιₜ : Type*} [Fintype ιₜ] [DecidableEq ιₜ]
-    (ts : TileSet lTrominoSet ιₜ) (n : ℕ) (hn : n ≥ 2)
+    (ts : TileSet LTrominoSet ιₜ) (n : ℕ) (hn : n ≥ 2)
     (hvalid : ts.Valid (rectangle 3 n))
-    (i j : ιₜ) (hi : (ts i).coversCell lTrominoSet (0, 0))
-    (hj : (ts j).coversCell lTrominoSet (2, 0)) (hij : i ≠ j) :
-    (Finset.univ.filter (fun k => k ≠ i ∧ k ≠ j)).biUnion (fun k => (ts k).cells lTrominoSet) =
+    (i j : ιₜ) (hi : (ts i).coversCell LTrominoSet (0, 0))
+    (hj : (ts j).coversCell LTrominoSet (2, 0)) (hij : i ≠ j) :
+    (Finset.univ.filter (fun k => k ≠ i ∧ k ≠ j)).biUnion (fun k => (ts k).cells LTrominoSet) =
     rectangle 3 n \ rect3x2 := by
   -- The two tiles cover rect3x2
   have hcover_ij := tiles_00_20_cover_3x2 ts n hn hvalid i j hi hj hij
@@ -445,24 +445,24 @@ def RectTileableConditions (n m : ℕ) : Prop :=
 
 /-- The empty region is L-tileable -/
 theorem empty_LTileable : LTileable ∅ :=
-  empty_tileable lTrominoSet
+  empty_tileable LTrominoSet
 
 /- ## Combining Tilings -/
 
 /-- A translated L-tileable region is L-tileable -/
 theorem LTileable_translate {r : Region} (h : LTileable r) (offset : Cell) :
     LTileable (translateRegion r offset) :=
-  Tileable_translate lTrominoSet h offset
+  Tileable_translate LTrominoSet h offset
 
 /-- L-tileability is preserved by translation (both directions) -/
 theorem LTileable_translate_iff (r : Region) (offset : Cell) :
     LTileable r ↔ LTileable (translateRegion r offset) :=
-  Tileable_translate_iff lTrominoSet r offset
+  Tileable_translate_iff LTrominoSet r offset
 
 /-- If R = S.image(translate by offset) and R is L-tileable, then S is L-tileable -/
 theorem LTileable_of_translate_eq {R S : Region} (offset : Cell)
     (heq : R = translateRegion S offset) (hR : LTileable R) : LTileable S :=
-  Tileable_of_translate_eq lTrominoSet offset heq hR
+  Tileable_of_translate_eq LTrominoSet offset heq hR
 
 /- ## 3×odd Impossibility (requires translation invariance) -/
 
@@ -496,7 +496,7 @@ theorem not_tileable_3_by_odd (k : ℕ) : ¬LTileable (rectangle 3 (2 * k + 1)) 
     -- i ≠ j because tiles covering (0,0) and (2,0) are distinct (x-span is ≤ 1)
     have hij : i ≠ j := by
       intro h; subst h
-      have hspan := lTromino_x_span_2 (ts i) (0, 0) (2, 0) hi hj
+      have hspan := LTromino_x_span_2 (ts i) (0, 0) (2, 0) hi hj
       simp at hspan
     -- The remaining tiles (excluding i and j) cover rectangle 3 (2k'+3) \ rect3x2
     have hremain := remaining_tiles_cover ts (2 * k' + 3) (by omega) hvalid i j hi hj hij
@@ -507,7 +507,7 @@ theorem not_tileable_3_by_odd (k : ℕ) : ¬LTileable (rectangle 3 (2 * k + 1)) 
     -- The remaining region is L-tileable (by the remaining tiles)
     have hremain_tileable : LTileable (rectangle 3 (2 * k' + 3) \ rect3x2) := by
       let remaining := Finset.univ.filter (fun k => k ≠ i ∧ k ≠ j)
-      let ts_remain : TileSet lTrominoSet remaining := ⟨fun ⟨k, _⟩ => ts k⟩
+      let ts_remain : TileSet LTrominoSet remaining := ⟨fun ⟨k, _⟩ => ts k⟩
       refine ⟨remaining, inferInstance, inferInstance, ts_remain, ?_⟩
       constructor
       · -- Pairwise disjoint
@@ -564,13 +564,13 @@ theorem LTileable_swap_rectangle (n m : ℕ) :
 theorem LTileable_horizontal_union (a b m : ℕ)
     (h1 : LTileable (rectangle a m)) (h2 : LTileable (rectangle b m)) :
     LTileable (rectangle (a + b) m) :=
-  Tileable_horizontal_union lTrominoSet a b m h1 h2
+  Tileable_horizontal_union LTrominoSet a b m h1 h2
 
 /-- If we can tile two vertically adjacent rectangles, we can tile their union -/
 theorem LTileable_vertical_union (n a b : ℕ)
     (h1 : LTileable (rectangle n a)) (h2 : LTileable (rectangle n b)) :
     LTileable (rectangle n (a + b)) :=
-  Tileable_vertical_union lTrominoSet n a b h1 h2
+  Tileable_vertical_union LTrominoSet n a b h1 h2
 
 /- ## Base Case Tilings -/
 
@@ -612,7 +612,7 @@ theorem tileable_2x9 : LTileable (rectangle 2 9) := by
 This is a special base case that needs an irregular tiling.
 The key insight is that 5×9 cannot be decomposed into rectangular pieces
 that are all individually L-tileable. We need tiles that cross boundaries. -/
-def tiling_5x9 : TileSet lTrominoSet (Fin 15) := ⟨![
+def tiling_5x9 : TileSet LTrominoSet (Fin 15) := ⟨![
   ⟨(), (1, 0), 1⟩,   -- Tile 0: covers (0,0), (1,0), (1,1)
   ⟨(), (0, 2), 3⟩,   -- Tile 1: covers (0,1), (0,2), (1,2)
   ⟨(), (0, 4), 3⟩,   -- Tile 2: covers (0,3), (0,4), (1,4)
@@ -1332,8 +1332,8 @@ theorem rectMinusCorner_tileable_area_div_3 {n m : ℕ}
   simpa [rectangleMinusCorner_card hn hm] using hcard
 
 /-- A tiling of the 2×2 rectangle with its top-right corner removed. -/
-def tiling_2x2_minus : TileSet lTrominoSet Unit :=
-  mkTileSet lTrominoSet Unit (fun _ => mkPlacedTile () 0 0 0)
+def tiling_2x2_minus : TileSet LTrominoSet Unit :=
+  mkTileSet LTrominoSet Unit (fun _ => mkPlacedTile () 0 0 0)
 
 theorem tiling_2x2_minus_valid :
     tiling_2x2_minus.Valid (rectangleMinusCorner 2 2) := by
@@ -1352,7 +1352,7 @@ L-trominoes are:
 - `T₂ = {(2,0),(1,1),(2,1)}`
 - `T₃ = {(3,0),(3,1),(4,0)}`
 -/
-def tiling_5x2_minus : TileSet lTrominoSet (Fin 3) := ⟨![
+def tiling_5x2_minus : TileSet LTrominoSet (Fin 3) := ⟨![
   ⟨(), (0, 0), 0⟩,  -- T₁ at the left
   ⟨(), (2, 1), 2⟩,  -- T₂ covering the remaining part of the 3×2 block
   ⟨(), (3, 0), 0⟩   -- T₃ to the right, under the missing corner
@@ -1368,7 +1368,7 @@ theorem tileable_5x2_minus : LTileable (rectangleMinusCorner 5 2) :=
 
 /-- Explicit tiling of the 4×4 rectangle with its top-right corner removed.
 This is the `2² × 2²` deficiency-1 square used in Ash–Golomb's Theorem 2. -/
-def tiling_4x4_minus : TileSet lTrominoSet (Fin 5) := ⟨![
+def tiling_4x4_minus : TileSet LTrominoSet (Fin 5) := ⟨![
   ⟨(), (0, 0), 0⟩,  -- bottom-left quadrant
   ⟨(), (3, 0), 1⟩,  -- bottom-right quadrant
   ⟨(), (0, 3), 3⟩,  -- top-left quadrant
@@ -1400,7 +1400,7 @@ The eight tiles (0–7) are:
   - `T₃ = {(2,4),(3,4),(3,3)}`,
   - `T₄ = {(3,2),(4,2),(4,3)}`.
 -/
-def tiling_5x5_minus : TileSet lTrominoSet (Fin 8) := ⟨![
+def tiling_5x5_minus : TileSet LTrominoSet (Fin 8) := ⟨![
   -- A: 2×3 rectangle at bottom-left (copy of tiling_2x3)
   ⟨(), (0, 0), 0⟩,
   ⟨(), (1, 2), 2⟩,
@@ -1449,7 +1449,7 @@ L-trominoes are:
 - `T₁₅ = {(5,3),(6,3),(6,4)}`
 - `T₁₆ = {(5,4),(5,5),(6,5)}`.
 -/
-def tiling_7x7_minus : TileSet lTrominoSet (Fin 16) := ⟨![
+def tiling_7x7_minus : TileSet LTrominoSet (Fin 16) := ⟨![
   -- T₁
   ⟨(), (0, 1), 3⟩,
   -- T₂
@@ -1539,7 +1539,7 @@ theorem LTileable_vertical_union_rect_minus (n a b : ℕ) (hb : 0 < b)
     (h2 : LTileable (rectangleMinusCorner n b)) :
     LTileable (rectangleMinusCorner n (a + b)) := by
   rw [rectangleMinusCorner_split_vertical n a b hb]
-  apply Tileable_union lTrominoSet h1
+  apply Tileable_union LTrominoSet h1
   · exact LTileable_translate h2 (0, a)
   · exact rectangleMinusCorner_split_vertical_disjoint n a b hb
 
@@ -1550,7 +1550,7 @@ theorem LTileable_horizontal_union_rect_minus (a b m : ℕ) (hb : 0 < b)
     (h2 : LTileable (rectangleMinusCorner b m)) :
     LTileable (rectangleMinusCorner (a + b) m) := by
   rw [rectangleMinusCorner_split_horizontal a b m hb]
-  apply Tileable_union lTrominoSet h1
+  apply Tileable_union LTrominoSet h1
   · exact LTileable_translate h2 (a, 0)
   · exact rectangleMinusCorner_split_horizontal_disjoint a b m hb
 
@@ -2201,37 +2201,37 @@ leaving a three-cornered `(3j+2) × (3k-1)` rectangle, which is L-tileable by
 -- Helper definitions for single L-tromino tilings
 
 /-- The cells of an L-tromino placed at rotation `r` and translation `(tx, ty)`. -/
-def lTrominoCellsAt (tx ty : ℤ) (r : Fin 4) : Finset Cell :=
-  PlacedTile.cells lTrominoSet ⟨(), (tx, ty), r⟩
+def LTrominoCellsAt (tx ty : ℤ) (r : Fin 4) : Finset Cell :=
+  PlacedTile.cells LTrominoSet ⟨(), (tx, ty), r⟩
 
 /-- A tiling consisting of a single L-tromino. -/
-def singleLTrominoTiling (tx ty : ℤ) (r : Fin 4) : TileSet lTrominoSet Unit :=
+def singleLTrominoTiling (tx ty : ℤ) (r : Fin 4) : TileSet LTrominoSet Unit :=
   ⟨fun _ => ⟨(), (tx, ty), r⟩⟩
 
 /-- A single L-tromino tiles its own cells. -/
 theorem singleLTromino_valid (tx ty : ℤ) (r : Fin 4) :
-    (singleLTrominoTiling tx ty r).Valid (lTrominoCellsAt tx ty r) := by
+    (singleLTrominoTiling tx ty r).Valid (LTrominoCellsAt tx ty r) := by
   constructor
   · intro i j hij; exact absurd (Subsingleton.elim i j) hij
-  · unfold TileSet.coveredCells singleLTrominoTiling TileSet.cellsAt lTrominoCellsAt
+  · unfold TileSet.coveredCells singleLTrominoTiling TileSet.cellsAt LTrominoCellsAt
     ext c
     simp only [Finset.mem_biUnion, Finset.mem_univ, true_and]
     exact ⟨fun ⟨_, hc⟩ => hc, fun hc => ⟨(), hc⟩⟩
 
 /-- Any single L-tromino region is L-tileable. -/
-theorem LTileable_single_lTromino (tx ty : ℤ) (r : Fin 4) :
-    LTileable (lTrominoCellsAt tx ty r) :=
+theorem LTileable_single_LTromino (tx ty : ℤ) (r : Fin 4) :
+    LTileable (LTrominoCellsAt tx ty r) :=
   ⟨Unit, inferInstance, inferInstance, singleLTrominoTiling tx ty r,
     singleLTromino_valid tx ty r⟩
 
 /-- The L-tromino cells for the top-right region in the decomposition. -/
 def topRightLTromino (j k : ℕ) : Finset Cell :=
-  lTrominoCellsAt (3 * j + 1) (3 * k - 1) 2
+  LTrominoCellsAt (3 * j + 1) (3 * k - 1) 2
 
 /-- The L-tromino at the top-right is L-tileable. -/
 theorem LTileable_topRightLTromino (j k : ℕ) :
     LTileable (topRightLTromino j k) :=
-  LTileable_single_lTromino (3 * j + 1) (3 * k - 1) 2
+  LTileable_single_LTromino (3 * j + 1) (3 * k - 1) 2
 
 
 /- ## RExp Representations for Decomposition -/
@@ -2255,8 +2255,8 @@ def translateRectangle_rexp (j k : ℕ) : RExp :=
   ⇑[0, 3 * k - 1] (RExp.r 0 0 (3 * j) 2)
 
 /-- Helper lemma: The L-tromino at rotation 2 (180°) has cells (0,0), (0,-1), (-1,0) -/
-theorem lTromino_rotation2_cells :
-    rotateProto lTromino 2 = {(0, 0), (0, -1), (-1, 0)} := by
+theorem LTromino_rotation2_cells :
+    rotateProto LTromino 2 = {(0, 0), (0, -1), (-1, 0)} := by
   -- Both are finite sets, so we can use decide
   decide
 
@@ -2266,8 +2266,8 @@ theorem topRightLTromino_rexp_eval (j k : ℕ) (_hj : j ≥ 1) (_hk : k ≥ 1) :
     RExp.eval (topRightLTromino_rexp j k) = (topRightLTromino j k : Set Cell) := by
   ext c
   simp only [topRightLTromino_rexp, RExp.eval_diff, RExp.eval_r, topRightLTromino,
-    lTrominoCellsAt, PlacedTile.cells, lTrominoSet, Finset.mem_coe,
-    Finset.mem_image, translateCell, lTromino_rotation2_cells,
+    LTrominoCellsAt, PlacedTile.cells, LTrominoSet, Finset.mem_coe,
+    Finset.mem_image, translateCell, LTromino_rotation2_cells,
     mem_rect, Set.mem_diff, Finset.mem_insert, Finset.mem_singleton]
   constructor
   · rintro ⟨⟨h1, h2, h3, h4⟩, h5⟩
@@ -2503,11 +2503,11 @@ theorem tileable_rectangleMinus2Corner_3jplus2_3kplus1
     apply LTileable_translate
     exact tileable_mult3_x2 j
   have h3 : LTileable (topRightLTromino j k) := by
-    exact LTileable_single_lTromino (3 * j + 1) (3 * k - 1) 2
+    exact LTileable_single_LTromino (3 * j + 1) (3 * k - 1) 2
   have h_12 : LTileable (rectangleMinusCorner (3 * j + 2) (3 * k - 1) ∪
                          translateRegion (rectangle (3 * j) 2) (0, 3 * k - 1)) := by
-    apply Tileable_union lTrominoSet h1 h2 hd1
-  apply Tileable_union lTrominoSet h_12 h3
+    apply Tileable_union LTrominoSet h1 h2 hd1
+  apply Tileable_union LTrominoSet h_12 h3
   rw [Finset.disjoint_union_left]
   exact ⟨hd2, hd3⟩
 
@@ -2523,7 +2523,7 @@ theorem rotateCell90_rotateCell (c : Cell) (r : Fin 4) :
     simp [rotateCell90]
 
 theorem rotateProto_rotateCell90 (r : Fin 4) :
-    (rotateProto lTromino r).image rotateCell90 = rotateProto lTromino (r + 1) := by
+    (rotateProto LTromino r).image rotateCell90 = rotateProto LTromino (r + 1) := by
   ext c
   simp only [rotateProto, Finset.mem_image]
   constructor
@@ -2544,12 +2544,12 @@ theorem rotateCell90_translateCell (c offset : Cell) :
 
 theorem LTileable_rotate90 {r : Region} (h : LTileable r) : LTileable (rotateRegion90 r) := by
   obtain ⟨ιₜ, _, _, t, hvalid⟩ := h
-  let t' : TileSet lTrominoSet ιₜ := ⟨fun i =>
+  let t' : TileSet LTrominoSet ιₜ := ⟨fun i =>
     ⟨(), rotateCell90 (t.tiles i).translation, (t.tiles i).rotation + 1⟩⟩
   use ιₜ, inferInstance, inferInstance, t'
   have cells_eq : ∀ i, t'.cellsAt i = (t.cellsAt i).image rotateCell90 := by
     intro i
-    simp only [TileSet.cellsAt, PlacedTile.cells, lTrominoSet]
+    simp only [TileSet.cellsAt, PlacedTile.cells, LTrominoSet]
     ext c
     simp only [Finset.mem_image]
     constructor
@@ -2562,7 +2562,7 @@ theorem LTileable_rotate90 {r : Region} (h : LTileable r) : LTileable (rotateReg
       · use b, hb
       · exact rotateCell90_translateCell b (t.tiles i).translation
     · rintro ⟨a, ⟨b, hb, rfl⟩, rfl⟩
-      have : rotateCell90 b ∈ rotateProto lTromino ((t.tiles i).rotation + 1) := by
+      have : rotateCell90 b ∈ rotateProto LTromino ((t.tiles i).rotation + 1) := by
         rw [← rotateProto_rotateCell90]
         simp only [Finset.mem_image]
         use b, hb
@@ -2610,15 +2610,15 @@ def piece1_rexp (k : ℕ) : RExp :=
 def piece2_rexp (k : ℕ) : RExp :=
   RExp.r 0 0 4 (3*k+1) ⊖ RExp.r 0 (3*k) 1 (3*k+1)
 
-def piece1 (k : ℕ) : Finset Cell := lTrominoCellsAt 0 (3 * ↑k + 1) 3
+def piece1 (k : ℕ) : Finset Cell := LTrominoCellsAt 0 (3 * ↑k + 1) 3
 def piece2 (k : ℕ) : Finset Cell := rectangle 4 (3 * k + 1) \ {(0, 3 * (k : ℤ))}
 
 theorem piece1_val_rexp (k : ℕ) : (piece1_rexp k).eval = ↑(piece1 k) := by
   ext ⟨x, y⟩
   simp only [piece1_rexp, RExp.eval_union, RExp.eval_r, Set.mem_union,
-    piece1, lTrominoCellsAt, PlacedTile.cells, rotateProto, rotateCell, translateCell,
+    piece1, LTrominoCellsAt, PlacedTile.cells, rotateProto, rotateCell, translateCell,
     Finset.mem_coe,
-    Finset.mem_image, lTrominoSet, lTromino, rotateCell90, Finset.mem_mk,
+    Finset.mem_image, LTrominoSet, LTromino, rotateCell90, Finset.mem_mk,
     Multiset.mem_coe, List.mem_cons, List.not_mem_nil, or_false]
   constructor
   · rintro (⟨hx1, hx2, hy1, hy2⟩ | ⟨hx1, hx2, hy1, hy2⟩)
@@ -2732,10 +2732,10 @@ theorem tileable_rectangleMinus2Corner_4_3kplus2 (k : ℕ) (hk : k ≥ 1) :
     omega
   rw [h_decomp]
   have h_p1 : LTileable (piece1 k) := by
-    exact LTileable_single_lTromino 0 (3 * k + 1) 3
+    exact LTileable_single_LTromino 0 (3 * k + 1) 3
   have h_p2 : LTileable (piece2 k) := by
     exact tileable_piece2 k hk
-  exact Tileable_union lTrominoSet h_p1 h_p2 h_disj
+  exact Tileable_union LTrominoSet h_p1 h_p2 h_disj
 
 def left_piece_j (j k : ℕ) : Finset Cell := rectangle (3 * (j - 1)) (3 * k + 2)
 def right_piece_j (j k : ℕ) : Finset Cell :=
@@ -2854,7 +2854,7 @@ theorem pieceA_val_rexp (k : ℕ) (hk : k ≥ 1) :
     · apply h2; exact Prod.ext rfl hb
 
 def pieceB (k : ℕ) : Finset Cell :=
-  lTrominoCellsAt 3 (3 * ↑k + 1) 3
+  LTrominoCellsAt 3 (3 * ↑k + 1) 3
 
 def pieceB_rexp (k : ℕ) : RExp :=
   RExp.union (RExp.r 3 (3*k+1) 5 (3*k+2)) (RExp.r 3 (3*k) 4 (3*k+1))
@@ -2863,9 +2863,9 @@ theorem pieceB_val_rexp (k : ℕ) :
     (pieceB_rexp k).eval = (pieceB k : Set Cell) := by
   ext ⟨x, y⟩
   simp only [pieceB_rexp, RExp.eval_union, RExp.eval_r, Set.mem_union,
-    pieceB, lTrominoCellsAt, PlacedTile.cells, rotateProto, rotateCell, translateCell,
+    pieceB, LTrominoCellsAt, PlacedTile.cells, rotateProto, rotateCell, translateCell,
     Finset.mem_coe,
-    Finset.mem_image, lTrominoSet, lTromino, rotateCell90, Finset.mem_mk,
+    Finset.mem_image, LTrominoSet, LTromino, rotateCell90, Finset.mem_mk,
     Multiset.mem_coe, List.mem_cons, List.not_mem_nil, or_false]
   constructor
   · rintro (⟨hx1, hx2, hy1, hy2⟩ | ⟨hx1, hx2, hy1, hy2⟩)
@@ -2963,7 +2963,7 @@ theorem tileable_pieceA (k : ℕ) (hk : k ≥ 1) : LTileable (pieceA k) := by
   exact LTileable_swap this
 
 theorem tileable_pieceB (k : ℕ) : LTileable (pieceB k) := by
-  exact LTileable_single_lTromino 3 (3 * k + 1) 3
+  exact LTileable_single_LTromino 3 (3 * k + 1) 3
 
 theorem tileable_pieceC (k : ℕ) (hk : k ≥ 1) (hk_odd : Odd k) : LTileable (pieceC k) := by
   apply LTileable_translate
@@ -3018,7 +3018,7 @@ theorem tileable_rectangleMinus2Corner_3jplus1_3kplus2
           rw [h2_subst]
           apply LTileable_translate
           exact tileable_rectangleMinus2Corner_4_3kplus2 k hk
-        exact Tileable_union lTrominoSet h1 h2 h_disj
+        exact Tileable_union LTrominoSet h1 h2 h_disj
       · have h_decomp :
             rectangleMinus2Corner (3 * 2 + 1) (3 * k + 2) = pieceA k ∪ pieceB k ∪ pieceC k := by
           have : 3 * 2 + 1 = 7 := rfl
@@ -3029,8 +3029,8 @@ theorem tileable_rectangleMinus2Corner_3jplus1_3kplus2
         have hB : LTileable (pieceB k) := tileable_pieceB k
         have hC : LTileable (pieceC k) := tileable_pieceC k hk h_odd
         have hAB : LTileable (pieceA k ∪ pieceB k) :=
-          Tileable_union lTrominoSet hA hB (decomp_7_disj1 k hk)
-        exact Tileable_union lTrominoSet hAB hC (decomp_7_disj2 k hk)
+          Tileable_union LTrominoSet hA hB (decomp_7_disj1 k hk)
+        exact Tileable_union LTrominoSet hAB hC (decomp_7_disj2 k hk)
     · rw [decomp_j j k hj2]
       have h_disj := decomp_j_disj j k hj2
       have h1 : LTileable (left_piece_j j k) := by
@@ -3057,7 +3057,7 @@ theorem tileable_rectangleMinus2Corner_3jplus1_3kplus2
         rw [h2_subst]
         apply LTileable_translate
         exact tileable_rectangleMinus2Corner_4_3kplus2 k hk
-      exact Tileable_union lTrominoSet h1 h2 h_disj
+      exact Tileable_union LTrominoSet h1 h2 h_disj
 
 
 /-- **Two-square deficient rectangle theorem (statement)**:

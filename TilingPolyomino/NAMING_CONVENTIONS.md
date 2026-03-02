@@ -28,7 +28,7 @@ All L-tromino-specific names follow this scheme:
 
 ### Finset Framework (LTromino.lean) — Reference
 For comparison, the Finset framework uses:
-- Objects: `lTromino : Prototile`, `lTrominoSet : Protoset Unit` (lowercase l)
+- Objects: `LTromino : Prototile`, `LTrominoSet : Protoset Unit`
 - Property: `LTileable` (uppercase L)
 - Base case lemmas: `tileable_2x3`, `tileable_3x2` (no L prefix)
 - Generic lemmas: `LTileable_swap`, `LTileable_translate` (uppercase L)
@@ -50,7 +50,7 @@ The Set framework mirrors this with `_set` suffix:
 | Swap symmetry | `LTileable_swap_set` |
 | Base: 2×3 | `LTileable_2x3_set` |
 | Base: 3×2 | `LTileable_3x2_set` |
-| Base: 2×2 minus corner | `LTileable_2x2_minus_set` |
+| Base: 2×2 minus corner | `LTileable_2x2_minus_corner_set` |
 | Inductive: 2×(3k) | `LTileable_2x_mult3_set` |
 | Inductive: 3×(2k) | `LTileable_3x_even_set` |
 | Inductive: (3k)×2 | `LTileable_mult3_x_2_set` |
@@ -71,4 +71,4 @@ The Set framework mirrors this with `_set` suffix:
 | General: odd×(6k) | `LTileable_odd_x_mult6_set` |
 | Bridge: LTileable ↔ Tileable_set | `LTileable_iff_set` |
 | Bridge: rect iff | `LTileable_rect_iff_set` |
-| lTromino coercion to LShape_cells | `lTromino_coe_eq_LShape_set` |
+| LTromino coercion to LShape_cells | `LTromino_coe_eq_LShape_set` |

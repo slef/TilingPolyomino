@@ -23,18 +23,18 @@ def LTileable_set (R : Set Cell) : Prop := Tileable_set R LProtoset_set
 -- Bridge helpers (Finset ↔ Set)
 -- ============================================================
 
-private lemma lTrominoSet_nonempty (i : Unit) : (lTrominoSet i : Finset Cell).Nonempty :=
-  ⟨(0, 0), by simp [lTrominoSet, lTromino]⟩
+private lemma LTrominoSet_nonempty (i : Unit) : (LTrominoSet i : Finset Cell).Nonempty :=
+  ⟨(0, 0), by simp [LTrominoSet, LTromino]⟩
 
 private lemma LProtoset_set_eq_toSet :
-    LProtoset_set = toProtoset_set lTrominoSet lTrominoSet_nonempty := by
+    LProtoset_set = toProtoset_set LTrominoSet LTrominoSet_nonempty := by
   funext i
   cases i
   apply Prototile_set.ext
   ext c
   simp [
     LProtoset_set, LPrototile_set, LShape_cells,
-    toProtoset_set, toPrototile_set, lTrominoSet, lTromino
+    toProtoset_set, toPrototile_set, LTrominoSet, LTromino
   ]
 
 private def lPlaced_set (dx dy : ℤ) (r : Fin 4) : Set Cell :=
@@ -130,17 +130,6 @@ theorem LTileable_2x3_set : Tileable_set (rect 0 0 2 3) LProtoset_set := by
 
 theorem LTileable_3x2_set : Tileable_set (rect 0 0 3 2) LProtoset_set :=
   swapRegion_rect 2 3 ▸ LTileable_swap_set LTileable_2x3_set
-
-theorem LTileable_2x2_minus_set : Tileable_set (rect 0 0 2 2 \ {(1, 1)}) LProtoset_set := by
-  refine ⟨Fin 1, inferInstance, ⟨![⟨(), (0, 0), 0⟩]⟩, ⟨?_, ?_⟩⟩
-  · intro i j hij; fin_cases i; fin_cases j; exact (hij rfl).elim
-  · ext ⟨x, y⟩
-    simp [TileSet_set.coveredCells, Set.mem_iUnion,
-      TileSet_set.cellsAt, PlacedTile_set.cells,
-      LProtoset_set, LPrototile_set, LShape_cells,
-      mem_translate, mem_rotate, mem_rect, inverseRot,
-      rotateCell_0, Prod.mk.injEq]
-    omega
 
 -- ============================================================
 -- Inductive rectangle families
@@ -476,8 +465,8 @@ theorem LTileable_odd_x_mult6_set (n k : ℕ) (hn_odd : n % 2 = 1) (hn_ge : 3 �
 /-- Base case: 5×9 rectangle, imported from the Finset-framework theorem `tileable_5x9`. -/
 theorem LTileable_5x9_set : Tileable_set (rect 0 0 5 9) LProtoset_set := by
   have hset : Tileable_set (↑(rectangle 5 9) : Set Cell)
-      (toProtoset_set lTrominoSet lTrominoSet_nonempty) :=
-    (Tileable_iff_to_set lTrominoSet (rectangle 5 9) lTrominoSet_nonempty).mp tileable_5x9
+      (toProtoset_set LTrominoSet LTrominoSet_nonempty) :=
+    (Tileable_iff_to_set LTrominoSet (rectangle 5 9) LTrominoSet_nonempty).mp tileable_5x9
   have hrect : (↑(rectangle 5 9) : Set Cell) = rect 0 0 5 9 := by
     ext ⟨x, y⟩
     simp [mem_rectangle, mem_rect]
@@ -782,16 +771,21 @@ theorem LTileable_swap_rectMinusCorner_set {n m : ℤ}
 /-- The 2×2 rectangle with a missing top-right corner is L-tileable. -/
 theorem LTileable_2x2_minus_corner_set :
     Tileable_set (rectMinusCorner_set 2 2) LProtoset_set := by
-  have : rectMinusCorner_set 2 2 = rect 0 0 2 2 \ {(1, 1)} := by
-    simp [rectMinusCorner_set]
-  rw [this]; exact LTileable_2x2_minus_set
+  refine ⟨Fin 1, inferInstance, ⟨![⟨(), (0, 0), 0⟩]⟩, ⟨by simp, ?_⟩⟩
+  ext ⟨x, y⟩
+  simp [rectMinusCorner_set, TileSet_set.coveredCells, Set.mem_iUnion,
+    TileSet_set.cellsAt, PlacedTile_set.cells,
+    LProtoset_set, LPrototile_set, LShape_cells,
+    mem_translate, mem_rotate, mem_rect, inverseRot,
+    rotateCell_0, Prod.mk.injEq]
+  omega
 
 /-- The 5×2 rectangle with a missing top-right corner is L-tileable. -/
 theorem LTileable_5x2_minus_corner_set :
     Tileable_set (rectMinusCorner_set 5 2) LProtoset_set := by
   have hfin : Tileable_set (↑(rectangleMinusCorner 5 2) : Set Cell)
-      (toProtoset_set lTrominoSet lTrominoSet_nonempty) :=
-    (Tileable_iff_to_set lTrominoSet (rectangleMinusCorner 5 2) lTrominoSet_nonempty).mp
+      (toProtoset_set LTrominoSet LTrominoSet_nonempty) :=
+    (Tileable_iff_to_set LTrominoSet (rectangleMinusCorner 5 2) LTrominoSet_nonempty).mp
       tileable_5x2_minus
   have hcoeeq : (↑(rectangleMinusCorner 5 2) : Set Cell) = rectMinusCorner_set 5 2 := by
     ext ⟨x, y⟩
@@ -804,8 +798,8 @@ theorem LTileable_5x2_minus_corner_set :
 theorem LTileable_4x4_minus_corner_set :
     Tileable_set (rectMinusCorner_set 4 4) LProtoset_set := by
   have hfin : Tileable_set (↑(rectangleMinusCorner 4 4) : Set Cell)
-      (toProtoset_set lTrominoSet lTrominoSet_nonempty) :=
-    (Tileable_iff_to_set lTrominoSet (rectangleMinusCorner 4 4) lTrominoSet_nonempty).mp
+      (toProtoset_set LTrominoSet LTrominoSet_nonempty) :=
+    (Tileable_iff_to_set LTrominoSet (rectangleMinusCorner 4 4) LTrominoSet_nonempty).mp
       tileable_4x4_minus
   have hcoeeq : (↑(rectangleMinusCorner 4 4) : Set Cell) = rectMinusCorner_set 4 4 := by
     ext ⟨x, y⟩
@@ -818,8 +812,8 @@ theorem LTileable_4x4_minus_corner_set :
 theorem LTileable_5x5_minus_corner_set :
     Tileable_set (rectMinusCorner_set 5 5) LProtoset_set := by
   have hfin : Tileable_set (↑(rectangleMinusCorner 5 5) : Set Cell)
-      (toProtoset_set lTrominoSet lTrominoSet_nonempty) :=
-    (Tileable_iff_to_set lTrominoSet (rectangleMinusCorner 5 5) lTrominoSet_nonempty).mp
+      (toProtoset_set LTrominoSet LTrominoSet_nonempty) :=
+    (Tileable_iff_to_set LTrominoSet (rectangleMinusCorner 5 5) LTrominoSet_nonempty).mp
       tileable_5x5_minus
   have hcoeeq : (↑(rectangleMinusCorner 5 5) : Set Cell) = rectMinusCorner_set 5 5 := by
     ext ⟨x, y⟩
@@ -832,8 +826,8 @@ theorem LTileable_5x5_minus_corner_set :
 theorem LTileable_7x7_minus_corner_set :
     Tileable_set (rectMinusCorner_set 7 7) LProtoset_set := by
   have hfin : Tileable_set (↑(rectangleMinusCorner 7 7) : Set Cell)
-      (toProtoset_set lTrominoSet lTrominoSet_nonempty) :=
-    (Tileable_iff_to_set lTrominoSet (rectangleMinusCorner 7 7) lTrominoSet_nonempty).mp
+      (toProtoset_set LTrominoSet LTrominoSet_nonempty) :=
+    (Tileable_iff_to_set LTrominoSet (rectangleMinusCorner 7 7) LTrominoSet_nonempty).mp
       tileable_7x7_minus
   have hcoeeq : (↑(rectangleMinusCorner 7 7) : Set Cell) = rectMinusCorner_set 7 7 := by
     ext ⟨x, y⟩
@@ -1239,8 +1233,8 @@ def rectMinus2Corner_set (n m : ℤ) : Set Cell :=
 lemma LTileable_piece2_base_set :
     Tileable_set (rect 0 0 4 4 \ {((0 : ℤ), (3 : ℤ))}) LProtoset_set := by
   have hfin : Tileable_set (↑(piece2 1) : Set Cell)
-      (toProtoset_set lTrominoSet lTrominoSet_nonempty) :=
-    (Tileable_iff_to_set lTrominoSet (piece2 1) lTrominoSet_nonempty).mp
+      (toProtoset_set LTrominoSet LTrominoSet_nonempty) :=
+    (Tileable_iff_to_set LTrominoSet (piece2 1) LTrominoSet_nonempty).mp
       (tileable_piece2 1 (by omega))
   have hcoeeq : (↑(piece2 1) : Set Cell) = rect 0 0 4 4 \ {((0 : ℤ), (3 : ℤ))} := by
     ext ⟨x, y⟩
