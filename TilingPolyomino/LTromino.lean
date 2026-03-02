@@ -24,18 +24,18 @@ def LTileable_set (R : Set Cell) : Prop := Tileable_set R LProtoset_set
 -- Bridge helpers (Finset ↔ Set)
 -- ============================================================
 
-private lemma LTrominoSet_nonempty (i : Unit) : (LTrominoSet i : Finset Cell).Nonempty :=
-  ⟨(0, 0), by simp [LTrominoSet, LTromino]⟩
+private lemma LTrominoSet_nonempty (i : Unit) : (LTrominoSet_finset i : Finset Cell).Nonempty :=
+  ⟨(0, 0), by simp [LTrominoSet_finset, LTromino_finset]⟩
 
 private lemma LProtoset_set_eq_toSet :
-    LProtoset_set = toProtoset_set LTrominoSet LTrominoSet_nonempty := by
+    LProtoset_set = toProtoset_set LTrominoSet_finset LTrominoSet_nonempty := by
   funext i
   cases i
   apply Prototile_set.ext
   ext c
   simp [
     LProtoset_set, LPrototile_set, LShape_cells,
-    toProtoset_set, toPrototile_set, LTrominoSet, LTromino
+    toProtoset_set, toPrototile_set, LTrominoSet_finset, LTromino_finset
   ]
 
 private def lPlaced_set (dx dy : ℤ) (r : Fin 4) : Set Cell :=
@@ -92,10 +92,10 @@ theorem LTileable_swap_set {R : Set Cell} (h : Tileable_set R LProtoset_set) :
   haveI : Fintype ιₜ := hft
   let t' : TileSet_set LProtoset_set ιₜ := ⟨fun i =>
     ⟨(), ((t.tiles i).translation.2, (t.tiles i).translation.1), swapRot (t.tiles i).rotation⟩⟩
-  have hcell : ∀ i, TileSet_set.cellsAt t' i = Set.swapRegion (TileSet_set.cellsAt t i) := by
+  have hcell : ∀ i, TileSet_set.cellsAt_finset t' i = Set.swapRegion (TileSet_set.cellsAt_finset t i) := by
     intro i
     rcases hti : t.tiles i with ⟨idx, tr, r⟩; rcases tr with ⟨dx, dy⟩; cases idx
-    simpa [TileSet_set.cellsAt, t', hti, lPlaced_set] using (swapRegion_lPlaced_set dx dy r).symm
+    simpa [TileSet_set.cellsAt_finset, t', hti, lPlaced_set] using (swapRegion_lPlaced_set dx dy r).symm
   refine ⟨ιₜ, hft, t', ⟨?_, ?_⟩⟩
   · intro i j hij
     have hd := hv.disjoint i j hij
@@ -103,11 +103,11 @@ theorem LTileable_swap_set {R : Set Cell} (h : Tileable_set R LProtoset_set) :
     exact fun p hp1 hp2 => hd (by simpa [hcell i, mem_swapRegion] using hp1)
                               (by simpa [hcell j, mem_swapRegion] using hp2)
   · ext p
-    simp only [TileSet_set.coveredCells, Set.mem_iUnion, hcell, mem_swapRegion]
+    simp only [TileSet_set.coveredCells_finset, Set.mem_iUnion, hcell, mem_swapRegion]
     exact ⟨fun ⟨i, hi⟩ => hv.covers ▸
-             (Set.mem_iUnion.mpr ⟨i, hi⟩ : (p.2, p.1) ∈ TileSet_set.coveredCells t),
+             (Set.mem_iUnion.mpr ⟨i, hi⟩ : (p.2, p.1) ∈ TileSet_set.coveredCells_finset t),
            fun hpR => Set.mem_iUnion.mp
-             (hv.covers.symm ▸ hpR : (p.2, p.1) ∈ TileSet_set.coveredCells t)⟩
+             (hv.covers.symm ▸ hpR : (p.2, p.1) ∈ TileSet_set.coveredCells_finset t)⟩
 
 -- ============================================================
 -- Base cases
@@ -118,12 +118,12 @@ theorem LTileable_2x3_set : Tileable_set (rect 0 0 2 3) LProtoset_set := by
   · intro i j hij
     fin_cases i <;> fin_cases j <;>
       simp_all only [Fin.isValue, Fin.zero_eta, Fin.mk_one,
-        Set.disjoint_iff_inter_eq_empty, TileSet_set.cellsAt, PlacedTile_set.cells,
+        Set.disjoint_iff_inter_eq_empty, TileSet_set.cellsAt_finset, PlacedTile_set.cells,
         LProtoset_set, LPrototile_set, LShape_cells] <;>
       rect_omega
   · ext ⟨x, y⟩
-    simp [TileSet_set.coveredCells, Set.mem_iUnion, Fin.exists_fin_two,
-      TileSet_set.cellsAt, PlacedTile_set.cells,
+    simp [TileSet_set.coveredCells_finset, Set.mem_iUnion, Fin.exists_fin_two,
+      TileSet_set.cellsAt_finset, PlacedTile_set.cells,
       LProtoset_set, LPrototile_set, LShape_cells,
       mem_translate, mem_rotate, mem_rect, inverseRot,
       rotateCell_0, rotateCell_2]
@@ -233,12 +233,12 @@ theorem not_LTileable_1xn_set (n : ℕ) (hn : 1 ≤ n) :
   intro ⟨ιₜ, hft, t, hv⟩; haveI : Fintype ιₜ := hft
   -- Get the tile covering (0,0)
   have hcell : ((0 : ℤ), (0 : ℤ)) ∈ rect 0 0 1 (n : ℤ) := by simp [mem_rect]; omega
-  rw [← hv.covers, TileSet_set.coveredCells, Set.mem_iUnion] at hcell
+  rw [← hv.covers, TileSet_set.coveredCells_finset, Set.mem_iUnion] at hcell
   obtain ⟨i, hi⟩ := hcell
   let dx := (t.tiles i).translation.1; let dy := (t.tiles i).translation.2
   let r  := (t.tiles i).rotation
-  have hrep : TileSet_set.cellsAt t i = lPlaced_set dx dy r := by
-    simp [TileSet_set.cellsAt, lPlaced_set, dx, dy, r]
+  have hrep : TileSet_set.cellsAt_finset t i = lPlaced_set dx dy r := by
+    simp [TileSet_set.cellsAt_finset, lPlaced_set, dx, dy, r]
   -- Any cell in tile i has x-coordinate in [0, 1)
   have h_sub : ∀ q, q ∈ lPlaced_set dx dy r → 0 ≤ q.1 ∧ q.1 < 1 := fun q hq => by
     have h : q ∈ rect 0 0 1 (n : ℤ) := hv.covers ▸ Set.mem_iUnion.mpr ⟨i, hrep ▸ hq⟩
@@ -311,17 +311,17 @@ theorem not_LTileable_3x_odd_set (k : ℕ) : ¬ Tileable_set (rect 0 0 3 (2*k+1)
     -- Get tiles covering opposite corners (0,0) and (2,0)
     have h00_in : ((0 : ℤ), (0 : ℤ)) ∈ rect 0 0 3 (2 * (k' : ℤ) + 3) := by simp [mem_rect]; omega
     have h20_in : ((2 : ℤ), (0 : ℤ)) ∈ rect 0 0 3 (2 * (k' : ℤ) + 3) := by simp [mem_rect]; omega
-    rw [← hv.covers, TileSet_set.coveredCells, Set.mem_iUnion] at h00_in h20_in
+    rw [← hv.covers, TileSet_set.coveredCells_finset, Set.mem_iUnion] at h00_in h20_in
     obtain ⟨i, hi⟩ := h00_in; obtain ⟨j, hj⟩ := h20_in
     -- Name tile parameters
     let dxi := (t.tiles i).translation.1; let dyi := (t.tiles i).translation.2
     let ri  := (t.tiles i).rotation
     let dxj := (t.tiles j).translation.1; let dyj := (t.tiles j).translation.2
     let rj  := (t.tiles j).rotation
-    have hi_eq : t.cellsAt i = lPlaced_set dxi dyi ri := by
-      simp [TileSet_set.cellsAt, lPlaced_set, dxi, dyi, ri]
-    have hj_eq : t.cellsAt j = lPlaced_set dxj dyj rj := by
-      simp [TileSet_set.cellsAt, lPlaced_set, dxj, dyj, rj]
+    have hi_eq : t.cellsAt_finset i = lPlaced_set dxi dyi ri := by
+      simp [TileSet_set.cellsAt_finset, lPlaced_set, dxi, dyi, ri]
+    have hj_eq : t.cellsAt_finset j = lPlaced_set dxj dyj rj := by
+      simp [TileSet_set.cellsAt_finset, lPlaced_set, dxj, dyj, rj]
     have hi' : ((0 : ℤ), (0 : ℤ)) ∈ lPlaced_set dxi dyi ri := hi_eq ▸ hi
     have hj' : ((2 : ℤ), (0 : ℤ)) ∈ lPlaced_set dxj dyj rj := hj_eq ▸ hj
     -- i ≠ j and tiles are disjoint
@@ -330,7 +330,7 @@ theorem not_LTileable_3x_odd_set (k : ℕ) : ¬ Tileable_set (rect 0 0 3 (2*k+1)
     have hdisj : Disjoint (lPlaced_set dxi dyi ri) (lPlaced_set dxj dyj rj) := by
       rw [← hi_eq, ← hj_eq]; exact hv.disjoint i j hij
     -- Any cell of any tile is in rect 0 0 3 (2k'+3)
-    have sub_full : ∀ (ii : ιₜ), TileSet_set.cellsAt t ii ⊆ rect 0 0 3 (2 * (k' : ℤ) + 3) :=
+    have sub_full : ∀ (ii : ιₜ), TileSet_set.cellsAt_finset t ii ⊆ rect 0 0 3 (2 * (k' : ℤ) + 3) :=
       fun ii q hq => hv.covers ▸ Set.mem_iUnion.mpr ⟨ii, hq⟩
     -- Each corner tile is contained in the bottom strip rect 0 0 3 2
     have hi_sub_3x2 : lPlaced_set dxi dyi ri ⊆ rect 0 0 3 2 := fun q hq => by
@@ -347,7 +347,7 @@ theorem not_LTileable_3x_odd_set (k : ℕ) : ¬ Tileable_set (rect 0 0 3 (2*k+1)
       exact Set.eq_of_subset_of_ncard_le (Set.union_subset hi_sub_3x2 hj_sub_3x2)
         (by simp [rect_ncard] at hcard ⊢; omega) (rect_finite _ _ _ _)
     -- Remove the two bottom tiles; the remainder is the translated smaller rect
-    have hS : t.cellsAt i ∪ t.cellsAt j = rect 0 0 3 2 := by rw [hi_eq, hj_eq]; exact hunion_eq
+    have hS : t.cellsAt_finset i ∪ t.cellsAt_finset j = rect 0 0 3 2 := by rw [hi_eq, hj_eq]; exact hunion_eq
     have h_remain := Tileable_set.remove_two t hv i j hij hS
     have h_diff_eq : rect 0 0 3 (2 * (k' : ℤ) + 3) \ rect 0 0 3 2 =
         translate 0 2 (rect 0 0 3 (2 * (k' : ℤ) + 1)) := by
@@ -463,11 +463,11 @@ theorem LTileable_odd_x_mult6_set (n k : ℕ) (hn_odd : n % 2 = 1) (hn_ge : 3 �
 -- Main theorem: native proof of LTileable_rect_iff_set
 -- ============================================================
 
-/-- Base case: 5×9 rectangle, imported from the Finset-framework theorem `tileable_5x9`. -/
+/-- Base case: 5×9 rectangle, imported from the Finset-framework theorem `tileable_5x9_finset`. -/
 theorem LTileable_5x9_set : Tileable_set (rect 0 0 5 9) LProtoset_set := by
   have hset : Tileable_set (↑(rectangle 5 9) : Set Cell)
-      (toProtoset_set LTrominoSet LTrominoSet_nonempty) :=
-    (Tileable_iff_to_set LTrominoSet (rectangle 5 9) LTrominoSet_nonempty).mp tileable_5x9
+      (toProtoset_set LTrominoSet_finset LTrominoSet_nonempty) :=
+    (Tileable_iff_to_set LTrominoSet_finset (rectangle 5 9) LTrominoSet_nonempty).mp tileable_5x9_finset
   have hrect : (↑(rectangle 5 9) : Set Cell) = rect 0 0 5 9 := by
     ext ⟨x, y⟩
     simp [mem_rectangle, mem_rect]
@@ -787,8 +787,8 @@ theorem LTileable_2x2_minus_corner_set :
     Tileable_set (rectMinusCorner_set 2 2) LProtoset_set := by
   refine ⟨Fin 1, inferInstance, ⟨![⟨(), (0, 0), 0⟩]⟩, ⟨by simp, ?_⟩⟩
   ext ⟨x, y⟩
-  simp [rectMinusCorner_set, TileSet_set.coveredCells, Set.mem_iUnion,
-    TileSet_set.cellsAt, PlacedTile_set.cells,
+  simp [rectMinusCorner_set, TileSet_set.coveredCells_finset, Set.mem_iUnion,
+    TileSet_set.cellsAt_finset, PlacedTile_set.cells,
     LProtoset_set, LPrototile_set, LShape_cells,
     mem_translate, mem_rotate, mem_rect, inverseRot,
     rotateCell_0, Prod.mk.injEq]
@@ -798,9 +798,9 @@ theorem LTileable_2x2_minus_corner_set :
 theorem LTileable_5x2_minus_corner_set :
     Tileable_set (rectMinusCorner_set 5 2) LProtoset_set := by
   have hfin : Tileable_set (↑(rectangleMinusCorner 5 2) : Set Cell)
-      (toProtoset_set LTrominoSet LTrominoSet_nonempty) :=
-    (Tileable_iff_to_set LTrominoSet (rectangleMinusCorner 5 2) LTrominoSet_nonempty).mp
-      tileable_5x2_minus
+      (toProtoset_set LTrominoSet_finset LTrominoSet_nonempty) :=
+    (Tileable_iff_to_set LTrominoSet_finset (rectangleMinusCorner 5 2) LTrominoSet_nonempty).mp
+      tileable_5x2_minus_finset
   have hcoeeq : (↑(rectangleMinusCorner 5 2) : Set Cell) = rectMinusCorner_set 5 2 := by
     ext ⟨x, y⟩
     simp [rectangleMinusCorner, rectMinusCorner_set, cornerTR, mem_rectangle, mem_rect]
@@ -812,9 +812,9 @@ theorem LTileable_5x2_minus_corner_set :
 theorem LTileable_4x4_minus_corner_set :
     Tileable_set (rectMinusCorner_set 4 4) LProtoset_set := by
   have hfin : Tileable_set (↑(rectangleMinusCorner 4 4) : Set Cell)
-      (toProtoset_set LTrominoSet LTrominoSet_nonempty) :=
-    (Tileable_iff_to_set LTrominoSet (rectangleMinusCorner 4 4) LTrominoSet_nonempty).mp
-      tileable_4x4_minus
+      (toProtoset_set LTrominoSet_finset LTrominoSet_nonempty) :=
+    (Tileable_iff_to_set LTrominoSet_finset (rectangleMinusCorner 4 4) LTrominoSet_nonempty).mp
+      tileable_4x4_minus_finset
   have hcoeeq : (↑(rectangleMinusCorner 4 4) : Set Cell) = rectMinusCorner_set 4 4 := by
     ext ⟨x, y⟩
     simp [rectangleMinusCorner, rectMinusCorner_set, cornerTR, mem_rectangle, mem_rect]
@@ -826,9 +826,9 @@ theorem LTileable_4x4_minus_corner_set :
 theorem LTileable_5x5_minus_corner_set :
     Tileable_set (rectMinusCorner_set 5 5) LProtoset_set := by
   have hfin : Tileable_set (↑(rectangleMinusCorner 5 5) : Set Cell)
-      (toProtoset_set LTrominoSet LTrominoSet_nonempty) :=
-    (Tileable_iff_to_set LTrominoSet (rectangleMinusCorner 5 5) LTrominoSet_nonempty).mp
-      tileable_5x5_minus
+      (toProtoset_set LTrominoSet_finset LTrominoSet_nonempty) :=
+    (Tileable_iff_to_set LTrominoSet_finset (rectangleMinusCorner 5 5) LTrominoSet_nonempty).mp
+      tileable_5x5_minus_finset
   have hcoeeq : (↑(rectangleMinusCorner 5 5) : Set Cell) = rectMinusCorner_set 5 5 := by
     ext ⟨x, y⟩
     simp [rectangleMinusCorner, rectMinusCorner_set, cornerTR, mem_rectangle, mem_rect]
@@ -840,9 +840,9 @@ theorem LTileable_5x5_minus_corner_set :
 theorem LTileable_7x7_minus_corner_set :
     Tileable_set (rectMinusCorner_set 7 7) LProtoset_set := by
   have hfin : Tileable_set (↑(rectangleMinusCorner 7 7) : Set Cell)
-      (toProtoset_set LTrominoSet LTrominoSet_nonempty) :=
-    (Tileable_iff_to_set LTrominoSet (rectangleMinusCorner 7 7) LTrominoSet_nonempty).mp
-      tileable_7x7_minus
+      (toProtoset_set LTrominoSet_finset LTrominoSet_nonempty) :=
+    (Tileable_iff_to_set LTrominoSet_finset (rectangleMinusCorner 7 7) LTrominoSet_nonempty).mp
+      tileable_7x7_minus_finset
   have hcoeeq : (↑(rectangleMinusCorner 7 7) : Set Cell) = rectMinusCorner_set 7 7 := by
     ext ⟨x, y⟩
     simp [rectangleMinusCorner, rectMinusCorner_set, cornerTR, mem_rectangle, mem_rect]
@@ -1252,10 +1252,10 @@ lemma LTileable_piece2_base_set :
   -- For now, rather than plumbing rotate/translate sets, we use the explicit base case 
   -- since the bridge is right here and explicit base cases are fast.
   have hfin : Tileable_set (↑(rectangle 4 4 \ {(0, 3)}) : Set Cell)
-      (toProtoset_set LTrominoSet LTrominoSet_nonempty) :=
-    (Tileable_iff_to_set LTrominoSet
+      (toProtoset_set LTrominoSet_finset LTrominoSet_nonempty) :=
+    (Tileable_iff_to_set LTrominoSet_finset
       (rectangle 4 4 \ {(0, 3)})
-      LTrominoSet_nonempty).mp tileable_piece2_base
+      LTrominoSet_nonempty).mp tileable_piece2_base_finset
   have hcoeeq : (↑(rectangle 4 4 \ {(0, 3)}) : Set Cell) =
       rect 0 0 4 4 \ {((0 : ℤ), (3 : ℤ))} := by
     ext ⟨x, y⟩; simp [mem_rectangle, mem_rect]
@@ -1313,7 +1313,7 @@ theorem LTileable_4x_3kplus2_minus_2corner_set (k : ℕ) (hk : k ≥ 1) :
     refine ⟨Fin 1, inferInstance, ⟨![⟨(), (0, 3 * (k : ℤ) + 1), 3⟩]⟩, ⟨?_, ?_⟩⟩
     · intro i j hij; fin_cases i; fin_cases j; exact (hij rfl).elim
     · ext ⟨x, y⟩
-      simp [piece1, TileSet_set.coveredCells, TileSet_set.cellsAt, PlacedTile_set.cells,
+      simp [piece1, TileSet_set.coveredCells_finset, TileSet_set.cellsAt_finset, PlacedTile_set.cells,
         LProtoset_set, LPrototile_set, LShape_cells, mem_translate, mem_rotate, inverseRot]
       omega
   rw [hdecomp]
@@ -1397,7 +1397,7 @@ theorem LTileable_3jplus2_x_3kplus1_minus_2corner_set (j k : ℕ) (hj : j ≥ 1)
     refine ⟨Fin 1, inferInstance, ⟨![⟨(), (3 * (j : ℤ) + 1, 3 * (k : ℤ) - 1), 2⟩]⟩, ⟨?_, ?_⟩⟩
     · intro i j' hij; fin_cases i; fin_cases j'; exact (hij rfl).elim
     · ext ⟨x, y⟩
-      simp [TileSet_set.coveredCells, TileSet_set.cellsAt, PlacedTile_set.cells,
+      simp [TileSet_set.coveredCells_finset, TileSet_set.cellsAt_finset, PlacedTile_set.cells,
         LProtoset_set, LPrototile_set, LShape_cells, mem_translate, mem_rotate,
         inverseRot, rotateCell_2]
       omega
@@ -1501,7 +1501,7 @@ private lemma LTileable_3jplus1_x_3kplus2_minus_2corner_set_case_j2
       refine ⟨Fin 1, inferInstance, ⟨![⟨(), (3, 3 * (k : ℤ) + 1), 3⟩]⟩, ⟨?_, ?_⟩⟩
       · intro i j' hij; fin_cases i; fin_cases j'; exact (hij rfl).elim
       · ext ⟨x, y⟩
-        simp [TileSet_set.coveredCells, TileSet_set.cellsAt, PlacedTile_set.cells,
+        simp [TileSet_set.coveredCells_finset, TileSet_set.cellsAt_finset, PlacedTile_set.cells,
           LProtoset_set, LPrototile_set, LShape_cells, mem_translate, mem_rotate,
           inverseRot, rotateCell_1]
         omega

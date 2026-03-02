@@ -15,7 +15,7 @@ import TilingPolyomino.RectOmega
 import Mathlib.Tactic
 
 
-/- ## L-Tromino Protoset
+/- ## L-Tromino Protoset_finset
 
 The L-tromino is a single prototile that looks like:
 ```
@@ -25,21 +25,21 @@ The L-tromino is a single prototile that looks like:
 -/
 
 /-- The L-tromino shape, anchored at origin -/
-def LTromino : Prototile := ⟨[(0, 0), (0, 1), (1, 0)], by decide⟩
+def LTromino_finset : Prototile_finset := ⟨[(0, 0), (0, 1), (1, 0)], by decide⟩
 
 /-- A protoset containing just the L-tromino -/
-def LTrominoSet : Protoset Unit := ⟨fun _ => LTromino⟩
+def LTrominoSet_finset : Protoset_finset Unit := ⟨fun _ => LTromino_finset⟩
 
 /- ## Existential Tileability -/
 
 /-- A region is tileable by L-trominoes if there exists a valid tiling -/
-def LTileable (r : Region) : Prop := Tileable LTrominoSet r
+def LTileable_finset (r : Region) : Prop := Tileable_finset LTrominoSet_finset r
 
 /-- Explicit tiling of the 5×9 rectangle with 15 L-trominoes.
 This is a special base case that needs an irregular tiling.
 The key insight is that 5×9 cannot be decomposed into rectangular pieces
 that are all individually L-tileable. We need tiles that cross boundaries. -/
-def tiling_5x9 : TileSet LTrominoSet (Fin 15) := ⟨![
+def tiling_5x9_finset : TileSet_finset LTrominoSet_finset (Fin 15) := ⟨![
   ⟨(), (1, 0), 1⟩,   -- Tile 0: covers (0,0), (1,0), (1,1)
   ⟨(), (0, 2), 3⟩,   -- Tile 1: covers (0,1), (0,2), (1,2)
   ⟨(), (0, 4), 3⟩,   -- Tile 2: covers (0,3), (0,4), (1,4)
@@ -57,10 +57,10 @@ def tiling_5x9 : TileSet LTrominoSet (Fin 15) := ⟨![
   ⟨(), (3, 4), 3⟩    -- Tile 14: covers (3,3), (3,4), (4,4)
 ]⟩
 
-theorem tiling_5x9_valid : tiling_5x9.Valid (rectangle 5 9) := by decide
+theorem tiling_5x9_valid_finset : tiling_5x9_finset.Valid_finset (rectangle 5 9) := by decide
 
-theorem tileable_5x9 : LTileable (rectangle 5 9) :=
-  ⟨Fin 15, inferInstance, inferInstance, tiling_5x9, tiling_5x9_valid⟩
+theorem tileable_5x9_finset : LTileable_finset (rectangle 5 9) :=
+  ⟨Fin 15, inferInstance, inferInstance, tiling_5x9_finset, tiling_5x9_valid_finset⟩
 
 /- ## Deficient Rectangles (Three-Cornered) -/
 
@@ -88,16 +88,16 @@ def rectangleMinus2Corner (n m : ℕ) : Region :=
   ((rectangle n m).erase (cornerTR n m)).erase (cornerTR2 n m)
 
 /-- A tiling of the 2×2 rectangle with its top-right corner removed. -/
-def tiling_2x2_minus : TileSet LTrominoSet Unit :=
-  mkTileSet LTrominoSet Unit (fun _ => mkPlacedTile () 0 0 0)
+def tiling_2x2_minus_finset : TileSet_finset LTrominoSet_finset Unit :=
+  mkTileSet_finset LTrominoSet_finset Unit (fun _ => mkPlacedTile_finset () 0 0 0)
 
-theorem tiling_2x2_minus_valid :
-    tiling_2x2_minus.Valid (rectangleMinusCorner 2 2) := by
+theorem tiling_2x2_minus_valid_finset :
+    tiling_2x2_minus_finset.Valid_finset (rectangleMinusCorner 2 2) := by
   decide
 
 /-- The 2×2 rectangle with a missing top-right corner is L-tileable. -/
-theorem tileable_2x2_minus : LTileable (rectangleMinusCorner 2 2) :=
-  ⟨Unit, inferInstance, inferInstance, tiling_2x2_minus, tiling_2x2_minus_valid⟩
+theorem tileable_2x2_minus_finset : LTileable_finset (rectangleMinusCorner 2 2) :=
+  ⟨Unit, inferInstance, inferInstance, tiling_2x2_minus_finset, tiling_2x2_minus_valid_finset⟩
 
 /-- Explicit tiling of the 5×2 rectangle with its top-right corner removed.
 
@@ -108,23 +108,23 @@ L-trominoes are:
 - `T₂ = {(2,0),(1,1),(2,1)}`
 - `T₃ = {(3,0),(3,1),(4,0)}`
 -/
-def tiling_5x2_minus : TileSet LTrominoSet (Fin 3) := ⟨![
+def tiling_5x2_minus_finset : TileSet_finset LTrominoSet_finset (Fin 3) := ⟨![
   ⟨(), (0, 0), 0⟩,  -- T₁ at the left
   ⟨(), (2, 1), 2⟩,  -- T₂ covering the remaining part of the 3×2 block
   ⟨(), (3, 0), 0⟩   -- T₃ to the right, under the missing corner
 ]⟩
 
-theorem tiling_5x2_minus_valid :
-    tiling_5x2_minus.Valid (rectangleMinusCorner 5 2) := by
+theorem tiling_5x2_minus_valid_finset :
+    tiling_5x2_minus_finset.Valid_finset (rectangleMinusCorner 5 2) := by
   decide
 
 /-- The 5×2 rectangle with a missing top-right corner is L-tileable. -/
-theorem tileable_5x2_minus : LTileable (rectangleMinusCorner 5 2) :=
-  ⟨Fin 3, inferInstance, inferInstance, tiling_5x2_minus, tiling_5x2_minus_valid⟩
+theorem tileable_5x2_minus_finset : LTileable_finset (rectangleMinusCorner 5 2) :=
+  ⟨Fin 3, inferInstance, inferInstance, tiling_5x2_minus_finset, tiling_5x2_minus_valid_finset⟩
 
 /-- Explicit tiling of the 4×4 rectangle with its top-right corner removed.
 This is the `2² × 2²` deficiency-1 square used in Ash–Golomb's Theorem 2. -/
-def tiling_4x4_minus : TileSet LTrominoSet (Fin 5) := ⟨![
+def tiling_4x4_minus_finset : TileSet_finset LTrominoSet_finset (Fin 5) := ⟨![
   ⟨(), (0, 0), 0⟩,  -- bottom-left quadrant
   ⟨(), (3, 0), 1⟩,  -- bottom-right quadrant
   ⟨(), (0, 3), 3⟩,  -- top-left quadrant
@@ -132,13 +132,13 @@ def tiling_4x4_minus : TileSet LTrominoSet (Fin 5) := ⟨![
   ⟨(), (1, 1), 0⟩   -- central tromino
 ]⟩
 
-theorem tiling_4x4_minus_valid :
-    tiling_4x4_minus.Valid (rectangleMinusCorner 4 4) := by
+theorem tiling_4x4_minus_valid_finset :
+    tiling_4x4_minus_finset.Valid_finset (rectangleMinusCorner 4 4) := by
   decide
 
 /-- The 4×4 rectangle with a missing top-right corner is L-tileable. -/
-theorem tileable_4x4_minus : LTileable (rectangleMinusCorner 4 4) :=
-  ⟨Fin 5, inferInstance, inferInstance, tiling_4x4_minus, tiling_4x4_minus_valid⟩
+theorem tileable_4x4_minus_finset : LTileable_finset (rectangleMinusCorner 4 4) :=
+  ⟨Fin 5, inferInstance, inferInstance, tiling_4x4_minus_finset, tiling_4x4_minus_valid_finset⟩
 
 /-- Explicit tiling of the 5×5 rectangle with its top-right corner removed.
 
@@ -156,7 +156,7 @@ The eight tiles (0–7) are:
   - `T₃ = {(2,4),(3,4),(3,3)}`,
   - `T₄ = {(3,2),(4,2),(4,3)}`.
 -/
-def tiling_5x5_minus : TileSet LTrominoSet (Fin 8) := ⟨![
+def tiling_5x5_minus_finset : TileSet_finset LTrominoSet_finset (Fin 8) := ⟨![
   -- A: 2×3 rectangle at bottom-left (copy of tiling_2x3)
   ⟨(), (0, 0), 0⟩,
   ⟨(), (1, 2), 2⟩,
@@ -173,13 +173,13 @@ def tiling_5x5_minus : TileSet LTrominoSet (Fin 8) := ⟨![
   ⟨(), (4, 2), 1⟩
 ]⟩
 
-theorem tiling_5x5_minus_valid :
-    tiling_5x5_minus.Valid (rectangleMinusCorner 5 5) := by
+theorem tiling_5x5_minus_valid_finset :
+    tiling_5x5_minus_finset.Valid_finset (rectangleMinusCorner 5 5) := by
   decide
 
 /-- The 5×5 rectangle with a missing top-right corner is L-tileable. -/
-theorem tileable_5x5_minus : LTileable (rectangleMinusCorner 5 5) :=
-  ⟨Fin 8, inferInstance, inferInstance, tiling_5x5_minus, tiling_5x5_minus_valid⟩
+theorem tileable_5x5_minus_finset : LTileable_finset (rectangleMinusCorner 5 5) :=
+  ⟨Fin 8, inferInstance, inferInstance, tiling_5x5_minus_finset, tiling_5x5_minus_valid_finset⟩
 
 /-- Explicit tiling of the 7×7 rectangle with its top-right corner removed.
 
@@ -205,7 +205,7 @@ L-trominoes are:
 - `T₁₅ = {(5,3),(6,3),(6,4)}`
 - `T₁₆ = {(5,4),(5,5),(6,5)}`.
 -/
-def tiling_7x7_minus : TileSet LTrominoSet (Fin 16) := ⟨![
+def tiling_7x7_minus_finset : TileSet_finset LTrominoSet_finset (Fin 16) := ⟨![
   -- T₁
   ⟨(), (0, 1), 3⟩,
   -- T₂
@@ -240,16 +240,16 @@ def tiling_7x7_minus : TileSet LTrominoSet (Fin 16) := ⟨![
   ⟨(), (5, 5), 3⟩
 ]⟩
 
-theorem tiling_7x7_minus_valid :
-    tiling_7x7_minus.Valid (rectangleMinusCorner 7 7) := by
+theorem tiling_7x7_minus_valid_finset :
+    tiling_7x7_minus_finset.Valid_finset (rectangleMinusCorner 7 7) := by
   decide
 
 /-- The 7×7 rectangle with a missing top-right corner is L-tileable. -/
-theorem tileable_7x7_minus : LTileable (rectangleMinusCorner 7 7) :=
-  ⟨Fin 16, inferInstance, inferInstance, tiling_7x7_minus, tiling_7x7_minus_valid⟩
+theorem tileable_7x7_minus_finset : LTileable_finset (rectangleMinusCorner 7 7) :=
+  ⟨Fin 16, inferInstance, inferInstance, tiling_7x7_minus_finset, tiling_7x7_minus_valid_finset⟩
 
 
-def tiling_piece2_base : TileSet LTrominoSet (Fin 5) := ⟨![
+def tiling_piece2_base_finset : TileSet_finset LTrominoSet_finset (Fin 5) := ⟨![
   ⟨(), (0, 0), 0⟩,
   ⟨(), (1, 2), 1⟩,
   ⟨(), (2, 1), 1⟩,
@@ -257,7 +257,7 @@ def tiling_piece2_base : TileSet LTrominoSet (Fin 5) := ⟨![
   ⟨(), (3, 3), 2⟩
 ]⟩
 
-theorem tiling_piece2_base_valid : tiling_piece2_base.Valid (rectangle 4 4 \ {(0, 3)}) := by decide
+theorem tiling_piece2_base_valid_finset : tiling_piece2_base_finset.Valid_finset (rectangle 4 4 \ {(0, 3)}) := by decide
 
-theorem tileable_piece2_base : LTileable (rectangle 4 4 \ {(0, 3)}) :=
-  ⟨Fin 5, inferInstance, inferInstance, tiling_piece2_base, tiling_piece2_base_valid⟩
+theorem tileable_piece2_base_finset : LTileable_finset (rectangle 4 4 \ {(0, 3)}) :=
+  ⟨Fin 5, inferInstance, inferInstance, tiling_piece2_base_finset, tiling_piece2_base_valid_finset⟩
