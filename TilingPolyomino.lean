@@ -1,4 +1,5 @@
+import TilingPolyomino.Mod3
 import TilingPolyomino.Basic
 import TilingPolyomino.TilingSet
-import TilingPolyomino.LTrominoSet
+import TilingPolyomino.LTromino
 import TilingPolyomino.LTrominoSetBridge

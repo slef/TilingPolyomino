@@ -1,434 +1,548 @@
-/-
-# Polyomino Tiling Proofs (L-tromino specialization)
-
-This file develops the theory of tilings by L-trominoes on rectangles
-and deficient rectangles, building on the general framework in
-`TilingPolyomino.Tiling`.
-
-Main results include:
-- `rect_tileable_iff`: characterization of L-tileable rectangles.
-- `rectMinusCorner_tileable_iff`: Ash–Golomb's "dog-eared rectangle" theorem.
--/
-
-import TilingPolyomino.Tiling
-import TilingPolyomino.RectOmega
+import TilingPolyomino.Mod3
 import Mathlib.Tactic
+import TilingPolyomino.TilingSet
+import TilingPolyomino.LTrominoBase
 
+open Set Function
 
-/- ## L-Tromino Protoset
+-- ============================================================
+-- L-tromino shape definitions
+-- ============================================================
 
-The L-tromino is a single prototile that looks like:
-```
-  □
-  □ □   (cells: (0,0), (0,1), (1,0))
-```
--/
+/-- The L-tromino shape (standard orientation): {(0,0),(0,1),(1,0)} -/
+def LShape_cells : Set Cell := {(0, 0), (0, 1), (1, 0)}
 
-/-- The L-tromino shape, anchored at origin -/
-def LTromino : Prototile := ⟨[(0, 0), (0, 1), (1, 0)], by decide⟩
+def LPrototile_set : Prototile_set :=
+  ⟨LShape_cells, by simp [Set.finite_insert, LShape_cells], ⟨(0, 0), by simp [LShape_cells]⟩⟩
 
-/-- A protoset containing just the L-tromino -/
-def LTrominoSet : Protoset Unit := ⟨fun _ => LTromino⟩
+def LProtoset_set : Protoset_set Unit := fun _ => LPrototile_set
 
-/- ## Utility Lemmas -/
+/-- L-tromino tileability in the Set framework -/
+def LTileable_set (R : Set Cell) : Prop := Tileable_set R LProtoset_set
 
-/-- Each L-tromino covers exactly 3 cells -/
-theorem LTromino_covers_3 (pt : PlacedTile Unit) :
-    (pt.cells LTrominoSet).card = 3 :=
-  PlacedTile.cells_card LTrominoSet pt
+-- ============================================================
+-- Bridge helpers (Finset ↔ Set)
+-- ============================================================
 
-/- ## Existential Tileability -/
+private lemma LTrominoSet_nonempty (i : Unit) : (LTrominoSet i : Finset Cell).Nonempty :=
+  ⟨(0, 0), by simp [LTrominoSet, LTromino]⟩
 
-/-- A region is tileable by L-trominoes if there exists a valid tiling -/
-def LTileable (r : Region) : Prop := Tileable LTrominoSet r
-
-/-- 2×3 rectangle tiling -/
-def tiling_2x3 : TileSet LTrominoSet (Fin 2) := ⟨![
-  ⟨(), (0, 0), 0⟩,
-  ⟨(), (1, 2), 2⟩
-]⟩
-
-theorem tiling_2x3_valid : tiling_2x3.Valid (rectangle 2 3) := by decide
-
-/-- The 2×3 rectangle is tileable (basic example) -/
-example : LTileable (rectangle 2 3) :=
-  ⟨Fin 2, inferInstance, inferInstance, tiling_2x3, tiling_2x3_valid⟩
-
-/- ## Impossibility Results -/
-
-/-- If a region is tileable, its area is divisible by 3 -/
-theorem LTileable.area_div_3 {r : Region} (h : LTileable r) : r.card % 3 = 0 := by
-  obtain ⟨ιₜ, _, _, t, hvalid⟩ := h
-  rw [← hvalid.covers]
-  rw [t.card_coveredCells hvalid.disjoint]
-  have h3 : ∀ i : ιₜ, (t.cellsAt i).card = 3 := fun i => LTromino_covers_3 (t i)
-  simp only [h3, Finset.sum_const, Finset.card_univ, smul_eq_mul]
-  omega
-
-/-- A 2×2 rectangle is not tileable (area 4 not divisible by 3) -/
-example : ¬LTileable (rectangle 2 2) := by
-  intro h
-  have := h.area_div_3
-  simp at this
-
-/-- Any rotated L-tromino has two cells with different x-coordinates -/
-theorem rotateProto_LTromino_x_span (r : Fin 4) :
-    ∃ c1 c2 : Cell, c1 ∈ rotateProto LTromino r ∧
-      c2 ∈ rotateProto LTromino r ∧ c1.1 ≠ c2.1 := by
-  use rotateCell (0, 1) r, rotateCell (1, 0) r
-  constructor
-  · simp only [rotateProto, Finset.mem_image]
-    exact ⟨(0, 1), by simp [LTromino], rfl⟩
-  constructor
-  · simp only [rotateProto, Finset.mem_image]
-    exact ⟨(1, 0), by simp [LTromino], rfl⟩
-  · fin_cases r <;> simp [rotateCell, rotateCell90]
-
-/-- Any placed L-tromino has cells with different x-coordinates -/
-theorem LTromino_placed_x_span (pt : PlacedTile Unit) :
-    ∃ c1 c2 : Cell, c1 ∈ pt.cells LTrominoSet ∧ c2 ∈ pt.cells LTrominoSet ∧ c1.1 ≠ c2.1 := by
-  obtain ⟨c1, c2, h1, h2, hne⟩ := rotateProto_LTromino_x_span pt.rotation
-  simp only [PlacedTile.cells, LTrominoSet, Finset.mem_image, translateCell]
-  exact ⟨(c1.1 + pt.translation.1, c1.2 + pt.translation.2),
-         (c2.1 + pt.translation.1, c2.2 + pt.translation.2),
-         ⟨c1, h1, rfl⟩, ⟨c2, h2, rfl⟩, by omega⟩
-
-/-- A 1×n rectangle only has cells with x = 0 -/
-theorem rectangle_1_n_x_eq_0 {n : ℕ} {c : Cell} (h : c ∈ rectangle 1 n) : c.1 = 0 := by
-  simp only [rectangle, Finset.mem_product, Finset.mem_map, Finset.mem_range,
-    Function.Embedding.coeFn_mk] at h
-  obtain ⟨⟨x, hx, hx'⟩, _⟩ := h
-  simp only [Int.ofNat_eq_natCast] at hx'
-  omega
-
-/-- A 1×n rectangle (n ≥ 1) is not tileable by L-trominoes -/
-theorem not_tileable_1_by_n {n : ℕ} (hn : n ≥ 1) : ¬LTileable (rectangle 1 n) := by
-  intro ⟨ιₜ, hfin, _, t, hvalid⟩
-  -- Any placed L-tromino has cells with different x-coordinates
-  -- But rectangle 1×n only has cells with x = 0
-  -- So no L-tromino can fit
-  by_cases hempty : IsEmpty ιₜ
-  · -- No tiles means empty coverage, but rectangle is non-empty
-    haveI := hempty
-    have hcov : t.coveredCells = ∅ := by
-      simp only [TileSet.coveredCells]
-      ext x
-      simp only [Finset.mem_biUnion, Finset.mem_univ, true_and, Finset.notMem_empty, iff_false]
-      intro ⟨i, _⟩
-      exact IsEmpty.false i
-    rw [hvalid.covers] at hcov
-    have : (rectangle 1 n).card ≥ 1 := by simp; omega
-    simp [hcov] at this
-  · -- There's at least one tile
-    rw [not_isEmpty_iff] at hempty
-    obtain ⟨i⟩ := hempty
-    -- That tile has two cells with different x-coordinates
-    obtain ⟨c1, c2, hc1, hc2, hne⟩ := LTromino_placed_x_span (t i)
-    -- Both must be in the rectangle
-    have hc1_rect : c1 ∈ rectangle 1 n := by
-      rw [← hvalid.covers]
-      simp only [TileSet.coveredCells, Finset.mem_biUnion, Finset.mem_univ, true_and]
-      exact ⟨i, hc1⟩
-    have hc2_rect : c2 ∈ rectangle 1 n := by
-      rw [← hvalid.covers]
-      simp only [TileSet.coveredCells, Finset.mem_biUnion, Finset.mem_univ, true_and]
-      exact ⟨i, hc2⟩
-    -- But both have x = 0
-    have h1 := rectangle_1_n_x_eq_0 hc1_rect
-    have h2 := rectangle_1_n_x_eq_0 hc2_rect
-    omega
-
-/-- A 1×3 rectangle is not tileable (special case) -/
-theorem not_tileable_1x3 : ¬LTileable (rectangle 1 3) := not_tileable_1_by_n (by omega)
-
-/- ## Transformation Invariance
-
-L-tileability is preserved under transformations of regions.
-This lets us reduce symmetric cases (e.g., n×1 to 1×n).
--/
-
-/-- The rotation that corresponds to applying swap before/after -/
-def swapRotation : Fin 4 → Fin 4 := ![0, 3, 2, 1]
-
-/-- Key lemma: swapping a rotated L-tromino gives another rotation -/
-theorem swap_rotateProto_LTromino (r : Fin 4) :
-    (rotateProto LTromino r).image swapCell = rotateProto LTromino (swapRotation r) := by
-  fin_cases r <;> decide
-
-/-- Swapping cells commutes with translation (with swapped offset) -/
-theorem swapCell_translateCell (c offset : Cell) :
-    swapCell (translateCell c offset) = translateCell (swapCell c) (swapCell offset) := by
-  simp only [swapCell, translateCell]
-
-/-- If a region is L-tileable, so is its swap -/
-theorem LTileable_swap {r : Region} (h : LTileable r) : LTileable (swapRegion r) := by
-  obtain ⟨ιₜ, _, _, t, hvalid⟩ := h
-  -- Transform each placed tile: swap translation, adjust rotation
-  let t' : TileSet LTrominoSet ιₜ := ⟨fun i =>
-    ⟨(), swapCell (t i).translation, swapRotation (t i).rotation⟩⟩
-  use ιₜ, inferInstance, inferInstance, t'
-  -- Key: show that (t' i).cells = (t i).cells.image swapCell
-  have cells_eq : ∀ i, t'.cellsAt i = (t.cellsAt i).image swapCell := by
-    intro i
-    simp only [TileSet.cellsAt, PlacedTile.cells, LTrominoSet]
-    -- t'.translation = swapCell (t.translation), so t'.translation.1 = t.translation.2
-    have htrans : (t' i).translation = swapCell ((t i).translation) := rfl
-    ext c
-    simp only [Finset.mem_image]
-    constructor
-    · rintro ⟨b, hb, rfl⟩
-      -- b is in rotateProto LTromino (swapRotation (t i).rotation)
-      have hswap := swap_rotateProto_LTromino (t i).rotation
-      rw [← hswap] at hb
-      simp only [Finset.mem_image] at hb
-      obtain ⟨b', hb', rfl⟩ := hb
-      use translateCell b' (t i).translation
-      refine ⟨⟨b', hb', rfl⟩, ?_⟩
-      simp only [translateCell, swapCell]
-      -- Need: (b'.2 + t.trans.2, b'.1 + t.trans.1) = (b'.2 + t'.trans.1, b'.1 + t'.trans.2)
-      -- Since t'.trans = swapCell t.trans, t'.trans.1 = t.trans.2 and t'.trans.2 = t.trans.1
-      rfl
-    · rintro ⟨c', ⟨b, hb, rfl⟩, rfl⟩
-      use swapCell b
-      have hswap := swap_rotateProto_LTromino (t i).rotation
-      rw [← hswap]
-      refine ⟨Finset.mem_image_of_mem _ hb, ?_⟩
-      simp only [translateCell, swapCell]
-      rfl
-  constructor
-  · -- Disjointness preserved (swap is injective)
-    intro i j hij
-    rw [cells_eq, cells_eq]
-    have hdisj := hvalid.disjoint i j hij
-    rw [Finset.disjoint_iff_ne] at hdisj ⊢
-    intro c hc d hd
-    simp only [Finset.mem_image] at hc hd
-    obtain ⟨c', hc', rfl⟩ := hc
-    obtain ⟨d', hd', rfl⟩ := hd
-    intro heq
-    have : c' = d' := swapCell_injective heq
-    exact hdisj c' hc' d' hd' this
-  · -- Coverage: show t'.coveredCells = swapRegion r
-    simp only [TileSet.coveredCells, swapRegion, ← hvalid.covers]
-    ext c
-    simp only [Finset.mem_biUnion, Finset.mem_univ, true_and, Finset.mem_image]
-    constructor
-    · rintro ⟨i, hci⟩
-      rw [cells_eq] at hci
-      simp only [Finset.mem_image] at hci
-      obtain ⟨c', hc', rfl⟩ := hci
-      exact ⟨c', ⟨i, hc'⟩, rfl⟩
-    · rintro ⟨c', ⟨i, hi⟩, rfl⟩
-      use i
-      rw [cells_eq]
-      exact Finset.mem_image_of_mem _ hi
-
-/-- An n×1 rectangle (n ≥ 1) is not tileable by L-trominoes -/
-theorem not_tileable_n_by_1 {n : ℕ} (hn : n ≥ 1) : ¬LTileable (rectangle n 1) := by
-  intro h
-  have h' := LTileable_swap h
-  rw [swap_rectangle] at h'
-  exact not_tileable_1_by_n hn h'
-
-/- ## 3×odd Impossibility -/
-
-/-- The 3×2 rectangle used in the 3×odd impossibility proof -/
-def rect3x2 : Region := rectangle 3 2
-
-/- ## Key Lemmas for the 3×odd Impossibility Proof -/
-
-/-- An L-tromino has y-span at most 1: all cells have y-coordinates within 1 of each other -/
-theorem LTromino_y_span_2 (pt : PlacedTile Unit) (c1 c2 : Cell)
-    (h1 : c1 ∈ pt.cells LTrominoSet) (h2 : c2 ∈ pt.cells LTrominoSet) :
-    (c1.2 - c2.2).natAbs ≤ 1 := by
-  simp only [PlacedTile.cells, Finset.mem_image] at h1 h2
-  obtain ⟨r1, hr1, hc1⟩ := h1
-  obtain ⟨r2, hr2, hc2⟩ := h2
-  simp only [rotateProto, Finset.mem_image] at hr1 hr2
-  obtain ⟨o1, ho1, hro1⟩ := hr1
-  obtain ⟨o2, ho2, hro2⟩ := hr2
-  -- o1, o2 ∈ LTromino.cells = [(0,0), (0,1), (1,0)]
-  simp only [LTrominoSet, LTromino] at ho1 ho2
-  subst hc1 hc2 hro1 hro2
-  simp only [translateCell]
-  -- Now do case analysis on o1, o2, and rotation
-  obtain ⟨_, _, rot⟩ := pt
-  have h1' : o1 ∈ ([(0, 0), (0, 1), (1, 0)] : List Cell) := ho1
-  have h2' : o2 ∈ ([(0, 0), (0, 1), (1, 0)] : List Cell) := ho2
-  fin_cases rot <;> fin_cases h1' <;> fin_cases h2' <;> simp [rotateCell, rotateCell90]
-
-/-- A tile covering (0,0) has all cells with y < 2 (assuming y ≥ 0) -/
-theorem tile_covering_00_y_bound (pt : PlacedTile Unit)
-    (hcover : pt.coversCell LTrominoSet (0, 0))
-    (c : Cell) (hc : c ∈ pt.cells LTrominoSet) (_hy_nonneg : c.2 ≥ 0) :
-    c.2 < 2 := by
-  have hspan := LTromino_y_span_2 pt (0, 0) c hcover hc
-  omega
-
-/-- A tile covering (2,0) has all cells with y < 2 (assuming y ≥ 0) -/
-theorem tile_covering_20_y_bound (pt : PlacedTile Unit)
-    (hcover : pt.coversCell LTrominoSet (2, 0))
-    (c : Cell) (hc : c ∈ pt.cells LTrominoSet) (_hy_nonneg : c.2 ≥ 0) :
-    c.2 < 2 := by
-  have hspan := LTromino_y_span_2 pt (2, 0) c hcover hc
-  omega
-
-/-- An L-tromino has x-span at most 1: all cells have x-coordinates within 1 of each other -/
-theorem LTromino_x_span_2 (pt : PlacedTile Unit) (c1 c2 : Cell)
-    (h1 : c1 ∈ pt.cells LTrominoSet) (h2 : c2 ∈ pt.cells LTrominoSet) :
-    (c1.1 - c2.1).natAbs ≤ 1 := by
-  simp only [PlacedTile.cells, Finset.mem_image] at h1 h2
-  obtain ⟨r1, hr1, hc1⟩ := h1
-  obtain ⟨r2, hr2, hc2⟩ := h2
-  simp only [rotateProto, Finset.mem_image] at hr1 hr2
-  obtain ⟨o1, ho1, hro1⟩ := hr1
-  obtain ⟨o2, ho2, hro2⟩ := hr2
-  simp only [LTrominoSet, LTromino] at ho1 ho2
-  subst hc1 hc2 hro1 hro2
-  simp only [translateCell]
-  obtain ⟨_, _, rot⟩ := pt
-  have h1' : o1 ∈ ([(0, 0), (0, 1), (1, 0)] : List Cell) := ho1
-  have h2' : o2 ∈ ([(0, 0), (0, 1), (1, 0)] : List Cell) := ho2
-  fin_cases rot <;> fin_cases h1' <;> fin_cases h2' <;> simp [rotateCell, rotateCell90]
-
-/-- If a tile covers (0,0) and is contained in rectangle 3 n (n ≥ 2),
-    then it's contained in rect3x2 -/
-theorem tile_covering_00_in_3x2 (n : ℕ) (_hn : n ≥ 2)
-    (pt : PlacedTile Unit)
-    (hcover : pt.coversCell LTrominoSet (0, 0))
-    (hcontained : pt.containedIn LTrominoSet (rectangle 3 n)) :
-    pt.containedIn LTrominoSet rect3x2 := by
-  intro c hc
-  have hc_rect := hcontained hc
-  rw [mem_rectangle] at hc_rect
-  simp only [rect3x2]
-  rw [mem_rectangle]
-  refine ⟨hc_rect.1, hc_rect.2.1, hc_rect.2.2.1, ?_⟩
-  exact tile_covering_00_y_bound pt hcover c hc hc_rect.2.2.1
-
-/-- If a tile covers (2,0) and is contained in rectangle 3 n (n ≥ 2),
-    then it's contained in rect3x2 -/
-theorem tile_covering_20_in_3x2 (n : ℕ) (_hn : n ≥ 2)
-    (pt : PlacedTile Unit)
-    (hcover : pt.coversCell LTrominoSet (2, 0))
-    (hcontained : pt.containedIn LTrominoSet (rectangle 3 n)) :
-    pt.containedIn LTrominoSet rect3x2 := by
-  intro c hc
-  have hc_rect := hcontained hc
-  rw [mem_rectangle] at hc_rect
-  simp only [rect3x2]
-  rw [mem_rectangle]
-  refine ⟨hc_rect.1, hc_rect.2.1, hc_rect.2.2.1, ?_⟩
-  exact tile_covering_20_y_bound pt hcover c hc hc_rect.2.2.1
-
-/-- Tiles covering (0,0) and (2,0) in a 3×n tiling (n≥2) must be disjoint -/
-theorem tiles_00_20_disjoint {ιₜ : Type*} [Fintype ιₜ] [DecidableEq ιₜ]
-    (ts : TileSet LTrominoSet ιₜ) (n : ℕ) (_hn : n ≥ 2)
-    (hvalid : ts.Valid (rectangle 3 n))
-    (i j : ιₜ) (_hi : (ts i).coversCell LTrominoSet (0, 0))
-    (_hj : (ts j).coversCell LTrominoSet (2, 0)) (hij : i ≠ j) :
-    Disjoint ((ts i).cells LTrominoSet) ((ts j).cells LTrominoSet) :=
-  hvalid.disjoint_tiles i j hij
-
-/-- The two tiles covering (0,0) and (2,0) cover exactly rect3x2 -/
-theorem tiles_00_20_cover_3x2 {ιₜ : Type*} [Fintype ιₜ] [DecidableEq ιₜ]
-    (ts : TileSet LTrominoSet ιₜ) (n : ℕ) (hn : n ≥ 2)
-    (hvalid : ts.Valid (rectangle 3 n))
-    (i j : ιₜ) (hi : (ts i).coversCell LTrominoSet (0, 0))
-    (hj : (ts j).coversCell LTrominoSet (2, 0)) (hij : i ≠ j) :
-    ((ts i).cells LTrominoSet) ∪ ((ts j).cells LTrominoSet) = rect3x2 := by
-  -- Both tiles are contained in rect3x2
-  have hci : (ts i).containedIn LTrominoSet (rectangle 3 n) := hvalid.tile_contained i
-  have hcj : (ts j).containedIn LTrominoSet (rectangle 3 n) := hvalid.tile_contained j
-  have hi_3x2 := tile_covering_00_in_3x2 n hn (ts i) hi hci
-  have hj_3x2 := tile_covering_20_in_3x2 n hn (ts j) hj hcj
-  -- They are disjoint
-  have hdisj := tiles_00_20_disjoint ts n hn hvalid i j hi hj hij
-  -- Each has 3 cells (L-tromino has 3 cells)
-  have hcard_i : ((ts i).cells LTrominoSet).card = 3 := LTromino_covers_3 (ts i)
-  have hcard_j : ((ts j).cells LTrominoSet).card = 3 := LTromino_covers_3 (ts j)
-  have hcard_rect : rect3x2.card = 6 := by simp [rect3x2]
-  -- Union is subset of rect3x2
-  have hunion_sub : (ts i).cells LTrominoSet ∪ (ts j).cells LTrominoSet ⊆ rect3x2 :=
-    Finset.union_subset hi_3x2 hj_3x2
-  -- Union has 6 cells (3 + 3 since disjoint)
-  have hcard_union : ((ts i).cells LTrominoSet ∪ (ts j).cells LTrominoSet).card = 6 := by
-    rw [Finset.card_union_of_disjoint hdisj, hcard_i, hcard_j]
-  -- Equal by cardinality
-  exact Finset.eq_of_subset_of_card_le hunion_sub (by omega)
-
-/-- The remaining tiles (excluding i and j) cover exactly rectangle 3 n minus rect3x2 -/
-theorem remaining_tiles_cover {ιₜ : Type*} [Fintype ιₜ] [DecidableEq ιₜ]
-    (ts : TileSet LTrominoSet ιₜ) (n : ℕ) (hn : n ≥ 2)
-    (hvalid : ts.Valid (rectangle 3 n))
-    (i j : ιₜ) (hi : (ts i).coversCell LTrominoSet (0, 0))
-    (hj : (ts j).coversCell LTrominoSet (2, 0)) (hij : i ≠ j) :
-    (Finset.univ.filter (fun k => k ≠ i ∧ k ≠ j)).biUnion (fun k => (ts k).cells LTrominoSet) =
-    rectangle 3 n \ rect3x2 := by
-  -- The two tiles cover rect3x2
-  have hcover_ij := tiles_00_20_cover_3x2 ts n hn hvalid i j hi hj hij
-  -- The full tiling covers rectangle 3 n
-  have hcover_all : ts.coveredCells = rectangle 3 n := hvalid.covers
-  -- The remaining tiles cover the complement
+private lemma LProtoset_set_eq_toSet :
+    LProtoset_set = toProtoset_set LTrominoSet LTrominoSet_nonempty := by
+  funext i
+  cases i
+  apply Prototile_set.ext
   ext c
-  simp only [Finset.mem_biUnion, Finset.mem_filter, Finset.mem_univ, true_and,
-    Finset.mem_sdiff]
-  constructor
-  · -- If c is covered by some tile k ≠ i, j, then c ∈ rectangle 3 n \ rect3x2
-    rintro ⟨k, ⟨hki, hkj⟩, hck⟩
-    constructor
-    · -- c ∈ rectangle 3 n (from validity)
-      rw [← hcover_all]
-      simp only [TileSet.coveredCells, Finset.mem_biUnion, Finset.mem_univ, true_and]
-      exact ⟨k, hck⟩
-    · -- c ∉ rect3x2 (disjoint from tiles i and j)
-      intro hc_rect
-      rw [← hcover_ij] at hc_rect
-      simp only [Finset.mem_union] at hc_rect
-      rcases hc_rect with hci | hcj
-      · -- c ∈ (ts i).cells, but k ≠ i and tiles are disjoint
-        have hdisj := hvalid.disjoint_tiles k i hki
-        exact Finset.disjoint_left.mp hdisj hck hci
-      · -- c ∈ (ts j).cells, but k ≠ j and tiles are disjoint
-        have hdisj := hvalid.disjoint_tiles k j hkj
-        exact Finset.disjoint_left.mp hdisj hck hcj
-  · -- If c ∈ rectangle 3 n \ rect3x2, then c is covered by some tile k ≠ i, j
-    rintro ⟨hc_rect, hc_not_3x2⟩
-    -- c must be covered by some tile
-    rw [← hcover_all] at hc_rect
-    simp only [TileSet.coveredCells, Finset.mem_biUnion, Finset.mem_univ, true_and] at hc_rect
-    obtain ⟨k, hck⟩ := hc_rect
-    -- k cannot be i or j (since c ∉ rect3x2 but tiles i,j cover rect3x2)
-    refine ⟨k, ⟨?_, ?_⟩, hck⟩
-    · -- k ≠ i
-      intro heq; subst heq
-      rw [← hcover_ij] at hc_not_3x2
-      exact hc_not_3x2 (Finset.mem_union_left _ hck)
-    · -- k ≠ j
-      intro heq; subst heq
-      rw [← hcover_ij] at hc_not_3x2
-      exact hc_not_3x2 (Finset.mem_union_right _ hck)
+  simp [
+    LProtoset_set, LPrototile_set, LShape_cells,
+    toProtoset_set, toPrototile_set, LTrominoSet, LTromino
+  ]
 
-/-- rectangle 3 n minus rect3x2 equals the translated rectangle 3 (n-2) -/
-theorem rectangle_minus_3x2 (n : ℕ) (hn : n ≥ 2) :
-    rectangle 3 n \ rect3x2 = translateRegion (rectangle 3 (n - 2)) (0, 2) := by
+private def lPlaced_set (dx dy : ℤ) (r : Fin 4) : Set Cell :=
+  PlacedTile_set.cells LProtoset_set ⟨(), (dx, dy), r⟩
+
+@[simp] private theorem lPlaced_set_eq (dx dy : ℤ) (r : Fin 4) :
+    lPlaced_set dx dy r = translate dx dy (rotate r LShape_cells) := by
+  rfl
+
+theorem LShape_eq_rects : LShape_cells = rect 0 0 1 2 ∪ rect 1 0 2 1 := by
   ext ⟨x, y⟩
-  simp only [Finset.mem_sdiff, mem_rectangle, rect3x2, translateRegion, Finset.mem_image,
-    translateCell, Prod.mk.injEq]
-  constructor
-  · rintro ⟨⟨hx0, hxn, hy0, hyn⟩, hnotin⟩
-    -- y must be ≥ 2 (otherwise would be in rect3x2)
-    have hy2 : y ≥ 2 := by
-      by_contra h
-      push_neg at h
-      exact hnotin ⟨hx0, hxn, hy0, h⟩
-    refine ⟨(x, y - 2), ⟨by omega, by omega, by omega, by omega⟩, by omega, by omega⟩
-  · rintro ⟨⟨x', y'⟩, ⟨hx0', hxn', hy0', hyn'⟩, hxeq, hyeq⟩
-    refine ⟨⟨by omega, by omega, by omega, by omega⟩, ?_⟩
-    intro ⟨_, _, _, hy2⟩
+  simp [LShape_cells]
+  omega
+
+theorem LPrototile_set_ncard : LPrototile_set.cells.ncard = 3 := by
+  dsimp [LPrototile_set, LShape_cells]
+  rw [Set.ncard_insert_of_notMem]
+  · rw [Set.ncard_insert_of_notMem]
+    · rw [Set.ncard_singleton]
+    · simp
+  · simp
+
+/-- swapRegion of a standard rect is the transposed rect -/
+lemma swapRegion_rect (a b : ℤ) :
+    Set.swapRegion (rect 0 0 a b) = rect 0 0 b a := by
+  ext ⟨x, y⟩; simp only [mem_swapRegion, mem_rect]; omega
+
+-- ============================================================
+-- Swap rotation: swapRegion commutes with lPlaced_set
+-- ============================================================
+
+private def swapRot : Fin 4 → Fin 4
+  | 0 => 0
+  | 1 => 3
+  | 2 => 2
+  | 3 => 1
+
+private theorem swapRegion_lPlaced_set (dx dy : ℤ) (r : Fin 4) :
+    Set.swapRegion (lPlaced_set dx dy r) = lPlaced_set dy dx (swapRot r) := by
+  rw [lPlaced_set_eq, lPlaced_set_eq, LShape_eq_rects]
+  fin_cases r
+  · dsimp [swapRot]
+    rect_omega
+  · dsimp [swapRot]
+    rect_omega
+  · dsimp [swapRot]
+    rect_omega
+  · dsimp [swapRot]
+    rect_omega
+
+theorem LTileable_swap_set {R : Set Cell} (h : Tileable_set R LProtoset_set) :
+    Tileable_set (Set.swapRegion R) LProtoset_set := by
+  obtain ⟨ιₜ, hft, t, hv⟩ := h
+  haveI : Fintype ιₜ := hft
+  let t' : TileSet_set LProtoset_set ιₜ := ⟨fun i =>
+    ⟨(), ((t.tiles i).translation.2, (t.tiles i).translation.1), swapRot (t.tiles i).rotation⟩⟩
+  have hcell : ∀ i, TileSet_set.cellsAt t' i = Set.swapRegion (TileSet_set.cellsAt t i) := by
+    intro i
+    rcases hti : t.tiles i with ⟨idx, tr, r⟩; rcases tr with ⟨dx, dy⟩; cases idx
+    simpa [TileSet_set.cellsAt, t', hti, lPlaced_set] using (swapRegion_lPlaced_set dx dy r).symm
+  refine ⟨ιₜ, hft, t', ⟨?_, ?_⟩⟩
+  · intro i j hij
+    have hd := hv.disjoint i j hij
+    rw [Set.disjoint_left] at hd ⊢
+    exact fun p hp1 hp2 => hd (by simpa [hcell i, mem_swapRegion] using hp1)
+                              (by simpa [hcell j, mem_swapRegion] using hp2)
+  · ext p
+    simp only [TileSet_set.coveredCells, Set.mem_iUnion, hcell, mem_swapRegion]
+    exact ⟨fun ⟨i, hi⟩ => hv.covers ▸
+             (Set.mem_iUnion.mpr ⟨i, hi⟩ : (p.2, p.1) ∈ TileSet_set.coveredCells t),
+           fun hpR => Set.mem_iUnion.mp
+             (hv.covers.symm ▸ hpR : (p.2, p.1) ∈ TileSet_set.coveredCells t)⟩
+
+-- ============================================================
+-- Base cases
+-- ============================================================
+
+theorem LTileable_2x3_set : Tileable_set (rect 0 0 2 3) LProtoset_set := by
+  refine ⟨Fin 2, inferInstance, ⟨![⟨(), (0, 0), 0⟩, ⟨(), (1, 2), 2⟩]⟩, ⟨?_, ?_⟩⟩
+  · intro i j hij
+    fin_cases i <;> fin_cases j <;>
+      simp_all only [Fin.isValue, Fin.zero_eta, Fin.mk_one,
+        Set.disjoint_iff_inter_eq_empty, TileSet_set.cellsAt, PlacedTile_set.cells,
+        LProtoset_set, LPrototile_set, LShape_cells] <;>
+      rect_omega
+  · ext ⟨x, y⟩
+    simp [TileSet_set.coveredCells, Set.mem_iUnion, Fin.exists_fin_two,
+      TileSet_set.cellsAt, PlacedTile_set.cells,
+      LProtoset_set, LPrototile_set, LShape_cells,
+      mem_translate, mem_rotate, mem_rect, inverseRot,
+      rotateCell_0, rotateCell_2]
     omega
 
-/- ## Full Rectangle Characterization -/
+theorem LTileable_3x2_set : Tileable_set (rect 0 0 3 2) LProtoset_set :=
+  swapRegion_rect 2 3 ▸ LTileable_swap_set LTileable_2x3_set
+
+-- ============================================================
+-- Inductive rectangle families
+-- ============================================================
+
+theorem LTileable_2x6_set : Tileable_set (rect 0 0 2 6) LProtoset_set := by
+  have h := LTileable_2x3_set.scale_rect (by norm_num) (by norm_num) 1 2 (by omega) (by omega)
+  convert h using 2
+
+theorem LTileable_6x2_set : Tileable_set (rect 0 0 6 2) LProtoset_set := by
+  have h := LTileable_3x2_set.scale_rect (by norm_num) (by norm_num) 2 1 (by omega) (by omega)
+  convert h using 2
+
+theorem LTileable_3x4_set : Tileable_set (rect 0 0 3 4) LProtoset_set := by
+  have h := LTileable_3x2_set.scale_rect (by norm_num) (by norm_num) 1 2 (by omega) (by omega)
+  convert h using 2
+
+theorem LTileable_3x6_set : Tileable_set (rect 0 0 3 6) LProtoset_set := by
+  have h := LTileable_3x2_set.scale_rect (by norm_num) (by norm_num) 1 3 (by omega) (by omega)
+  convert h using 2
+
+theorem LTileable_6x3_set : Tileable_set (rect 0 0 6 3) LProtoset_set := by
+  have h := LTileable_2x3_set.scale_rect (by norm_num) (by norm_num) 3 1 (by omega) (by omega)
+  convert h using 2
+
+theorem LTileable_6x6_set : Tileable_set (rect 0 0 6 6) LProtoset_set := by
+  have h := LTileable_2x3_set.scale_rect (by norm_num) (by norm_num) 3 2 (by omega) (by omega)
+  convert h using 2
+
+theorem LTileable_2x_mult3_set (k : ℕ) (hk : 1 ≤ k) :
+    Tileable_set (rect 0 0 2 (3 * k)) LProtoset_set := by
+  have h := LTileable_2x3_set.scale_rect (by norm_num) (by norm_num) 1 k (by omega) hk
+  convert h using 2; ring
+
+theorem LTileable_3x_even_set (k : ℕ) (hk : 1 ≤ k) :
+    Tileable_set (rect 0 0 3 (2 * k)) LProtoset_set := by
+  have h := LTileable_3x2_set.scale_rect (by norm_num) (by norm_num) 1 k (by omega) hk
+  convert h using 2; ring
+
+theorem LTileable_mult3_x_2_set (k : Nat) (hk : 1 ≤ k) :
+    Tileable_set (rect 0 0 (3 * k) 2) LProtoset_set := by
+  have h := LTileable_3x2_set.scale_rect (by norm_num) (by norm_num) k 1 hk (by omega)
+  convert h using 2; ring
+
+theorem LTileable_even_x_3_set (k : Nat) (hk : 1 ≤ k) :
+    Tileable_set (rect 0 0 (2 * k) 3) LProtoset_set := by
+  have h := LTileable_2x3_set.scale_rect (by norm_num) (by norm_num) k 1 hk (by omega)
+  convert h using 2; ring
+
+theorem LTileable_6x_of_ge2_set (k : Nat) (hk : 2 ≤ k) :
+    Tileable_set (rect 0 0 6 k) LProtoset_set := by
+  revert hk; induction k using Nat.strong_induction_on; rename_i n ih; intro hk
+  rcases eq_or_lt_of_le hk with rfl | hn2
+  · exact LTileable_6x2_set
+  · rcases eq_or_lt_of_le (show 3 ≤ n from hn2) with rfl | hn3
+    · exact LTileable_6x3_set
+    · have h_prev : Tileable_set (rect 0 0 6 ((n : ℤ) - 2)) LProtoset_set := by
+        have h := ih (n - 2) (by omega) (by omega)
+        convert h using 2; omega
+      have h_stripe : Tileable_set (rect 0 ((n : ℤ) - 2) 6 ((n : ℤ) - 2 + 2)) LProtoset_set := by
+        convert tileable_translate_set LTileable_6x2_set 0 ((n : ℤ) - 2) using 1
+        ext ⟨x, y⟩; simp only [mem_rect, mem_translate]; omega
+      have h_un := Tileable_set.vertical_union (by omega) (by omega) h_prev h_stripe
+      rwa [show ((n : ℤ) - 2 + 2) = n from by omega] at h_un
+
+theorem LTileable_kx6_of_ge2_set (k : Nat) (hk : 2 ≤ k) :
+    Tileable_set (rect 0 0 k 6) LProtoset_set := by
+  simpa [swapRegion_rect] using LTileable_swap_set (LTileable_6x_of_ge2_set k hk)
+
+-- ============================================================
+-- Area divisibility
+-- ============================================================
+
+theorem LTileable_rect_area_dvd_set (m n : Nat) (h : Tileable_set (rect 0 0 m n) LProtoset_set) :
+    3 ∣ m * n := by
+  simpa [LProtoset_set, LPrototile_set_ncard, rect_ncard] using
+    Tileable_set.ncard_dvd (ι := Unit) (ps := LProtoset_set) (rect_finite 0 0 m n) h ()
+
+-- ============================================================
+-- Impossibility theorems
+-- ============================================================
+
+private lemma lPlaced_set_contains_origin_offset (dx dy : ℤ) (r : Fin 4) :
+    (dx, dy) ∈ lPlaced_set dx dy r := by
+  fin_cases r <;>
+    simp [lPlaced_set_eq, mem_translate, mem_rotate, LShape_cells, inverseRot,
+      rotateCell_0, rotateCell_1, rotateCell_2, rotateCell_3,
+      Set.mem_insert_iff, Set.mem_singleton_iff, Prod.mk.injEq]
+
+private lemma lPlaced_set_x_span (dx dy : ℤ) (r : Fin 4) :
+    (dx + 1, dy) ∈ lPlaced_set dx dy r ∨ (dx - 1, dy) ∈ lPlaced_set dx dy r := by
+  fin_cases r <;>
+    simp [lPlaced_set_eq, mem_translate, mem_rotate, LShape_cells, inverseRot,
+      rotateCell_0, rotateCell_1, rotateCell_2, rotateCell_3,
+      Set.mem_insert_iff, Set.mem_singleton_iff, Prod.mk.injEq]
+
+/-- No 1×n strip (n ≥ 1) is L-tileable: placed copies always span ≥ 2 x-values -/
+theorem not_LTileable_1xn_set (n : ℕ) (hn : 1 ≤ n) :
+    ¬ Tileable_set (rect 0 0 1 n) LProtoset_set := by
+  intro ⟨ιₜ, hft, t, hv⟩; haveI : Fintype ιₜ := hft
+  -- Get the tile covering (0,0)
+  have hcell : ((0 : ℤ), (0 : ℤ)) ∈ rect 0 0 1 (n : ℤ) := by simp [mem_rect]; omega
+  rw [← hv.covers, TileSet_set.coveredCells, Set.mem_iUnion] at hcell
+  obtain ⟨i, hi⟩ := hcell
+  let dx := (t.tiles i).translation.1; let dy := (t.tiles i).translation.2
+  let r  := (t.tiles i).rotation
+  have hrep : TileSet_set.cellsAt t i = lPlaced_set dx dy r := by
+    simp [TileSet_set.cellsAt, lPlaced_set, dx, dy, r]
+  -- Any cell in tile i has x-coordinate in [0, 1)
+  have h_sub : ∀ q, q ∈ lPlaced_set dx dy r → 0 ≤ q.1 ∧ q.1 < 1 := fun q hq => by
+    have h : q ∈ rect 0 0 1 (n : ℤ) := hv.covers ▸ Set.mem_iUnion.mpr ⟨i, hrep ▸ hq⟩
+    simp only [mem_rect] at h; exact ⟨h.1, h.2.1⟩
+  -- The origin offset (dx, dy) is in the tile → 0 ≤ dx < 1
+  have hbnd := h_sub _ (lPlaced_set_contains_origin_offset dx dy r)
+  -- The tile spans ≥ 2 x-values → contradiction
+  rcases lPlaced_set_x_span dx dy r with h2 | h2
+  · have := (h_sub _ h2).2; omega
+  · have := (h_sub _ h2).1; omega
+
+/-- Same result for the transposed strip (n×1) -/
+theorem not_LTileable_nx1_set (n : ℕ) (hn : 1 ≤ n) :
+    ¬ Tileable_set (rect 0 0 n 1) LProtoset_set := by
+  intro h
+  exact not_LTileable_1xn_set n hn (swapRegion_rect n 1 ▸ LTileable_swap_set h)
+
+-- ============================================================
+-- 3×(2k+1) Impossibility
+-- ============================================================
+
+/-- ncard of any lPlaced_set is 3 -/
+private lemma lPlaced_set_ncard (dx dy : ℤ) (r : Fin 4) :
+    (lPlaced_set dx dy r).ncard = 3 := by
+  have heq : lPlaced_set dx dy r = PlacedTile_set.cells LProtoset_set ⟨(), (dx, dy), r⟩ := by
+    simp [lPlaced_set]
+  rw [heq, PlacedTile_set.cells_ncard_eq]
+  simp [LProtoset_set, LPrototile_set_ncard]
+
+/-- lPlaced_set is always finite -/
+private lemma lPlaced_set_finite (dx dy : ℤ) (r : Fin 4) :
+    (lPlaced_set dx dy r).Finite := by
+  have heq : lPlaced_set dx dy r = PlacedTile_set.cells LProtoset_set ⟨(), (dx, dy), r⟩ := by
+    simp [lPlaced_set]
+  rw [heq]; exact PlacedTile_set.cells_finite _
+
+/-- A single L-tromino cannot contain both (0,0) and (2,0): x-span is at most 1 -/
+private lemma lPlaced_set_not_cover_x02 (dx dy : ℤ) (r : Fin 4)
+    (h0 : ((0 : ℤ), (0 : ℤ)) ∈ lPlaced_set dx dy r)
+    (h2 : ((2 : ℤ), (0 : ℤ)) ∈ lPlaced_set dx dy r) : False := by
+  fin_cases r <;>
+    simp only [lPlaced_set_eq, mem_translate, mem_rotate, LShape_cells, inverseRot,
+      rotateCell_0, rotateCell_1, rotateCell_2, rotateCell_3,
+      Set.mem_insert_iff, Set.mem_singleton_iff, Prod.mk.injEq] at h0 h2 <;>
+    omega
+
+/-- A tile with any cell at y=0 must have all cells at y<2 -/
+private lemma lPlaced_set_ybnd_of_y0 (dx dy : ℤ) (r : Fin 4)
+    (hc : ∃ cx : ℤ, (cx, (0 : ℤ)) ∈ lPlaced_set dx dy r)
+    (q : Cell) (hq : q ∈ lPlaced_set dx dy r) : q.2 < 2 := by
+  obtain ⟨cx, hcx⟩ := hc
+  fin_cases r <;>
+    simp only [lPlaced_set_eq, mem_translate, mem_rotate, LShape_cells, inverseRot,
+      rotateCell_0, rotateCell_1, rotateCell_2, rotateCell_3,
+      Set.mem_insert_iff, Set.mem_singleton_iff, Prod.mk.injEq] at hcx hq <;>
+    omega
+
+/-- A 3×(2k+1) rectangle is not L-tileable (Set framework) -/
+theorem not_LTileable_3x_odd_set (k : ℕ) : ¬ Tileable_set (rect 0 0 3 (2*k+1)) LProtoset_set := by
+  induction k with
+  | zero =>
+    -- rect 0 0 3 (2*0+1) = rect 0 0 3 1 = rect 0 0 3 1 (cast is (1:ℤ))
+    norm_cast
+    exact not_LTileable_nx1_set 3 (by omega)
+  | succ k' ih =>
+    -- Rewrite goal: ¬ Tileable_set (rect 0 0 3 (2*↑k' + 3))
+    rw [show (2 : ℤ) * ↑(k' + 1) + 1 = 2 * (k' : ℤ) + 3 from by push_cast; omega]
+    intro ⟨ιₜ, hft, t, hv⟩
+    haveI : Fintype ιₜ := hft; haveI : DecidableEq ιₜ := Classical.decEq _
+    -- Get tiles covering opposite corners (0,0) and (2,0)
+    have h00_in : ((0 : ℤ), (0 : ℤ)) ∈ rect 0 0 3 (2 * (k' : ℤ) + 3) := by simp [mem_rect]; omega
+    have h20_in : ((2 : ℤ), (0 : ℤ)) ∈ rect 0 0 3 (2 * (k' : ℤ) + 3) := by simp [mem_rect]; omega
+    rw [← hv.covers, TileSet_set.coveredCells, Set.mem_iUnion] at h00_in h20_in
+    obtain ⟨i, hi⟩ := h00_in; obtain ⟨j, hj⟩ := h20_in
+    -- Name tile parameters
+    let dxi := (t.tiles i).translation.1; let dyi := (t.tiles i).translation.2
+    let ri  := (t.tiles i).rotation
+    let dxj := (t.tiles j).translation.1; let dyj := (t.tiles j).translation.2
+    let rj  := (t.tiles j).rotation
+    have hi_eq : t.cellsAt i = lPlaced_set dxi dyi ri := by
+      simp [TileSet_set.cellsAt, lPlaced_set, dxi, dyi, ri]
+    have hj_eq : t.cellsAt j = lPlaced_set dxj dyj rj := by
+      simp [TileSet_set.cellsAt, lPlaced_set, dxj, dyj, rj]
+    have hi' : ((0 : ℤ), (0 : ℤ)) ∈ lPlaced_set dxi dyi ri := hi_eq ▸ hi
+    have hj' : ((2 : ℤ), (0 : ℤ)) ∈ lPlaced_set dxj dyj rj := hj_eq ▸ hj
+    -- i ≠ j and tiles are disjoint
+    have hij : i ≠ j := by
+      intro heq; subst heq; exact lPlaced_set_not_cover_x02 dxi dyi ri hi' hj'
+    have hdisj : Disjoint (lPlaced_set dxi dyi ri) (lPlaced_set dxj dyj rj) := by
+      rw [← hi_eq, ← hj_eq]; exact hv.disjoint i j hij
+    -- Any cell of any tile is in rect 0 0 3 (2k'+3)
+    have sub_full : ∀ (ii : ιₜ), TileSet_set.cellsAt t ii ⊆ rect 0 0 3 (2 * (k' : ℤ) + 3) :=
+      fun ii q hq => hv.covers ▸ Set.mem_iUnion.mpr ⟨ii, hq⟩
+    -- Each corner tile is contained in the bottom strip rect 0 0 3 2
+    have hi_sub_3x2 : lPlaced_set dxi dyi ri ⊆ rect 0 0 3 2 := fun q hq => by
+      have hf := sub_full i (hi_eq ▸ hq); simp only [mem_rect] at hf ⊢
+      exact ⟨hf.1, hf.2.1, hf.2.2.1, lPlaced_set_ybnd_of_y0 dxi dyi ri ⟨0, hi'⟩ q hq⟩
+    have hj_sub_3x2 : lPlaced_set dxj dyj rj ⊆ rect 0 0 3 2 := fun q hq => by
+      have hf := sub_full j (hj_eq ▸ hq); simp only [mem_rect] at hf ⊢
+      exact ⟨hf.1, hf.2.1, hf.2.2.1, lPlaced_set_ybnd_of_y0 dxj dyj rj ⟨2, hj'⟩ q hq⟩
+    -- Their union fills rect 0 0 3 2 exactly (two disjoint 3-cell tiles in a 6-cell rect)
+    have hunion_eq : lPlaced_set dxi dyi ri ∪ lPlaced_set dxj dyj rj = rect 0 0 3 2 := by
+      have hcard : (lPlaced_set dxi dyi ri ∪ lPlaced_set dxj dyj rj).ncard = 6 := by
+        rw [Set.ncard_union_eq hdisj (lPlaced_set_finite _ _ _) (lPlaced_set_finite _ _ _),
+            lPlaced_set_ncard, lPlaced_set_ncard]
+      exact Set.eq_of_subset_of_ncard_le (Set.union_subset hi_sub_3x2 hj_sub_3x2)
+        (by simp [rect_ncard] at hcard ⊢; omega) (rect_finite _ _ _ _)
+    -- Remove the two bottom tiles; the remainder is the translated smaller rect
+    have hS : t.cellsAt i ∪ t.cellsAt j = rect 0 0 3 2 := by rw [hi_eq, hj_eq]; exact hunion_eq
+    have h_remain := Tileable_set.remove_two t hv i j hij hS
+    have h_diff_eq : rect 0 0 3 (2 * (k' : ℤ) + 3) \ rect 0 0 3 2 =
+        translate 0 2 (rect 0 0 3 (2 * (k' : ℤ) + 1)) := by
+      ext ⟨x, y⟩; simp only [Set.mem_diff, mem_rect, mem_translate]; omega
+    rw [h_diff_eq] at h_remain
+    -- Translate back and apply IH
+    have h_back : Tileable_set (rect 0 0 3 (2 * (k' : ℤ) + 1)) LProtoset_set := by
+      convert h_remain.translate 0 (-2) using 1
+      ext ⟨x, y⟩; simp only [mem_translate, mem_rect]; omega
+    exact ih h_back
+
+-- ============================================================
+-- 2×n biconditional
+-- ============================================================
+
+/-- 2×n is L-tileable iff 3 ∣ n -/
+theorem LTileable_2xn_iff_set (n : ℕ) : Tileable_set (rect 0 0 2 n) LProtoset_set ↔ 3 ∣ n := by
+  constructor
+  · intro h
+    have hdvd := LTileable_rect_area_dvd_set 2 n h
+    rcases hdvd with ⟨k, hk⟩
+    exact ⟨n - k, by omega⟩
+  · rintro ⟨k, hk⟩
+    subst hk
+    rcases Nat.eq_zero_or_pos k with rfl | hk_pos
+    · simp only [Nat.mul_zero, Nat.cast_zero]
+      rw [rect_empty_of_eq]
+      exact Tileable_set.empty LProtoset_set
+    · exact LTileable_2x_mult3_set k hk_pos
+
+-- ============================================================
+-- 3×n biconditional
+-- ============================================================
+
+/-- 3×n is L-tileable iff n is even -/
+theorem LTileable_3xn_iff_set (n : ℕ) : Tileable_set (rect 0 0 3 n) LProtoset_set ↔ 2 ∣ n := by
+  constructor
+  · intro h
+    rcases Nat.even_or_odd n with he | ⟨k, hk⟩
+    · exact even_iff_two_dvd.mp he
+    · have hk' : (n : ℤ) = 2 * k + 1 := by exact_mod_cast hk
+      exact absurd (hk' ▸ h) (not_LTileable_3x_odd_set k)
+  · rintro ⟨k, hk⟩
+    subst hk
+    rcases Nat.eq_zero_or_pos k with rfl | hk_pos
+    · simp only [Nat.mul_zero, Nat.cast_zero]
+      rw [rect_empty_of_eq]
+      exact Tileable_set.empty LProtoset_set
+    · exact LTileable_3x_even_set k hk_pos
+
+/-- n×3 is L-tileable iff n is even (by symmetry with 3×n) -/
+theorem LTileable_nx3_iff_set (n : ℕ) : Tileable_set (rect 0 0 n 3) LProtoset_set ↔ 2 ∣ n := by
+  rw [← LTileable_3xn_iff_set]
+  constructor <;> intro h <;> simpa [swapRegion_rect] using LTileable_swap_set h
+
+/-- n×2 is L-tileable iff 3 ∣ n (by symmetry with 2×n) -/
+theorem LTileable_nx2_iff_set (n : ℕ) : Tileable_set (rect 0 0 n 2) LProtoset_set ↔ 3 ∣ n := by
+  rw [← LTileable_2xn_iff_set]
+  constructor <;> intro h <;> simpa [swapRegion_rect] using LTileable_swap_set h
+
+-- ============================================================
+-- General 2D families via refine
+-- ============================================================
+
+/-- Any (3a) × (2b) rectangle is L-tileable (a, b ≥ 1) -/
+theorem LTileable_mult3_mult2_set (a b : ℕ) (ha : 1 ≤ a) (hb : 1 ≤ b) :
+    Tileable_set (rect 0 0 (3 * a) (2 * b)) LProtoset_set := by
+  have h := LTileable_3x2_set.scale_rect (by norm_num) (by norm_num) a b ha hb
+  convert h using 2 <;> ring
+
+/-- Any (2a) × (3b) rectangle is L-tileable (a, b ≥ 1) -/
+theorem LTileable_mult2_mult3_set (a b : ℕ) (ha : 1 ≤ a) (hb : 1 ≤ b) :
+    Tileable_set (rect 0 0 (2 * a) (3 * b)) LProtoset_set := by
+  have h := LTileable_swap_set (LTileable_mult3_mult2_set b a hb ha)
+  have heq : Set.swapRegion (rect 0 0 (3 * b) (2 * a)) = rect 0 0 (2 * a) (3 * b) := by
+    ext ⟨x, y⟩
+    simp only [mem_swapRegion, mem_rect]
+    omega
+  rwa [heq] at h
+
+-- ============================================================
+-- New families: odd × 6k
+-- ============================================================
+
+/-- n×6 is L-tileable for all odd n ≥ 3 -/
+theorem LTileable_odd_x_6_set (n : ℕ) (hn_odd : n % 2 = 1) (hn_ge : 3 ≤ n) :
+    Tileable_set (rect 0 0 n 6) LProtoset_set := by
+  revert hn_odd hn_ge; induction n using Nat.strong_induction_on; rename_i n ih; intro hn_odd hn_ge
+  rcases Nat.eq_or_lt_of_le hn_ge with rfl | hn_gt
+  · exact LTileable_3x6_set
+  · have h_prev : Tileable_set (rect 0 0 ((n : ℤ) - 2) 6) LProtoset_set := by
+      have h := ih (n - 2) (by omega) (by omega) (by omega)
+      convert h using 2; omega
+    have h_stripe : Tileable_set (rect ((n : ℤ) - 2) 0 ((n : ℤ) - 2 + 2) 6) LProtoset_set := by
+      convert tileable_translate_set LTileable_2x6_set ((n : ℤ) - 2) 0 using 1
+      ext ⟨x, y⟩; simp only [mem_rect, mem_translate]; omega
+    have h_un := Tileable_set.horizontal_union (by omega) (by omega) h_prev h_stripe
+    rwa [show ((n : ℤ) - 2 + 2) = n from by omega] at h_un
+
+/-- 6×n is L-tileable for all odd n ≥ 3 (by swap) -/
+theorem LTileable_6x_odd_set (n : ℕ) (hn_odd : n % 2 = 1) (hn_ge : 3 ≤ n) :
+    Tileable_set (rect 0 0 6 n) LProtoset_set := by
+  simpa [swapRegion_rect] using LTileable_swap_set (LTileable_odd_x_6_set n hn_odd hn_ge)
+
+/-- n × (6k) is L-tileable for odd n ≥ 3 and k ≥ 1 -/
+theorem LTileable_odd_x_mult6_set (n k : ℕ) (hn_odd : n % 2 = 1) (hn_ge : 3 ≤ n) (hk : 1 ≤ k) :
+    Tileable_set (rect 0 0 n (6 * k)) LProtoset_set := by
+  have hn_pos : (0:ℤ) < n := by exact_mod_cast (show 0 < n by omega)
+  have h := (LTileable_odd_x_6_set n hn_odd hn_ge).scale_rect hn_pos (by norm_num) 1 k (by omega) hk
+  convert h using 2 <;> ring
+
+-- ============================================================
+-- Main theorem: native proof of LTileable_rect_iff_set
+-- ============================================================
+
+/-- Base case: 5×9 rectangle, imported from the Finset-framework theorem `tileable_5x9`. -/
+theorem LTileable_5x9_set : Tileable_set (rect 0 0 5 9) LProtoset_set := by
+  have hset : Tileable_set (↑(rectangle 5 9) : Set Cell)
+      (toProtoset_set LTrominoSet LTrominoSet_nonempty) :=
+    (Tileable_iff_to_set LTrominoSet (rectangle 5 9) LTrominoSet_nonempty).mp tileable_5x9
+  have hrect : (↑(rectangle 5 9) : Set Cell) = rect 0 0 5 9 := by
+    ext ⟨x, y⟩
+    simp [mem_rectangle, mem_rect]
+  rw [← hrect]
+  simpa [LProtoset_set_eq_toSet] using hset
+
+/-- 5 × (6i+3) is L-tileable for i ≥ 1 -/
+theorem LTileable_5x_6iplus3_set (i : ℕ) (hi : i ≥ 1) :
+    Tileable_set (rect 0 0 5 (6 * i + 3)) LProtoset_set := by
+  obtain ⟨j, rfl⟩ := Nat.exists_eq_succ_of_ne_zero (by omega : i ≠ 0)
+  -- i = j + 1, 6*(j+1)+3 = 9 + 6*j
+  induction j with
+  | zero =>
+    norm_num
+    exact LTileable_5x9_set
+  | succ k ih =>
+    -- 6*(k+2)+3 = 6*(k+1)+3 + 6
+    have h_left : Tileable_set (rect 0 0 5 (↑(6*(k+1)+3) : ℤ)) LProtoset_set := by
+      have := ih (by omega); convert this using 2
+    have h_right_base : Tileable_set (rect 0 0 5 6) LProtoset_set :=
+      LTileable_kx6_of_ge2_set 5 (by omega)
+    have h_right : Tileable_set (rect 0 (↑(6*(k+1)+3) : ℤ) 5 (↑(6*(k+1)+3) + 6)) LProtoset_set := by
+      convert tileable_translate_set h_right_base (0 : ℤ) (↑(6*(k+1)+3) : ℤ) using 1
+      ext ⟨x,y⟩; simp [mem_rect, mem_translate]; omega
+    have hun := Tileable_set.vertical_union (by positivity) (by norm_num) h_left h_right
+    have heq : (↑(6*(k+1)+3) : ℤ) + 6 = 6*(↑(k+1+1):ℤ)+3 := by push_cast; ring
+    rw [heq] at hun; exact hun
+
+/-- n × (6i+3) is L-tileable for odd n ≥ 5 and i ≥ 1 -/
+theorem LTileable_odd_ge5_x_6iplus3_set (n : ℕ) (hn : n ≥ 5) (hodd : n % 2 = 1)
+    (i : ℕ) (hi : i ≥ 1) :
+    Tileable_set (rect 0 0 n (6 * i + 3)) LProtoset_set := by
+  induction n using Nat.strong_induction_on with
+  | _ n ih =>
+    rcases Nat.eq_or_lt_of_le hn with rfl | hn_gt
+    · exact LTileable_5x_6iplus3_set i hi
+    · -- n ≥ 7 odd: strip a 2×(6i+3) column on the right
+      have hn2 : n - 2 ≥ 5 := by omega
+      have hodd2 : (n - 2) % 2 = 1 := by omega
+      have h_left := ih (n - 2) (by omega) (by omega) hodd2
+      -- h_left : Tileable_set (rect 0 0 (n-2) (6i+3))
+      have h_strip_base : Tileable_set (rect 0 0 2 (6*i+3)) LProtoset_set := by
+        -- 2×(6i+3) = 2×(3*(2i+1)) — use LTileable_2x_mult3_set
+        have := LTileable_2x_mult3_set (2*i+1) (by omega)
+        convert this using 2
+        · push_cast
+          ring
+      have h_strip : Tileable_set (rect (↑(n-2) : ℤ) 0 (↑(n-2) + 2) (6*i+3)) LProtoset_set := by
+        convert tileable_translate_set h_strip_base (↑(n-2) : ℤ) 0 using 1
+        ext ⟨x,y⟩; simp [mem_rect, mem_translate]; omega
+      have hun := Tileable_set.horizontal_union (by positivity) (by positivity) h_left h_strip
+      convert hun using 2; omega
+
+/-- n × (3k) is L-tileable for odd n ≥ 3, k ≥ 2, and ¬(n=3 ∧ k odd) -/
+theorem LTileable_odd_x_mult3_set (n k : ℕ) (hn : n ≥ 3) (hodd : n % 2 = 1) (hk : k ≥ 2)
+    (h_not : ¬(n = 3 ∧ k % 2 = 1)) :
+    Tileable_set (rect 0 0 n (3 * k)) LProtoset_set := by
+  rcases Nat.even_or_odd k with ⟨j, rfl⟩ | ⟨j, rfl⟩
+  · -- k = 2j even, 3k = 6j, j ≥ 1
+    have hj : j ≥ 1 := by omega
+    convert LTileable_odd_x_mult6_set n j hodd (by omega) hj using 2
+    push_cast
+    ring
+  · -- k = 2j+1 odd, 3k = 6j+3, need n ≥ 5
+    have hj : j ≥ 1 := by omega
+    have hn5 : n ≥ 5 := by
+      rcases Nat.eq_or_lt_of_le hn with rfl | hn_gt
+      · -- n = 3
+        exfalso; apply h_not
+        exact ⟨rfl, by omega⟩
+      · -- n ≥ 4, n odd → n ≥ 5
+        omega
+    convert LTileable_odd_ge5_x_6iplus3_set n hn5 hodd j hj using 2
+    push_cast
+    ring
 
 /-- The conditions for a non-trivial n×m rectangle to be tileable by L-trominoes.
     Note: The empty rectangle (n=0 or m=0) is always tileable by 0 tiles.
@@ -443,2668 +557,1052 @@ def RectTileableConditions (n m : ℕ) : Prop :=
     ¬(n = 3 ∧ Odd m) ∧                    -- Not 3×odd
     ¬(Odd n ∧ m = 3))                     -- Not odd×3
 
-/-- The empty region is L-tileable -/
-theorem empty_LTileable : LTileable ∅ :=
-  empty_tileable LTrominoSet
-
-/- ## Combining Tilings -/
-
-/-- A translated L-tileable region is L-tileable -/
-theorem LTileable_translate {r : Region} (h : LTileable r) (offset : Cell) :
-    LTileable (translateRegion r offset) :=
-  Tileable_translate LTrominoSet h offset
-
-/-- L-tileability is preserved by translation (both directions) -/
-theorem LTileable_translate_iff (r : Region) (offset : Cell) :
-    LTileable r ↔ LTileable (translateRegion r offset) :=
-  Tileable_translate_iff LTrominoSet r offset
-
-/-- If R = S.image(translate by offset) and R is L-tileable, then S is L-tileable -/
-theorem LTileable_of_translate_eq {R S : Region} (offset : Cell)
-    (heq : R = translateRegion S offset) (hR : LTileable R) : LTileable S :=
-  Tileable_of_translate_eq LTrominoSet offset heq hR
-
-/- ## 3×odd Impossibility (requires translation invariance) -/
-
-/-- A 3×(2k+1) rectangle is not tileable by L-trominoes.
-
-Proof by induction on k:
-- Base case (k=0): 3×1 is not tileable (too thin)
-- Inductive step (k' → k'+1): For 3×(2k'+3), if it were tileable,
-  the first 3×2 strip must be exactly covered by 2 tiles (case analysis
-  on how to cover corners (0,0) and (2,0)), leaving 3×(2k'+1).
-  But 3×(2k'+1) is not tileable by IH, contradiction.
--/
-theorem not_tileable_3_by_odd (k : ℕ) : ¬LTileable (rectangle 3 (2 * k + 1)) := by
-  induction k with
-  | zero =>
-    -- Base case: 3×1 is not tileable (height 1)
-    simp only [Nat.mul_zero, Nat.zero_add]
-    exact not_tileable_n_by_1 (by omega)
-  | succ k' ih =>
-    -- Inductive step: 3×(2k'+3) is not tileable, assuming 3×(2k'+1) is not
-    have heq : 2 * (k' + 1) + 1 = 2 * k' + 3 := by omega
-    rw [heq]
-    intro ⟨ιₜ, hfin, hdec, ts, hvalid⟩
-    -- The rectangle 3×(2k'+3) contains (0,0) and (2,0), which must be covered
-    have h00_in : (0, 0) ∈ rectangle 3 (2 * k' + 3) := by rw [mem_rectangle]; omega
-    have h20_in : (2, 0) ∈ rectangle 3 (2 * k' + 3) := by rw [mem_rectangle]; omega
-    rw [← hvalid.covers] at h00_in h20_in
-    simp only [TileSet.coveredCells, Finset.mem_biUnion, Finset.mem_univ, true_and] at h00_in h20_in
-    obtain ⟨i, hi⟩ := h00_in
-    obtain ⟨j, hj⟩ := h20_in
-    -- i ≠ j because tiles covering (0,0) and (2,0) are distinct (x-span is ≤ 1)
-    have hij : i ≠ j := by
-      intro h; subst h
-      have hspan := LTromino_x_span_2 (ts i) (0, 0) (2, 0) hi hj
-      simp at hspan
-    -- The remaining tiles (excluding i and j) cover rectangle 3 (2k'+3) \ rect3x2
-    have hremain := remaining_tiles_cover ts (2 * k' + 3) (by omega) hvalid i j hi hj hij
-    -- This region equals rectangle 3 (2k'+1) translated by (0, 2)
-    have hminus := rectangle_minus_3x2 (2 * k' + 3) (by omega)
-    have h2k1 : 2 * k' + 3 - 2 = 2 * k' + 1 := by omega
-    rw [h2k1] at hminus
-    -- The remaining region is L-tileable (by the remaining tiles)
-    have hremain_tileable : LTileable (rectangle 3 (2 * k' + 3) \ rect3x2) := by
-      let remaining := Finset.univ.filter (fun k => k ≠ i ∧ k ≠ j)
-      let ts_remain : TileSet LTrominoSet remaining := ⟨fun ⟨k, _⟩ => ts k⟩
-      refine ⟨remaining, inferInstance, inferInstance, ts_remain, ?_⟩
-      constructor
-      · -- Pairwise disjoint
-        intro ⟨a, _⟩ ⟨b, _⟩ hab
-        simp only [ne_eq, Subtype.mk.injEq] at hab
-        exact hvalid.disjoint_tiles a b hab
-      · -- Covers the remaining region
-        rw [← hremain]
-        ext c
-        simp only [TileSet.coveredCells, TileSet.cellsAt, Finset.mem_biUnion,
-          Finset.mem_filter, Finset.mem_univ, true_and]
-        constructor
-        · rintro ⟨⟨k, hk⟩, hc⟩
-          simp only [remaining, Finset.mem_filter, Finset.mem_univ, true_and] at hk
-          exact ⟨k, hk, hc⟩
-        · rintro ⟨k, hk, hc⟩
-          refine ⟨⟨k, ?_⟩, hc⟩
-          simp only [remaining, Finset.mem_filter, Finset.mem_univ, true_and]
-          exact hk
-    -- So rectangle 3 (2k'+1) is L-tileable (by translation invariance), contradicting IH
-    apply ih
-    exact LTileable_of_translate_eq (0, 2) hminus hremain_tileable
-
-/-- A (2k+1)×3 rectangle is not tileable by L-trominoes -/
-theorem not_tileable_odd_by_3 (k : ℕ) : ¬LTileable (rectangle (2 * k + 1) 3) := by
-  -- Use symmetry: if (2k+1)×3 is tileable, then 3×(2k+1) would be tileable
-  intro h
-  have h' := LTileable_swap h
-  rw [swap_rectangle] at h'
-  exact not_tileable_3_by_odd k h'
-
-/-- rectangle 0 m = ∅ -/
-theorem rectangle_0_m (m : ℕ) : rectangle 0 m = ∅ := by
-  simp [rectangle]
-
-/-- rectangle n 0 = ∅ -/
-theorem rectangle_n_0 (n : ℕ) : rectangle n 0 = ∅ := by
-  simp [rectangle]
-
-/- ## Rectangle Decomposition Lemmas -/
-
-/-- Swapping dimensions preserves tileability (90° rotation) -/
-theorem LTileable_swap_rectangle (n m : ℕ) :
-    LTileable (rectangle n m) ↔ LTileable (rectangle m n) := by
-  constructor
-  · intro h
-    have h' := LTileable_swap h
-    rwa [swap_rectangle] at h'
-  · intro h
-    have h' := LTileable_swap h
-    rwa [swap_rectangle] at h'
-
-/-- If we can tile two horizontally adjacent rectangles, we can tile their union -/
-theorem LTileable_horizontal_union (a b m : ℕ)
-    (h1 : LTileable (rectangle a m)) (h2 : LTileable (rectangle b m)) :
-    LTileable (rectangle (a + b) m) :=
-  Tileable_horizontal_union LTrominoSet a b m h1 h2
-
-/-- If we can tile two vertically adjacent rectangles, we can tile their union -/
-theorem LTileable_vertical_union (n a b : ℕ)
-    (h1 : LTileable (rectangle n a)) (h2 : LTileable (rectangle n b)) :
-    LTileable (rectangle n (a + b)) :=
-  Tileable_vertical_union LTrominoSet n a b h1 h2
-
-/- ## Base Case Tilings -/
-
-/-- 2×3 is tileable -/
-theorem tileable_2x3 : LTileable (rectangle 2 3) :=
-  ⟨Fin 2, inferInstance, inferInstance, tiling_2x3, tiling_2x3_valid⟩
-
-/-- 3×2 is tileable -/
-theorem tileable_3x2 : LTileable (rectangle 3 2) := by
-  rw [← LTileable_swap_rectangle]
-  exact tileable_2x3
-
-/-- 3×6 is tileable (3 copies of 3×2) -/
-theorem tileable_3x6 : LTileable (rectangle 3 6) := by
-  have h1 := tileable_3x2
-  have h12 := LTileable_vertical_union 3 2 2 h1 h1
-  exact LTileable_vertical_union 3 4 2 h12 h1
-
-/-- 2×6 is tileable (2 copies of 2×3) -/
-theorem tileable_2x6 : LTileable (rectangle 2 6) :=
-  LTileable_vertical_union 2 3 3 tileable_2x3 tileable_2x3
-
-/-- 5×6 is tileable (2×6 + 3×6) -/
-theorem tileable_5x6 : LTileable (rectangle 5 6) :=
-  LTileable_horizontal_union 2 3 6 tileable_2x6 tileable_3x6
-
-/-- 6×5 is tileable (by swap) -/
-theorem tileable_6x5 : LTileable (rectangle 6 5) := by
-  rw [← LTileable_swap_rectangle]
-  exact tileable_5x6
-
-/-- 2×9 is tileable (3 copies of 2×3) -/
-theorem tileable_2x9 : LTileable (rectangle 2 9) := by
-  have h1 := tileable_2x3
-  have h12 := LTileable_vertical_union 2 3 3 h1 h1
-  exact LTileable_vertical_union 2 6 3 h12 h1
-
-/-- Explicit tiling of the 5×9 rectangle with 15 L-trominoes.
-This is a special base case that needs an irregular tiling.
-The key insight is that 5×9 cannot be decomposed into rectangular pieces
-that are all individually L-tileable. We need tiles that cross boundaries. -/
-def tiling_5x9 : TileSet LTrominoSet (Fin 15) := ⟨![
-  ⟨(), (1, 0), 1⟩,   -- Tile 0: covers (0,0), (1,0), (1,1)
-  ⟨(), (0, 2), 3⟩,   -- Tile 1: covers (0,1), (0,2), (1,2)
-  ⟨(), (0, 4), 3⟩,   -- Tile 2: covers (0,3), (0,4), (1,4)
-  ⟨(), (2, 3), 2⟩,   -- Tile 3: covers (1,3), (2,2), (2,3)
-  ⟨(), (0, 6), 3⟩,   -- Tile 4: covers (0,5), (0,6), (1,6)
-  ⟨(), (2, 5), 2⟩,   -- Tile 5: covers (1,5), (2,4), (2,5)
-  ⟨(), (0, 8), 3⟩,   -- Tile 6: covers (0,7), (0,8), (1,8)
-  ⟨(), (2, 7), 1⟩,   -- Tile 7: covers (1,7), (2,7), (2,8)
-  ⟨(), (3, 6), 1⟩,   -- Tile 8: covers (2,6), (3,6), (3,7)
-  ⟨(), (4, 8), 2⟩,   -- Tile 9: covers (3,8), (4,7), (4,8)
-  ⟨(), (4, 5), 1⟩,   -- Tile 10: covers (3,5), (4,5), (4,6)
-  ⟨(), (2, 1), 3⟩,   -- Tile 11: covers (2,0), (2,1), (3,1)
-  ⟨(), (4, 0), 1⟩,   -- Tile 12: covers (3,0), (4,0), (4,1)
-  ⟨(), (4, 2), 1⟩,   -- Tile 13: covers (3,2), (4,2), (4,3)
-  ⟨(), (3, 4), 3⟩    -- Tile 14: covers (3,3), (3,4), (4,4)
-]⟩
-
-theorem tiling_5x9_valid : tiling_5x9.Valid (rectangle 5 9) := by decide
-
-theorem tileable_5x9 : LTileable (rectangle 5 9) :=
-  ⟨Fin 15, inferInstance, inferInstance, tiling_5x9, tiling_5x9_valid⟩
-
-/-- 9×5 is tileable (by swap) -/
-theorem tileable_9x5 : LTileable (rectangle 9 5) := by
-  rw [← LTileable_swap_rectangle]
-  exact tileable_5x9
-
-/-- 6×3 is tileable (3 copies of 2×3) -/
-theorem tileable_6x3 : LTileable (rectangle 6 3) := by
-  have h1 := tileable_2x3
-  have h12 := LTileable_horizontal_union 2 2 3 h1 h1
-  exact LTileable_horizontal_union 4 2 3 h12 h1
-
-/-- 3×(2k) is tileable for k ≥ 1 -/
-theorem tileable_3x_even (k : ℕ) (hk : k ≥ 1) : LTileable (rectangle 3 (2 * k)) := by
-  induction k with
-  | zero => omega
-  | succ k' ih =>
-    cases Nat.eq_zero_or_pos k' with
-    | inl hzero =>
-      subst hzero
-      exact tileable_3x2
-    | inr hpos =>
-      have hk' : k' ≥ 1 := hpos
-      have h1 := ih hk'
-      have h2 := tileable_3x2
-      have heq : 2 * (k' + 1) = 2 * k' + 2 := by ring
-      rw [heq]
-      exact LTileable_vertical_union 3 (2 * k') 2 h1 h2
-
-/-- (2k)×3 is tileable for k ≥ 1 -/
-theorem tileable_even_x3 (k : ℕ) (hk : k ≥ 1) : LTileable (rectangle (2 * k) 3) := by
-  rw [← LTileable_swap_rectangle]
-  exact tileable_3x_even k hk
-
-/-- 2×(3k) is tileable for any k -/
-theorem tileable_2x_mult3 (k : ℕ) : LTileable (rectangle 2 (3 * k)) := by
-  induction k with
-  | zero => simp only [Nat.mul_zero, rectangle_n_0]; exact empty_LTileable
-  | succ k' ih =>
-    have heq : 3 * (k' + 1) = 3 * k' + 3 := by ring
-    rw [heq]
-    exact LTileable_vertical_union 2 (3 * k') 3 ih tileable_2x3
-
-/-- (3k)×2 is tileable for any k -/
-theorem tileable_mult3_x2 (k : ℕ) : LTileable (rectangle (3 * k) 2) := by
-  rw [← LTileable_swap_rectangle]
-  exact tileable_2x_mult3 k
-
-/-- If n is even (n = 2j, j ≥ 1) and m is a multiple of 3, then n × m is tileable -/
-theorem tileable_even_mult3 (j k : ℕ) (hj : j ≥ 1) :
-    LTileable (rectangle (2 * j) (3 * k)) := by
-  -- n = 2j, so rectangle (2j) (3k) = j copies of 2 × (3k)
-  -- Each 2 × (3k) is tileable
-  induction j with
-  | zero => omega
-  | succ j' ih =>
-    cases Nat.eq_zero_or_pos j' with
-    | inl hzero =>
-      subst hzero
-      exact tileable_2x_mult3 k
-    | inr hpos' =>
-      have h1 := ih hpos'
-      have h2 := tileable_2x_mult3 k
-      have heq : 2 * (j' + 1) = 2 * j' + 2 := by ring
-      rw [heq]
-      exact LTileable_horizontal_union (2 * j') 2 (3 * k) h1 h2
-
-/-- 3 × (6j) is tileable for any j -/
-theorem tileable_3x6j (j : ℕ) : LTileable (rectangle 3 (6 * j)) := by
-  induction j with
-  | zero => simp only [Nat.mul_zero, rectangle_n_0]; exact empty_LTileable
-  | succ j' ih =>
-    have heq : 6 * (j' + 1) = 6 * j' + 6 := by ring
-    rw [heq]
-    exact LTileable_vertical_union 3 (6 * j') 6 ih tileable_3x6
-
-/-- 5 × (6j) is tileable for any j -/
-theorem tileable_5x6j (j : ℕ) : LTileable (rectangle 5 (6 * j)) := by
-  induction j with
-  | zero => simp only [Nat.mul_zero, rectangle_n_0]; exact empty_LTileable
-  | succ j' ih =>
-    have heq : 6 * (j' + 1) = 6 * j' + 6 := by ring
-    rw [heq]
-    exact LTileable_vertical_union 5 (6 * j') 6 ih tileable_5x6
-
-/-- 5 × (9 + 6j) is tileable: 5×9 base case plus j copies of 5×6 -/
-theorem tileable_5x_9plus6j (j : ℕ) : LTileable (rectangle 5 (9 + 6 * j)) :=
-  LTileable_vertical_union 5 9 (6 * j) tileable_5x9 (tileable_5x6j j)
-
-/-- n × (6j) is tileable for odd n ≥ 3, any j ≥ 0 (simple induction on n) -/
-theorem tileable_odd_x_6j (n j : ℕ) (hn : n ≥ 3) (hodd : Odd n) :
-    LTileable (rectangle n (6 * j)) := by
-  obtain ⟨i, hi⟩ := hodd  -- n = 2i + 1
-  induction i using Nat.strong_induction_on generalizing n with
-  | _ i ih =>
-    match i with
-    | 0 => simp only [Nat.mul_zero, Nat.zero_add] at hi hn; omega
-    | 1 => subst hi; exact tileable_3x6j j  -- n = 3
-    | 2 => subst hi; exact tileable_5x6j j  -- n = 5
-    | Nat.succ (Nat.succ (Nat.succ i')) =>
-      -- n = 2(i'+3) + 1 ≥ 7: strip 2 × 6j
-      have h2 : LTileable (rectangle 2 (6 * j)) := by
-        convert tileable_2x_mult3 (2 * j) using 2; ring
-      have hn2_eq : n - 2 = 2 * (i' + 2) + 1 := by omega
-      have h_rest := ih (i' + 2) (by omega) (n - 2) (by omega) hn2_eq
-      convert LTileable_horizontal_union (n - 2) 2 (6 * j) h_rest h2 using 2; omega
-
-/-- 5 × (6i + 3) is tileable for i ≥ 1 (equals 5 × (9 + 6(i-1))) -/
-theorem tileable_5x_6iplus3 (i : ℕ) (hi : i ≥ 1) : LTileable (rectangle 5 (6 * i + 3)) := by
-  have heq : 6 * i + 3 = 9 + 6 * (i - 1) := by omega
-  rw [heq]
-  exact tileable_5x_9plus6j (i - 1)
-
-/-- n × (6i + 3) is tileable for odd n ≥ 5, i ≥ 1 -/
-theorem tileable_odd_ge5_x_6iplus3 (n i : ℕ) (hn : n ≥ 5) (hodd : Odd n) (hi : i ≥ 1) :
-    LTileable (rectangle n (6 * i + 3)) := by
-  obtain ⟨k, hk⟩ := hodd  -- n = 2k + 1
-  induction k using Nat.strong_induction_on generalizing n with
-  | _ k ih =>
-    match k with
-    | 0 => simp only [Nat.mul_zero, Nat.zero_add] at hk hn; omega
-    | 1 => simp only [hk] at hn; omega  -- n = 3 < 5
-    | 2 => subst hk; exact tileable_5x_6iplus3 i hi  -- n = 5
-    | Nat.succ (Nat.succ (Nat.succ k')) =>
-      -- n = 2(k'+3) + 1 ≥ 7: strip 2 × (6i + 3)
-      have h2 : LTileable (rectangle 2 (6 * i + 3)) := by
-        convert tileable_2x_mult3 (2 * i + 1) using 2; ring
-      have hn2_eq : n - 2 = 2 * (k' + 2) + 1 := by omega
-      have h_rest := ih (k' + 2) (by omega) (n - 2) (by omega) hn2_eq
-      convert LTileable_horizontal_union (n - 2) 2 (6 * i + 3) h_rest h2 using 2; omega
-
-/-- n × (3k) is tileable for odd n ≥ 3, k ≥ 2, with n ≠ 3 when k is odd -/
-theorem tileable_odd_x_mult3 (n k : ℕ) (hn : n ≥ 3) (hodd : Odd n) (hk : k ≥ 2)
-    (h_not_3_odd : ¬(n = 3 ∧ Odd k)) : LTileable (rectangle n (3 * k)) := by
-  rcases Nat.even_or_odd k with ⟨j, rfl⟩ | ⟨j, rfl⟩
-  · -- k = 2j even, so 3k = 6j
-    convert tileable_odd_x_6j n j hn hodd using 2; ring
-  · -- k = 2j + 1 odd ≥ 3, so 3k = 6j + 3, need j ≥ 1 (since k = 2j+1 ≥ 2 means j ≥ 1)
-    have hj : j ≥ 1 := by
-      by_contra hlt; push_neg at hlt
-      have hj0 : j = 0 := by omega
-      rw [hj0] at hk; omega  -- k = 1 contradicts k ≥ 2
-    -- Since k is odd and h_not_3_odd, n ≠ 3, so n ≥ 5
-    have hn5 : n ≥ 5 := by
-      by_contra hlt; push_neg at hlt
-      obtain ⟨i, hi⟩ := hodd  -- n = 2i + 1
-      have hn3 : n = 3 := by omega
-      exact h_not_3_odd ⟨hn3, j, rfl⟩
-    convert tileable_odd_ge5_x_6iplus3 n j hn5 hodd hj using 2; ring
-
-/-- Sufficiency: if conditions hold, the rectangle is tileable -/
-theorem rect_tileable_of_conditions (n m : ℕ) (h : RectTileableConditions n m) :
-    LTileable (rectangle n m) := by
-  rcases h with rfl | rfl | ⟨harea, hn, hm, hnodd3, hnodd3'⟩
-  · -- n = 0
-    rw [rectangle_0_m]; exact empty_LTileable
-  · -- m = 0
-    rw [rectangle_n_0]; exact empty_LTileable
-  · -- Main case: n ≥ 2, m ≥ 2, n*m divisible by 3, not 3×odd or odd×3
-    -- Since n*m divisible by 3, either 3 | n or 3 | m
-    have h3div : 3 ∣ n ∨ 3 ∣ m := Nat.Prime.dvd_mul Nat.prime_three |>.mp
-      (Nat.dvd_of_mod_eq_zero harea)
-    rcases h3div with hn3 | hm3
-    · -- 3 | n: swap and use the 3|m case
-      rw [← LTileable_swap_rectangle]
-      -- Now need rectangle m (3k) where n = 3k
-      obtain ⟨k, rfl⟩ := hn3
-      have hk : k ≥ 1 := by omega
-      rcases Nat.even_or_odd m with ⟨j, rfl⟩ | hodd
-      · -- m = 2j even
-        have hj : j ≥ 1 := by omega
-        convert tileable_even_mult3 j k hj using 2; ring
-      · -- m odd: need n = 3k ≥ 6 (since 3×odd excluded means k ≥ 2)
-        have hk2 : k ≥ 2 := by
-          by_contra hlt; push_neg at hlt
-          have hk1 : k = 1 := by omega
-          subst hk1
-          exact hnodd3 ⟨rfl, hodd⟩
-        -- m odd ≥ 3, 3k ≥ 6
-        have hm3' : m ≥ 3 := by obtain ⟨j, rfl⟩ := hodd; omega
-        -- Need to show ¬(m = 3 ∧ Odd k) for tileable_odd_x_mult3
-        have h_not : ¬(m = 3 ∧ Odd k) := by
-          intro ⟨hm_eq, hk_odd⟩
-          -- If m = 3, then by hnodd3': ¬(Odd (3k) ∧ m = 3)
-          -- Odd (3k) ↔ Odd k, so hnodd3' becomes ¬(Odd k ∧ m = 3)
-          have h3k_odd : Odd (3 * k) := by
-            obtain ⟨i, rfl⟩ := hk_odd; use 3 * i + 1; ring
-          exact hnodd3' ⟨h3k_odd, hm_eq⟩
-        exact tileable_odd_x_mult3 m k hm3' hodd hk2 h_not
-    · -- 3 | m
-      obtain ⟨k, rfl⟩ := hm3
-      have hk : k ≥ 1 := by omega
-      rcases Nat.even_or_odd n with ⟨j, rfl⟩ | hodd
-      · -- n = 2j even
-        have hj : j ≥ 1 := by omega
-        convert tileable_even_mult3 j k hj using 2; ring
-      · -- n odd: need m = 3k ≥ 6 (since odd×3 excluded means k ≥ 2)
-        have hk2 : k ≥ 2 := by
-          by_contra hlt; push_neg at hlt
-          have hk1 : k = 1 := by omega
-          subst hk1
-          exact hnodd3' ⟨hodd, rfl⟩
-        -- n odd ≥ 3, 3k ≥ 6
-        have hn3' : n ≥ 3 := by obtain ⟨j, rfl⟩ := hodd; omega
-        -- Need to show ¬(n = 3 ∧ Odd k) for tileable_odd_x_mult3
-        have h_not : ¬(n = 3 ∧ Odd k) := by
-          intro ⟨hn_eq, hk_odd⟩
-          subst hn_eq
-          -- hnodd3 : ¬(3 = 3 ∧ Odd (3k))
-          -- Odd (3k) ↔ Odd k
-          have h3k_odd : Odd (3 * k) := by
-            obtain ⟨i, rfl⟩ := hk_odd; use 3 * i + 1; ring
-          exact hnodd3 ⟨rfl, h3k_odd⟩
-        exact tileable_odd_x_mult3 n k hn3' hodd hk2 h_not
-
-/-- Necessity: if tileable, the conditions hold -/
-theorem conditions_of_rect_tileable (n m : ℕ) (h : LTileable (rectangle n m)) :
-    RectTileableConditions n m := by
+/-- Main theorem: native proof of rect tileability characterization -/
+theorem LTileable_rect_iff_set (n m : ℕ) :
+    Tileable_set (rect 0 0 (n : ℤ) m) LProtoset_set ↔ RectTileableConditions n m := by
   unfold RectTileableConditions
-  -- Handle trivial cases first
-  rcases Nat.eq_zero_or_pos n with rfl | hn
-  · left; rfl
-  rcases Nat.eq_zero_or_pos m with rfl | hm
-  · right; left; rfl
-  -- Now n, m ≥ 1
-  right; right
-  have harea : n * m % 3 = 0 := by simpa using h.area_div_3
-  refine ⟨harea, ?_, ?_, ?_, ?_⟩
-  · -- n ≥ 2
-    by_contra hlt; push_neg at hlt
-    have : n = 1 := by omega
-    subst this
-    exact not_tileable_1_by_n hm h
-  · -- m ≥ 2
-    by_contra hlt; push_neg at hlt
-    have : m = 1 := by omega
-    subst this
-    exact not_tileable_n_by_1 hn h
-  · -- ¬(n = 3 ∧ Odd m)
-    intro ⟨hn3, hmodd⟩
-    subst hn3
-    obtain ⟨k, rfl⟩ := hmodd
-    exact not_tileable_3_by_odd k h
-  · -- ¬(Odd n ∧ m = 3)
-    intro ⟨hnodd, hm3⟩
-    subst hm3
-    obtain ⟨k, rfl⟩ := hnodd
-    exact not_tileable_odd_by_3 k h
-
-/-- **Main Theorem**: Complete characterization of L-tileable rectangles.
-
-This result corresponds to the characterization of tromino-tilable rectangles due to
-P. Chu and R. Johnsonbaugh,
-*Tiling Boards with Trominoes*, *Journal of Recreational Mathematics* **18** (1985), 188–193. -/
-theorem rect_tileable_iff (n m : ℕ) :
-    LTileable (rectangle n m) ↔ RectTileableConditions n m :=
-  ⟨conditions_of_rect_tileable n m, rect_tileable_of_conditions n m⟩
-
-/- ## Deficient Rectangles (Three-Cornered) -/
-
-/-- The top-right corner cell of an `n × m` rectangle (0-based coordinates). -/
-def cornerTR (n m : ℕ) : Cell :=
-  (Int.ofNat (n - 1), Int.ofNat (m - 1))
-
-/-- The cell immediately to the left of the top-right corner of an `n × m`
-rectangle (0-based coordinates).
-
-In coordinates: `(n-2, m-1)`.  This is only meaningful when `n ≥ 2`. -/
-def cornerTR2 (n m : ℕ) : Cell :=
-  (Int.ofNat (n - 2), Int.ofNat (m - 1))
-
-/-- A three-cornered `n × m` rectangle: `rectangle n m` with its top-right corner removed.
-
-We implement this as `erase` of the top-right corner from the full rectangle, so
-cardinality lemmas are immediate from `Finset.card_erase`. -/
-def rectangleMinusCorner (n m : ℕ) : Region :=
-  (rectangle n m).erase (cornerTR n m)
-
-/-- The top-right corner is indeed in the rectangle when `n,m ≥ 1`. -/
-theorem cornerTR_mem_rectangle {n m : ℕ} (hn : n ≥ 1) (hm : m ≥ 1) :
-    cornerTR n m ∈ rectangle n m := by
-  -- Reduce to linear arithmetic in ℤ and discharge with `omega`.
-  have hineq :
-      0 ≤ (cornerTR n m).1 ∧ (cornerTR n m).1 < n ∧
-      0 ≤ (cornerTR n m).2 ∧ (cornerTR n m).2 < m := by
-    dsimp [cornerTR]
-    omega
-  exact (mem_rectangle.mpr hineq)
-
-/-- The cell `cornerTR2` is in the rectangle `rectangle n m` when `n ≥ 2` and `m ≥ 1`. -/
-theorem cornerTR2_mem_rectangle {n m : ℕ} (hn : n ≥ 2) (hm : m ≥ 1) :
-    cornerTR2 n m ∈ rectangle n m := by
-  have hineq :
-      0 ≤ (cornerTR2 n m).1 ∧ (cornerTR2 n m).1 < n ∧
-      0 ≤ (cornerTR2 n m).2 ∧ (cornerTR2 n m).2 < m := by
-    dsimp [cornerTR2]
-    omega
-  exact (mem_rectangle.mpr hineq)
-
-/-- Cardinality of a three-cornered rectangle: one less than the full rectangle. -/
-theorem rectangleMinusCorner_card {n m : ℕ} (hn : n ≥ 1) (hm : m ≥ 1) :
-    (rectangleMinusCorner n m).card = n * m - 1 := by
-  have hcorner : cornerTR n m ∈ rectangle n m :=
-    cornerTR_mem_rectangle hn hm
-  -- `erase` removes exactly one element from the rectangle.
-  simp [rectangleMinusCorner, rectangle_card, hcorner]
-
-/-- RExp representation of `rectangleMinusCorner n m`.
-    This is a rectangle with its top-right corner removed. -/
-def rectangleMinusCorner_rexp (n m : ℕ) : RExp :=
-  RExp.r 0 0 n m ⊖
-  RExp.r (n - 1) (m - 1) n m
-
-/-- The Finset `rectangle n m` equals the Set `rect 0 0 n m` when coerced to Set. -/
-theorem rectangle_eq_rect_coe (n m : ℕ) :
-    (rectangle n m : Set Cell) = rect 0 0 (↑n) (↑m) := by
-  ext c
-  simp only [Finset.mem_coe, mem_rectangle, mem_rect]
-
-/-- The RExp evaluation of `rectangleMinusCorner_rexp n m` equals the Finset
-    `rectangleMinusCorner n m` when coerced to Set. -/
-theorem rectangleMinusCorner_rexp_eval (n m : ℕ) :
-    RExp.eval (rectangleMinusCorner_rexp n m) = (rectangleMinusCorner n m : Set Cell) := by
-  -- Both sides are "rectangle minus corner cell"
-  simp only [rectangleMinusCorner_rexp, RExp.eval_diff, RExp.eval_r, rectangleMinusCorner]
-  rw [← rectangle_eq_rect_coe]
-  ext c
-  simp only [Set.mem_diff, Finset.mem_coe, Finset.mem_erase, mem_rectangle, cornerTR, mem_rect]
   constructor
-  · intro ⟨⟨h1, h2, h3, h4⟩, h5⟩
-    refine ⟨?_, h1, h2, h3, h4⟩
-    intro heq
-    apply h5
-    cases heq
-    have hn : n ≥ 1 := by omega
-    have hm : m ≥ 1 := by omega
-    simp only [Int.ofNat_eq_natCast]
-    omega
-  · intro ⟨hne, h1, h2, h3, h4⟩
-    refine ⟨⟨h1, h2, h3, h4⟩, ?_⟩
-    intro ⟨h5, h6, h7, h8⟩
-    apply hne
-    have hx : c.1 = Int.ofNat (n - 1) := by
-      simp only [Int.ofNat_eq_natCast] at h5 h6 ⊢
-      have hn : n ≥ 1 := by omega
+  · intro h
+    -- Necessary conditions
+    rcases Nat.eq_or_lt_of_le (Nat.zero_le n) with rfl | hn_pos
+    · left; simp
+    rcases Nat.eq_or_lt_of_le (Nat.zero_le m) with rfl | hm_pos
+    · right; left; simp
+    right; right
+    refine ⟨?_, ?_, ?_, ?_, ?_⟩
+    · -- 3 ∣ n * m
+      have := LTileable_rect_area_dvd_set n m h
+      simp [Nat.dvd_iff_mod_eq_zero] at this ⊢
       omega
-    have hy : c.2 = Int.ofNat (m - 1) := by
-      simp only [Int.ofNat_eq_natCast] at h7 h8 ⊢
-      have hm : m ≥ 1 := by omega
+    · -- n ≥ 2
+      by_contra h_not
+      push_neg at h_not
+      have : n = 1 := by omega
+      subst this
+      exact not_LTileable_1xn_set m (by omega) h
+    · -- m ≥ 2
+      by_contra h_not
+      push_neg at h_not
+      have : m = 1 := by omega
+      subst this
+      exact not_LTileable_nx1_set n (by omega) h
+    · -- ¬(n = 3 ∧ Odd m)
+      rintro ⟨rfl, hm_odd⟩
+      obtain ⟨k, rfl⟩ := hm_odd
+      apply not_LTileable_3x_odd_set k
+      convert h using 2
+    · -- ¬(Odd n ∧ m = 3)
+      rintro ⟨hn_odd, rfl⟩
+      have h2div : 2 ∣ n := (LTileable_nx3_iff_set n).mp (by convert h using 2)
+      obtain ⟨j, hj⟩ := h2div
+      rw [Nat.odd_iff] at hn_odd
       omega
-    ext <;> assumption
+  · rintro (rfl | rfl | ⟨hdiv, hn2, hm2, h_not_3_odd, h_not_odd_3⟩)
+    · -- n = 0: rect 0 0 0 m = ∅
+      have hempty : rect 0 0 (0:ℤ) ↑m = ∅ := by
+        ext ⟨x, y⟩; simp only [mem_rect, Set.mem_empty_iff_false]
+        constructor
+        · rintro ⟨h1, h2, h3, h4⟩; linarith
+        · intro h; exact h.elim
+      simp only [Nat.cast_zero]; rw [hempty]; exact Tileable_set.empty LProtoset_set
+    · -- m = 0: rect 0 0 n 0 = ∅
+      have hempty : rect 0 0 ↑n (0:ℤ) = ∅ := by
+        ext ⟨x, y⟩; simp only [mem_rect, Set.mem_empty_iff_false]
+        constructor
+        · rintro ⟨h1, h2, h3, h4⟩; linarith
+        · intro h; exact h.elim
+      simp only [Nat.cast_zero]; rw [hempty]; exact Tileable_set.empty LProtoset_set
+    · -- Main case: 3 ∣ n*m, n ≥ 2, m ≥ 2, ¬(n=3 ∧ Odd m), ¬(Odd n ∧ m=3)
+      have h3div : 3 ∣ n ∨ 3 ∣ m := by
+        apply (Nat.Prime.dvd_mul Nat.prime_three).mp
+        exact Nat.dvd_of_mod_eq_zero hdiv
+      rcases h3div with ⟨a, rfl⟩ | ⟨b, rfl⟩
+      · -- n = 3a
+        rcases Nat.even_or_odd m with ⟨c, rfl⟩ | hm_odd
+        · -- m = 2c, use LTileable_mult3_mult2_set
+          have ha1 : 1 ≤ a := by omega
+          have hc1 : 1 ≤ c := by omega
+          convert LTileable_mult3_mult2_set a c ha1 hc1 using 2
+          push_cast
+          ring
+        · -- m = 2c+1 odd
+          have ha2 : a ≥ 2 := by
+            by_contra h
+            push_neg at h
+            interval_cases a
+            · omega
+            · exact h_not_3_odd ⟨rfl, hm_odd⟩
+          have hm_odd_mod : m % 2 = 1 := Nat.odd_iff.mp hm_odd
+          have hm_ge3 : m ≥ 3 := by omega
+          have h_not' : ¬(m = 3 ∧ a % 2 = 1) := by
+            rintro ⟨hm_eq, ha_odd_mod⟩
+            subst hm_eq
+            apply h_not_odd_3
+            constructor
+            · -- Odd (3*a)
+              simp only [Nat.odd_iff]; omega
+            · rfl
+          have := LTileable_swap_set (LTileable_odd_x_mult3_set m a hm_ge3
+            hm_odd_mod ha2 h_not')
+          rwa [swapRegion_rect] at this
+      · -- m = 3b
+        rcases Nat.even_or_odd n with ⟨c, rfl⟩ | hn_odd
+        · -- n = 2c, use LTileable_mult3_mult2_set (swap)
+          have hb1 : 1 ≤ b := by omega
+          have hc1 : 1 ≤ c := by omega
+          have h_tiling := LTileable_mult3_mult2_set b c hb1 hc1
+          have h_swap := LTileable_swap_set h_tiling
+          rw [swapRegion_rect] at h_swap
+          convert h_swap using 2
+          push_cast
+          ring
+        · -- n = 2c+1 odd
+          have hb2 : b ≥ 2 := by
+            by_contra h
+            push_neg at h
+            interval_cases b
+            · omega
+            · exact h_not_odd_3 ⟨hn_odd, rfl⟩
+          have hn_odd_mod : n % 2 = 1 := Nat.odd_iff.mp hn_odd
+          have hn_ge3 : n ≥ 3 := by omega
+          have h_not' : ¬(n = 3 ∧ b % 2 = 1) := by
+            rintro ⟨hn_eq, hb_odd⟩
+            subst hn_eq
+            apply h_not_3_odd
+            constructor
+            · rfl
+            · -- Odd m = 3*b with b odd
+              simp only [Nat.odd_iff]; omega
+          exact LTileable_odd_x_mult3_set n b hn_ge3 hn_odd_mod hb2 h_not'
 
-/-- Reflecting (swapping x and y) a rectangle-minus-corner swaps the dimensions. -/
-theorem swap_rectangleMinusCorner_rexp (n m : ℕ) :
-    RExp.eval (↔ (rectangleMinusCorner_rexp n m)) =
-      RExp.eval (rectangleMinusCorner_rexp m n) := by
-  unfold rectangleMinusCorner_rexp
-  rexp_omega_direct
 
-/-- Horizontal split of a rectangle-minus-corner (RExp version). -/
-theorem rectangleMinusCorner_split_horizontal_rexp (a b m : ℕ) (hb : 0 < b) :
-    RExp.eval (rectangleMinusCorner_rexp (a + b) m) =
-      RExp.eval (RExp.r 0 0 a m ⊔ ⇑[a, 0] (rectangleMinusCorner_rexp b m)) := by
-  unfold rectangleMinusCorner_rexp
-  rexp_omega_direct
+/-- Corollary: tileability conditions imply Tileable_set for rectangles. -/
+theorem LTileable_rect_of_conditions_set (n m : ℕ) (h : RectTileableConditions n m) :
+    Tileable_set (rect 0 0 (n : ℤ) m) LProtoset_set :=
+  (LTileable_rect_iff_set n m).mpr h
 
-/-- Vertical split of a rectangle-minus-corner (RExp version). -/
-theorem rectangleMinusCorner_split_vertical_rexp (n a b : ℕ) (hb : 0 < b) :
-    RExp.eval (rectangleMinusCorner_rexp n (a + b)) =
-      RExp.eval (RExp.r 0 0 n a ⊔ ⇑[0, a] (rectangleMinusCorner_rexp n b)) := by
-  unfold rectangleMinusCorner_rexp
-  rexp_omega_direct
+-- Helper instantiations used in rectMinusCorner family lemmas below
+theorem LTileable_4x3_set : Tileable_set (rect 0 0 4 3) LProtoset_set :=
+  swapRegion_rect 3 4 ▸ LTileable_swap_set LTileable_3x4_set
 
-/-- The Finset `swapRegion r` coerced to Set equals `reflect` of `r` coerced to Set. -/
-theorem swapRegion_eq_reflect_coe (r : Region) :
-    (swapRegion r : Set Cell) = reflect (r : Set Cell) := by
-  ext c
-  simp only [Finset.mem_coe, swapRegion, Finset.mem_image, mem_reflect]
-  constructor
-  · intro ⟨a, ha, heq⟩
-    rw [← heq]
-    exact ha
-  · intro h
-    exact ⟨swapCell c, h, swapCell_involutive c⟩
+theorem LTileable_4x6_set : Tileable_set (rect 0 0 4 6) LProtoset_set :=
+  LTileable_kx6_of_ge2_set 4 (by omega)
 
-/-- The Finset `translateRegion r offset` coerced to Set equals `translate` of `r`
-    coerced to Set. -/
-theorem translateRegion_eq_translate_coe (r : Region) (offset : Cell) :
-    (translateRegion r offset : Set Cell) = translate offset.1 offset.2 (r : Set Cell) := by
-  ext c
-  simp only [Finset.mem_coe, translateRegion, Finset.mem_image, mem_translate, translateCell]
-  constructor
-  · intro ⟨a, ha, heq⟩
-    rw [← heq]
-    convert ha using 1
-    ext <;> simp
-  · intro h
-    use (c.1 - offset.1, c.2 - offset.2), h
-    ext <;> simp
+theorem LTileable_5x6_set : Tileable_set (rect 0 0 5 6) LProtoset_set :=
+  LTileable_kx6_of_ge2_set 5 (by omega)
 
-/-- Swapping a three-cornered `n × m` rectangle yields the `m × n` one. -/
-theorem swap_rectangleMinusCorner (n m : ℕ) :
-    swapRegion (rectangleMinusCorner n m) = rectangleMinusCorner m n := by
-  by_cases hn : n ≥ 1
-  · by_cases hm : m ≥ 1
-    · -- Convert to Set Cell and use RExp version
-      apply Finset.coe_injective
-      calc (swapRegion (rectangleMinusCorner n m) : Set Cell)
-          = reflect (rectangleMinusCorner n m : Set Cell) := swapRegion_eq_reflect_coe _
-        _ = reflect (RExp.eval (rectangleMinusCorner_rexp n m)) := by
-            rw [rectangleMinusCorner_rexp_eval]
-        _ = RExp.eval (↔ (rectangleMinusCorner_rexp n m)) := by rw [RExp.eval_reflect]
-        _ = RExp.eval (rectangleMinusCorner_rexp m n) := swap_rectangleMinusCorner_rexp n m
-        _ = (rectangleMinusCorner m n : Set Cell) := by rw [← rectangleMinusCorner_rexp_eval]
-    · -- m = 0: both sides are empty
-      have hm0 : m = 0 := by omega
-      subst hm0
-      simp [rectangleMinusCorner, rectangle, swapRegion]
-  · -- n = 0: both sides are empty
-    have hn0 : n = 0 := by omega
-    subst hn0
-    simp [rectangleMinusCorner, rectangle, swapRegion]
+-- ============================================================
+-- Deficient Rectangles: rectMinusCorner_set
+-- ============================================================
 
-/-- A rectangle `n × m` with both the top-right corner and the square
-immediately to its left removed. -/
-def rectangleMinus2Corner (n m : ℕ) : Region :=
-  ((rectangle n m).erase (cornerTR n m)).erase (cornerTR2 n m)
+/-- n×m rectangle with the top-right corner cell (n-1, m-1) removed. -/
+def rectMinusCorner_set (n m : ℤ) : Set Cell :=
+  rect 0 0 n m \ {(n - 1, m - 1)}
 
-/-- Cardinality of a rectangle with two adjacent top boundary squares removed. -/
-theorem rectangleMinus2Corner_card {n m : ℕ} (hn : n ≥ 2) (hm : m ≥ 1) :
-    (rectangleMinus2Corner n m).card = n * m - 2 := by
-  have hcorner : cornerTR n m ∈ rectangle n m :=
-    cornerTR_mem_rectangle (by omega) hm
-  have hcorner2 : cornerTR2 n m ∈ rectangle n m :=
-    cornerTR2_mem_rectangle hn hm
-  -- After removing `cornerTR`, `cornerTR2` is still in the set.
-  have hcorner2' : cornerTR2 n m ∈ (rectangle n m).erase (cornerTR n m) := by
-    have hneq : cornerTR2 n m ≠ cornerTR n m := by
-      intro h
-      have hf := congrArg Prod.fst h
-      dsimp [cornerTR2, cornerTR] at hf
-      have : n - 2 = n - 1 := Int.ofNat.inj hf
-      omega
-    exact Finset.mem_erase.mpr ⟨hneq, hcorner2⟩
-  -- Erase twice and compute the card.
-  have hcard1 :
-      ((rectangle n m).erase (cornerTR n m)).card = (rectangle n m).card - 1 := by
-    simp [rectangle_card, hcorner]
-  have hcard2 :
-      (rectangleMinus2Corner n m).card =
-        ((rectangle n m).erase (cornerTR n m)).card - 1 := by
-    simp [rectangleMinus2Corner, hcorner2']
-  -- Put the two steps together.
-  have : (rectangleMinus2Corner n m).card =
-      (rectangle n m).card - 2 := by
+/-- rectMinusCorner_set is finite -/
+theorem rectMinusCorner_set_finite (n m : ℤ) : (rectMinusCorner_set n m).Finite :=
+  (rect_finite 0 0 n m).diff
+
+/-- ncard of rectMinusCorner_set -/
+theorem rectMinusCorner_set_ncard (n m : ℕ) (hn : 1 ≤ n) (hm : 1 ≤ m) :
+    (rectMinusCorner_set n m).ncard = n * m - 1 := by
+  unfold rectMinusCorner_set
+  have h_mem : ((n : ℤ) - 1, (m : ℤ) - 1) ∈ rect 0 0 (n : ℤ) m := by
+    simp only [mem_rect]
     omega
-  simpa [rectangle_card] using this
+  rw [diff_ncard (rect 0 0 (n : ℤ) m) {((n : ℤ) - 1, (m : ℤ) - 1)} (rect_finite 0 0 (n : ℤ) m)]
+  have hinter : rect 0 0 (n : ℤ) m ∩ {((n : ℤ) - 1, (m : ℤ) - 1)} =
+      {((n : ℤ) - 1, (m : ℤ) - 1)} :=
+    Set.inter_eq_right.mpr (Set.singleton_subset_iff.mpr h_mem)
+  rw [hinter, Set.ncard_singleton, rect_ncard 0 0 (n : ℤ) m]
+  simp only [sub_zero, Int.toNat_natCast]
 
-/-- Swapping the top-right corner of an `n × m` rectangle gives the
-top-right corner of the `m × n` rectangle. -/
-theorem swapCell_cornerTR (n m : ℕ) :
-    swapCell (cornerTR n m) = cornerTR m n := by
-  simp [cornerTR, swapCell]
 
-/-- L-tileability of three-cornered rectangles is symmetric in the dimensions. -/
-theorem LTileable_swap_rectangleMinusCorner (n m : ℕ) :
-    LTileable (rectangleMinusCorner n m) ↔
-      LTileable (rectangleMinusCorner m n) := by
-  constructor
-  · intro h
-    have h' := LTileable_swap h
-    simpa [swap_rectangleMinusCorner] using h'
-  · intro h
-    have h' := LTileable_swap h
-    simpa [swap_rectangleMinusCorner] using h'
+/-- Swapping coordinates sends rectMinusCorner_set n m to rectMinusCorner_set m n -/
+theorem swapRegion_rectMinusCorner_set (n m : ℤ) :
+    Set.swapRegion (rectMinusCorner_set n m) = rectMinusCorner_set m n := by
+  ext ⟨x, y⟩
+  simp only [mem_swapRegion, rectMinusCorner_set, Set.mem_diff, mem_rect,
+    Set.mem_singleton_iff, Prod.mk.injEq]
+  omega
 
-/- ### Splitting three-cornered rectangles -/
+/-- Horizontal split: rectMinusCorner_set (a+b) m = left_rect ∪ shifted_defect_rect -/
+theorem rectMinusCorner_set_split_horiz (a b m : ℤ) (ha : 0 < a) (hb : 0 < b) (_hm : 0 < m) :
+    rectMinusCorner_set (a + b) m =
+    rect 0 0 a m ∪ translate a 0 (rectMinusCorner_set b m) := by
+  ext ⟨x, y⟩
+  simp only [rectMinusCorner_set, Set.mem_diff, mem_rect, Set.mem_singleton_iff,
+    Prod.mk.injEq, Set.mem_union, mem_translate]
+  omega
 
-/-- Horizontal split of a three-cornered rectangle.
+/-- Vertical split: rectMinusCorner_set n (a+b) = bottom_rect ∪ shifted_defect_rect -/
+theorem rectMinusCorner_set_split_vert (n a b : ℤ) (ha : 0 < a) (hb : 0 < b) (_hn : 0 < n) :
+    rectMinusCorner_set n (a + b) =
+    rect 0 0 n a ∪ translate 0 a (rectMinusCorner_set n b) := by
+  ext ⟨x, y⟩
+  simp only [rectMinusCorner_set, Set.mem_diff, mem_rect, Set.mem_singleton_iff,
+    Prod.mk.injEq, Set.mem_union, mem_translate]
+  omega
 
-If we cut an `(a+b) × m` three-cornered rectangle at `x = a` with `b ≥ 1`,
-the missing corner lies in the right part.  The shape decomposes as a union of:
+/-- If ps tiles rect 0 0 a m and ps tiles translate a 0 (rectMinusCorner_set b m),
+    then ps tiles rectMinusCorner_set (a+b) m. -/
+theorem LTileable_horiz_union_rectMinusCorner_set {a b m : ℤ} (ha : 0 < a) (hb : 0 < b) (hm : 0 < m)
+    (hleft : Tileable_set (rect 0 0 a m) LProtoset_set)
+    (hright : Tileable_set (translate a 0 (rectMinusCorner_set b m)) LProtoset_set) :
+    Tileable_set (rectMinusCorner_set (a + b) m) LProtoset_set := by
+  rw [rectMinusCorner_set_split_horiz a b m ha hb hm]
+  apply Tileable_set.union hleft hright
+  rw [Set.disjoint_left]
+  intro ⟨x, y⟩ h1 h2
+  simp only [mem_rect, mem_translate, rectMinusCorner_set, Set.mem_diff,
+    Set.mem_singleton_iff, Prod.mk.injEq] at h1 h2
+  omega
 
-- the full `a × m` rectangle on the left, and
-- a translated copy of `rectangleMinusCorner b m` on the right. -/
-theorem rectangleMinusCorner_split_horizontal (a b m : ℕ) (hb : 0 < b) :
-    rectangleMinusCorner (a + b) m =
-      rectangle a m ∪ translateRegion (rectangleMinusCorner b m) (a, 0) := by
-  apply Finset.coe_injective
-  -- Part 1: rectangle a m
-  have h1 : RExp.eval (RExp.r 0 0 a m) = (rectangle a m : Set Cell) := by
-    rw [RExp.eval_r, ← rectangle_eq_rect_coe]
-  -- Part 2: translateRegion (rectangleMinusCorner b m) (a, 0)
-  have h2 : RExp.eval (⇑[a, 0] (rectangleMinusCorner_rexp b m)) =
-      (translateRegion (rectangleMinusCorner b m) (a, 0) : Set Cell) := by
-    rw [RExp.eval_shift, rectangleMinusCorner_rexp_eval, translateRegion_eq_translate_coe]
-  -- Part 3: union of coercions = coercion of union
-  have h3 : (rectangle a m : Set Cell) ∪
-      (translateRegion (rectangleMinusCorner b m) (a, 0) : Set Cell) =
-      ↑(rectangle a m ∪ translateRegion (rectangleMinusCorner b m) (a, 0)) :=
-    (Finset.coe_union _ _).symm
-  calc (rectangleMinusCorner (a + b) m : Set Cell)
-      = RExp.eval (rectangleMinusCorner_rexp (a + b) m) := by
-        rw [rectangleMinusCorner_rexp_eval]
-    _ = RExp.eval (RExp.r 0 0 a m) ∪ RExp.eval (⇑[a, 0] (rectangleMinusCorner_rexp b m)) :=
-        rectangleMinusCorner_split_horizontal_rexp a b m hb
-    _ = (rectangle a m : Set Cell) ∪
-        (translateRegion (rectangleMinusCorner b m) (a, 0) : Set Cell) := by rw [h1, h2]
-    _ = ↑(rectangle a m ∪ translateRegion (rectangleMinusCorner b m) (a, 0)) := h3
+/-- Vertical union analogue -/
+theorem LTileable_vert_union_rectMinusCorner_set {n a b : ℤ} (ha : 0 < a) (hb : 0 < b) (hn : 0 < n)
+    (hbottom : Tileable_set (rect 0 0 n a) LProtoset_set)
+    (htop : Tileable_set (translate 0 a (rectMinusCorner_set n b)) LProtoset_set) :
+    Tileable_set (rectMinusCorner_set n (a + b)) LProtoset_set := by
+  rw [rectMinusCorner_set_split_vert n a b ha hb hn]
+  apply Tileable_set.union hbottom htop
+  rw [Set.disjoint_left]
+  intro ⟨x, y⟩ h1 h2
+  simp only [mem_rect, mem_translate, rectMinusCorner_set, Set.mem_diff,
+    Set.mem_singleton_iff, Prod.mk.injEq] at h1 h2
+  omega
 
-/-- Vertical split of a three-cornered rectangle.
+/-- Swap tileability for rectMinusCorner_set -/
+theorem LTileable_swap_rectMinusCorner_set {n m : ℤ}
+    (h : Tileable_set (rectMinusCorner_set n m) LProtoset_set) :
+    Tileable_set (rectMinusCorner_set m n) LProtoset_set := by
+  have := LTileable_swap_set h
+  rwa [swapRegion_rectMinusCorner_set] at this
 
-If we cut an `n × (a+b)` three-cornered rectangle at `y = a` with `b ≥ 1`,
-the missing corner lies in the top part.  The shape decomposes as a union of:
-
-- the full `n × a` rectangle at the bottom, and
-- a translated copy of `rectangleMinusCorner n b` above it. -/
-theorem rectangleMinusCorner_split_vertical (n a b : ℕ) (hb : 0 < b) :
-    rectangleMinusCorner n (a + b) =
-      rectangle n a ∪ translateRegion (rectangleMinusCorner n b) (0, a) := by
-  apply Finset.coe_injective
-  -- Part 1: rectangle n a
-  have h1 : RExp.eval (RExp.r 0 0 n a) = (rectangle n a : Set Cell) := by
-    rw [RExp.eval_r, ← rectangle_eq_rect_coe]
-  -- Part 2: translateRegion (rectangleMinusCorner n b) (0, a)
-  have h2 : RExp.eval (⇑[0, a] (rectangleMinusCorner_rexp n b)) =
-      (translateRegion (rectangleMinusCorner n b) (0, a) : Set Cell) := by
-    rw [RExp.eval_shift, rectangleMinusCorner_rexp_eval, translateRegion_eq_translate_coe]
-  -- Part 3: union of coercions = coercion of union
-  have h3 : (rectangle n a : Set Cell) ∪
-      (translateRegion (rectangleMinusCorner n b) (0, a) : Set Cell) =
-      ↑(rectangle n a ∪ translateRegion (rectangleMinusCorner n b) (0, a)) :=
-    (Finset.coe_union _ _).symm
-  calc (rectangleMinusCorner n (a + b) : Set Cell)
-      = RExp.eval (rectangleMinusCorner_rexp n (a + b)) := by
-        rw [rectangleMinusCorner_rexp_eval]
-    _ = RExp.eval (RExp.r 0 0 n a) ∪ RExp.eval (⇑[0, a] (rectangleMinusCorner_rexp n b)) :=
-        rectangleMinusCorner_split_vertical_rexp n a b hb
-    _ = (rectangle n a : Set Cell) ∪
-        (translateRegion (rectangleMinusCorner n b) (0, a) : Set Cell) := by rw [h1, h2]
-    _ = ↑(rectangle n a ∪ translateRegion (rectangleMinusCorner n b) (0, a)) := h3
-
-/- ### Simple mod-3 helper lemmas -/
-
-/-- If `(n * m) % 3 ≠ 0`, then in particular `n % 3 ≠ 0`.
-
-Equivalently (by contrapositive): if `n % 3 = 0`, then `(n * m) % 3 = 0`. -/
-theorem mod3_ne_zero_of_mul_mod3_ne_zero_left {n m : ℕ}
-    (h : (n * m) % 3 ≠ 0) :
-    n % 3 ≠ 0 := by
-  intro hn0
-  -- From `n % 3 = 0` we get `3 ∣ n`, hence `3 ∣ n * m`, so `(n * m) % 3 = 0`.
-  have h3_div_n : 3 ∣ n := Nat.dvd_of_mod_eq_zero hn0
-  have h3_div_nm : 3 ∣ n * m := dvd_mul_of_dvd_left h3_div_n m
-  have hzero : (n * m) % 3 = 0 := Nat.mod_eq_zero_of_dvd h3_div_nm
-  exact h hzero
-
-/- A number modulo `3` is either `0`, `1`, or `2`.  If it is not `0`, it must
-be `1` or `2`. -/
-theorem mod3_eq_one_or_two_of_ne_zero {n : ℕ} (h : n % 3 ≠ 0) :
-    n % 3 = 1 ∨ n % 3 = 2 := by
-  -- First, `n % 3` lies in `{0,1,2}` since it is strictly less than `3`.
-  have hlt3 : n % 3 < 3 := Nat.mod_lt _ (by decide : 0 < 3)
-  -- From `n % 3 ≠ 0` we get `0 < n % 3` and hence `1 ≤ n % 3`.
-  have hpos : 0 < n % 3 := Nat.pos_of_ne_zero h
-  have hge1 : 1 ≤ n % 3 := Nat.succ_le_of_lt hpos
-  -- Rewrite `< 3` as `≤ 2`.
-  have hle2 : n % 3 ≤ 2 := by
-    have : n % 3 < (2 : ℕ).succ := by simpa using hlt3
-    exact Nat.lt_succ_iff.mp this
-  -- So either `n % 3 < 2` or `n % 3 = 2`.
-  have hlt2_or_eq2 : n % 3 < 2 ∨ n % 3 = 2 := lt_or_eq_of_le hle2
-  rcases hlt2_or_eq2 with hlt2 | heq2
-  · -- Case `n % 3 < 2`: then in fact `n % 3 ≤ 1`, and together with `1 ≤ n % 3`
-    -- we get `n % 3 = 1`.
-    have hle1 : n % 3 ≤ 1 := by
-      have : n % 3 < (1 : ℕ).succ := by simpa using hlt2
-      exact Nat.lt_succ_iff.mp this
-    have : n % 3 = 1 := le_antisymm hle1 hge1
-    exact Or.inl this
-  · -- Case `n % 3 = 2`.
-    exact Or.inr heq2
-
-/- If `(n * m) % 3 = 1`, then the residues of `n` and `m` modulo 3 are
-either both `1` or both `2`. Mixed congruence classes `{1,2}` give
-product ≡ 2 (mod 3), not 1.
-
-This lemma is currently left as a placeholder; the intended proof follows
-the standard modular arithmetic argument sketched in the comments above. -/
-theorem mod3_both_one_or_two_of_area_mod3_zero
-    {n m : ℕ}
-    (h : (n * m) % 3 = 1) :
-    (n % 3 = 1 ∧ m % 3 = 1) ∨ (n % 3 = 2 ∧ m % 3 = 2) := by
-  -- From `(n * m) % 3 = 1` we know the product is not divisible by 3.
-  have hnm_ne0 : (n * m) % 3 ≠ 0 := by
-    simp [h]
-  -- Hence neither factor is `0` mod `3`.
-  have hn_ne0 : n % 3 ≠ 0 :=
-    mod3_ne_zero_of_mul_mod3_ne_zero_left (n := n) (m := m) hnm_ne0
-  have hm_ne0 : m % 3 ≠ 0 := by
-    have hmn_ne0 : (m * n) % 3 ≠ 0 := by
-      simpa [Nat.mul_comm] using hnm_ne0
-    exact mod3_ne_zero_of_mul_mod3_ne_zero_left (n := m) (m := n) hmn_ne0
-  -- Each residue modulo `3` is therefore either `1` or `2`.
-  have hn_res : n % 3 = 1 ∨ n % 3 = 2 :=
-    mod3_eq_one_or_two_of_ne_zero hn_ne0
-  have hm_res : m % 3 = 1 ∨ m % 3 = 2 :=
-    mod3_eq_one_or_two_of_ne_zero hm_ne0
-  -- Analyze the four possible combinations of residues.
-  rcases hn_res with hn1 | hn2
-  · -- Case `n % 3 = 1`.
-    rcases hm_res with hm1 | hm2
-    · -- Subcase `m % 3 = 1`: this is one of the desired alternatives.
-      left
-      exact ⟨hn1, hm1⟩
-    · -- Subcase `m % 3 = 2`: then `(n * m) % 3 = 2`, contradicting `h`.
-      have hnm2 : (n * m) % 3 = 2 := by
-        have hcalc : (n * m) % 3 = (1 * 2) % 3 := by
-          simpa [hn1, hm2] using (Nat.mul_mod n m 3)
-        simpa using hcalc
-      have : (1 : ℕ) ≠ 2 := by decide
-      have hf : False := this (h.symm.trans hnm2)
-      exact hf.elim
-  · -- Case `n % 3 = 2`.
-    rcases hm_res with hm1 | hm2
-    · -- Subcase `m % 3 = 1`: symmetric to the previous contradictory case.
-      have hnm2 : (n * m) % 3 = 2 := by
-        have hcalc : (n * m) % 3 = (2 * 1) % 3 := by
-          simpa [hn2, hm1] using (Nat.mul_mod n m 3)
-        simpa using hcalc
-      have : (1 : ℕ) ≠ 2 := by decide
-      have hf : False := this (h.symm.trans hnm2)
-      exact hf.elim
-    · -- Subcase `m % 3 = 2`: this is the other desired alternative.
-      right
-      exact ⟨hn2, hm2⟩
-
-/-- If `(n * m) % 3 = 2`, then modulo `3` the residues of `n` and `m` are
-`1` and `2` in some order. -/
-theorem mod3_one_two_or_two_one_of_area_mod3_two
-    {n m : ℕ} (h : (n * m) % 3 = 2) :
-    (n % 3 = 1 ∧ m % 3 = 2) ∨ (n % 3 = 2 ∧ m % 3 = 1) := by
-  -- From `(n * m) % 3 = 2` we know the product is not divisible by 3.
-  have hnm_ne0 : (n * m) % 3 ≠ 0 := by
-    simp [h]
-  -- Hence neither factor is `0` mod `3`.
-  have hn_ne0 : n % 3 ≠ 0 :=
-    mod3_ne_zero_of_mul_mod3_ne_zero_left (n := n) (m := m) hnm_ne0
-  have hm_ne0 : m % 3 ≠ 0 := by
-    have hmn_ne0 : (m * n) % 3 ≠ 0 := by
-      simpa [Nat.mul_comm] using hnm_ne0
-    exact mod3_ne_zero_of_mul_mod3_ne_zero_left (n := m) (m := n) hmn_ne0
-  -- Each residue modulo `3` is therefore either `1` or `2`.
-  have hn_res : n % 3 = 1 ∨ n % 3 = 2 :=
-    mod3_eq_one_or_two_of_ne_zero hn_ne0
-  have hm_res : m % 3 = 1 ∨ m % 3 = 2 :=
-    mod3_eq_one_or_two_of_ne_zero hm_ne0
-  -- Analyze the four possible combinations of residues.
-  rcases hn_res with hn1 | hn2
-  · -- Case `n % 3 = 1`.
-    rcases hm_res with hm1 | hm2
-    · -- Subcase `m % 3 = 1`: then `(n * m) % 3 = 1`, contradicting `h = 2`.
-      have hnm1 : (n * m) % 3 = 1 := by
-        have hcalc : (n * m) % 3 = (1 * 1) % 3 := by
-          simpa [hn1, hm1] using (Nat.mul_mod n m 3)
-        simpa using hcalc
-      -- This contradicts `h : (n * m) % 3 = 2`.
-      have hnm1' : (2 : ℕ) = 1 := by simp [h] at hnm1
-      have hfalse : False := (by decide : (2 : ℕ) ≠ 1) hnm1'
-      exact hfalse.elim
-    · -- Subcase `m % 3 = 2`: this is one of the desired alternatives.
-      left
-      exact ⟨hn1, hm2⟩
-  · -- Case `n % 3 = 2`.
-    rcases hm_res with hm1 | hm2
-    · -- Subcase `m % 3 = 1`: this is the other desired alternative.
-      right
-      exact ⟨hn2, hm1⟩
-    · -- Subcase `m % 3 = 2`: then `(n * m) % 3 = 1`, contradicting `h = 2`.
-      have hnm1 : (n * m) % 3 = 1 := by
-        have hcalc : (n * m) % 3 = (2 * 2) % 3 := by
-          simpa [hn2, hm2] using (Nat.mul_mod n m 3)
-        simpa using hcalc
-      -- This contradicts `h : (n * m) % 3 = 2`.
-      have hnm1' : (2 : ℕ) = 1 := by simp [h] at hnm1
-      have hfalse : False := (by decide : (2 : ℕ) ≠ 1) hnm1'
-      exact hfalse.elim
-
-/-- If a three-cornered rectangle is L-tileable, then its area is divisible by 3. -/
-theorem rectMinusCorner_tileable_area_div_3 {n m : ℕ}
-    (hn : n ≥ 1) (hm : m ≥ 1)
-    (h : LTileable (rectangleMinusCorner n m)) :
-    (n * m - 1) % 3 = 0 := by
-  have hcard : (rectangleMinusCorner n m).card % 3 = 0 := by
-    simpa using h.area_div_3
-  simpa [rectangleMinusCorner_card hn hm] using hcard
-
-/-- A tiling of the 2×2 rectangle with its top-right corner removed. -/
-def tiling_2x2_minus : TileSet LTrominoSet Unit :=
-  mkTileSet LTrominoSet Unit (fun _ => mkPlacedTile () 0 0 0)
-
-theorem tiling_2x2_minus_valid :
-    tiling_2x2_minus.Valid (rectangleMinusCorner 2 2) := by
-  decide
+-- ============================================================
+-- Base Cases: rectMinusCorner_set explicit tilings
+-- ============================================================
 
 /-- The 2×2 rectangle with a missing top-right corner is L-tileable. -/
-theorem tileable_2x2_minus : LTileable (rectangleMinusCorner 2 2) :=
-  ⟨Unit, inferInstance, inferInstance, tiling_2x2_minus, tiling_2x2_minus_valid⟩
-
-/-- Explicit tiling of the 5×2 rectangle with its top-right corner removed.
-
-In 0-based `(x,y)` coordinates (with `0 ≤ x ≤ 4`, `0 ≤ y ≤ 1`, missing `(4,1)`), the three
-L-trominoes are:
-
-- `T₁ = {(0,0),(0,1),(1,0)}`
-- `T₂ = {(2,0),(1,1),(2,1)}`
-- `T₃ = {(3,0),(3,1),(4,0)}`
--/
-def tiling_5x2_minus : TileSet LTrominoSet (Fin 3) := ⟨![
-  ⟨(), (0, 0), 0⟩,  -- T₁ at the left
-  ⟨(), (2, 1), 2⟩,  -- T₂ covering the remaining part of the 3×2 block
-  ⟨(), (3, 0), 0⟩   -- T₃ to the right, under the missing corner
-]⟩
-
-theorem tiling_5x2_minus_valid :
-    tiling_5x2_minus.Valid (rectangleMinusCorner 5 2) := by
-  decide
+theorem LTileable_2x2_minus_corner_set :
+    Tileable_set (rectMinusCorner_set 2 2) LProtoset_set := by
+  refine ⟨Fin 1, inferInstance, ⟨![⟨(), (0, 0), 0⟩]⟩, ⟨by simp, ?_⟩⟩
+  ext ⟨x, y⟩
+  simp [rectMinusCorner_set, TileSet_set.coveredCells, Set.mem_iUnion,
+    TileSet_set.cellsAt, PlacedTile_set.cells,
+    LProtoset_set, LPrototile_set, LShape_cells,
+    mem_translate, mem_rotate, mem_rect, inverseRot,
+    rotateCell_0, Prod.mk.injEq]
+  omega
 
 /-- The 5×2 rectangle with a missing top-right corner is L-tileable. -/
-theorem tileable_5x2_minus : LTileable (rectangleMinusCorner 5 2) :=
-  ⟨Fin 3, inferInstance, inferInstance, tiling_5x2_minus, tiling_5x2_minus_valid⟩
-
-/-- Explicit tiling of the 4×4 rectangle with its top-right corner removed.
-This is the `2² × 2²` deficiency-1 square used in Ash–Golomb's Theorem 2. -/
-def tiling_4x4_minus : TileSet LTrominoSet (Fin 5) := ⟨![
-  ⟨(), (0, 0), 0⟩,  -- bottom-left quadrant
-  ⟨(), (3, 0), 1⟩,  -- bottom-right quadrant
-  ⟨(), (0, 3), 3⟩,  -- top-left quadrant
-  ⟨(), (2, 2), 0⟩,  -- top-right quadrant (except the missing corner)
-  ⟨(), (1, 1), 0⟩   -- central tromino
-]⟩
-
-theorem tiling_4x4_minus_valid :
-    tiling_4x4_minus.Valid (rectangleMinusCorner 4 4) := by
-  decide
+theorem LTileable_5x2_minus_corner_set :
+    Tileable_set (rectMinusCorner_set 5 2) LProtoset_set := by
+  have hfin : Tileable_set (↑(rectangleMinusCorner 5 2) : Set Cell)
+      (toProtoset_set LTrominoSet LTrominoSet_nonempty) :=
+    (Tileable_iff_to_set LTrominoSet (rectangleMinusCorner 5 2) LTrominoSet_nonempty).mp
+      tileable_5x2_minus
+  have hcoeeq : (↑(rectangleMinusCorner 5 2) : Set Cell) = rectMinusCorner_set 5 2 := by
+    ext ⟨x, y⟩
+    simp [rectangleMinusCorner, rectMinusCorner_set, cornerTR, mem_rectangle, mem_rect]
+  rw [LProtoset_set_eq_toSet]
+  rw [← hcoeeq]
+  exact hfin
 
 /-- The 4×4 rectangle with a missing top-right corner is L-tileable. -/
-theorem tileable_4x4_minus : LTileable (rectangleMinusCorner 4 4) :=
-  ⟨Fin 5, inferInstance, inferInstance, tiling_4x4_minus, tiling_4x4_minus_valid⟩
-
-/-- Explicit tiling of the 5×5 rectangle with its top-right corner removed.
-
-We follow the Ash–Golomb decomposition:
-- a 2×3 rectangle `A` at the bottom-left,
-- a 3×2 rectangle `B` at the bottom-right,
-- and four L-trominoes near the top boundary.
-
-The eight tiles (0–7) are:
-- tiles 0–1: a copy of `tiling_2x3` covering `A = {(x,y) | x ∈ {0,1}, y ∈ {0,1,2}}`,
-- tiles 2–3: a tiling of `B = {(x,y) | x ∈ {2,3,4}, y ∈ {0,1}}`,
-- tiles 4–7: the four L-trominoes:
-  - `T₁ = {(0,3),(0,4),(1,4)}`,
-  - `T₂ = {(1,3),(2,3),(2,2)}`,
-  - `T₃ = {(2,4),(3,4),(3,3)}`,
-  - `T₄ = {(3,2),(4,2),(4,3)}`.
--/
-def tiling_5x5_minus : TileSet LTrominoSet (Fin 8) := ⟨![
-  -- A: 2×3 rectangle at bottom-left (copy of tiling_2x3)
-  ⟨(), (0, 0), 0⟩,
-  ⟨(), (1, 2), 2⟩,
-  -- B: 3×2 rectangle at bottom-right
-  ⟨(), (2, 0), 0⟩,
-  ⟨(), (4, 1), 2⟩,
-  -- T₁: {(0,3),(0,4),(1,4)}
-  ⟨(), (0, 4), 3⟩,
-  -- T₂: {(1,3),(2,3),(2,2)}
-  ⟨(), (2, 3), 2⟩,
-  -- T₃: {(2,4),(3,4),(3,3)}
-  ⟨(), (3, 4), 2⟩,
-  -- T₄: {(3,2),(4,2),(4,3)}
-  ⟨(), (4, 2), 1⟩
-]⟩
-
-theorem tiling_5x5_minus_valid :
-    tiling_5x5_minus.Valid (rectangleMinusCorner 5 5) := by
-  decide
+theorem LTileable_4x4_minus_corner_set :
+    Tileable_set (rectMinusCorner_set 4 4) LProtoset_set := by
+  have hfin : Tileable_set (↑(rectangleMinusCorner 4 4) : Set Cell)
+      (toProtoset_set LTrominoSet LTrominoSet_nonempty) :=
+    (Tileable_iff_to_set LTrominoSet (rectangleMinusCorner 4 4) LTrominoSet_nonempty).mp
+      tileable_4x4_minus
+  have hcoeeq : (↑(rectangleMinusCorner 4 4) : Set Cell) = rectMinusCorner_set 4 4 := by
+    ext ⟨x, y⟩
+    simp [rectangleMinusCorner, rectMinusCorner_set, cornerTR, mem_rectangle, mem_rect]
+  rw [LProtoset_set_eq_toSet]
+  rw [← hcoeeq]
+  exact hfin
 
 /-- The 5×5 rectangle with a missing top-right corner is L-tileable. -/
-theorem tileable_5x5_minus : LTileable (rectangleMinusCorner 5 5) :=
-  ⟨Fin 8, inferInstance, inferInstance, tiling_5x5_minus, tiling_5x5_minus_valid⟩
-
-/-- Explicit tiling of the 7×7 rectangle with its top-right corner removed.
-
-We use the user-specified partition of `R(7,7)⁻` into 16 disjoint L-trominoes,
-converted to 0-based coordinates.
-
-In 0-based `(x,y)` coordinates (with `0 ≤ x,y ≤ 6`, missing `(6,6)`), the 16
-L-trominoes are:
-- `T₁  = {(0,0),(0,1),(1,1)}`
-- `T₂  = {(1,0),(2,0),(2,1)}`
-- `T₃  = {(0,2),(0,3),(1,3)}`
-- `T₄  = {(1,2),(2,2),(2,3)}`
-- `T₅  = {(0,4),(1,4),(1,5)}`
-- `T₆  = {(0,5),(0,6),(1,6)}`
-- `T₇  = {(2,6),(3,5),(3,6)}`
-- `T₈  = {(2,4),(2,5),(3,4)}`
-- `T₉  = {(3,0),(4,0),(4,1)}`
-- `T₁₀ = {(3,1),(3,2),(4,2)}`
-- `T₁₁ = {(3,3),(4,3),(4,4)}`
-- `T₁₂ = {(4,5),(4,6),(5,6)}`
-- `T₁₃ = {(5,0),(6,0),(6,1)}`
-- `T₁₄ = {(5,1),(5,2),(6,2)}`
-- `T₁₅ = {(5,3),(6,3),(6,4)}`
-- `T₁₆ = {(5,4),(5,5),(6,5)}`.
--/
-def tiling_7x7_minus : TileSet LTrominoSet (Fin 16) := ⟨![
-  -- T₁
-  ⟨(), (0, 1), 3⟩,
-  -- T₂
-  ⟨(), (2, 0), 1⟩,
-  -- T₃
-  ⟨(), (0, 3), 3⟩,
-  -- T₄
-  ⟨(), (2, 2), 1⟩,
-  -- T₅
-  ⟨(), (1, 4), 1⟩,
-  -- T₆
-  ⟨(), (0, 6), 3⟩,
-  -- T₇
-  ⟨(), (3, 6), 2⟩,
-  -- T₈
-  ⟨(), (2, 4), 0⟩,
-  -- T₉
-  ⟨(), (4, 0), 1⟩,
-  -- T₁₀
-  ⟨(), (3, 2), 3⟩,
-  -- T₁₁
-  ⟨(), (4, 3), 1⟩,
-  -- T₁₂
-  ⟨(), (4, 6), 3⟩,
-  -- T₁₃
-  ⟨(), (6, 0), 1⟩,
-  -- T₁₄
-  ⟨(), (5, 2), 3⟩,
-  -- T₁₅
-  ⟨(), (6, 3), 1⟩,
-  -- T₁₆
-  ⟨(), (5, 5), 3⟩
-]⟩
-
-theorem tiling_7x7_minus_valid :
-    tiling_7x7_minus.Valid (rectangleMinusCorner 7 7) := by
-  decide
+theorem LTileable_5x5_minus_corner_set :
+    Tileable_set (rectMinusCorner_set 5 5) LProtoset_set := by
+  have hfin : Tileable_set (↑(rectangleMinusCorner 5 5) : Set Cell)
+      (toProtoset_set LTrominoSet LTrominoSet_nonempty) :=
+    (Tileable_iff_to_set LTrominoSet (rectangleMinusCorner 5 5) LTrominoSet_nonempty).mp
+      tileable_5x5_minus
+  have hcoeeq : (↑(rectangleMinusCorner 5 5) : Set Cell) = rectMinusCorner_set 5 5 := by
+    ext ⟨x, y⟩
+    simp [rectangleMinusCorner, rectMinusCorner_set, cornerTR, mem_rectangle, mem_rect]
+  rw [LProtoset_set_eq_toSet]
+  rw [← hcoeeq]
+  exact hfin
 
 /-- The 7×7 rectangle with a missing top-right corner is L-tileable. -/
-theorem tileable_7x7_minus : LTileable (rectangleMinusCorner 7 7) :=
-  ⟨Fin 16, inferInstance, inferInstance, tiling_7x7_minus, tiling_7x7_minus_valid⟩
+theorem LTileable_7x7_minus_corner_set :
+    Tileable_set (rectMinusCorner_set 7 7) LProtoset_set := by
+  have hfin : Tileable_set (↑(rectangleMinusCorner 7 7) : Set Cell)
+      (toProtoset_set LTrominoSet LTrominoSet_nonempty) :=
+    (Tileable_iff_to_set LTrominoSet (rectangleMinusCorner 7 7) LTrominoSet_nonempty).mp
+      tileable_7x7_minus
+  have hcoeeq : (↑(rectangleMinusCorner 7 7) : Set Cell) = rectMinusCorner_set 7 7 := by
+    ext ⟨x, y⟩
+    simp [rectangleMinusCorner, rectMinusCorner_set, cornerTR, mem_rectangle, mem_rect]
+  rw [LProtoset_set_eq_toSet]
+  rw [← hcoeeq]
+  exact hfin
 
-/- ### Combining rectangles with three-cornered rectangles -/
+-- ============================================================
+-- Family Lemmas: rectMinusCorner_set by decomposition
+-- ============================================================
 
-/-- The two parts of a vertical split of a three-cornered rectangle are disjoint -/
-theorem rectangleMinusCorner_split_vertical_disjoint (n a b : ℕ) (_hb : 0 < b) :
-    Disjoint (rectangle n a) (translateRegion (rectangleMinusCorner n b) (0, a)) := by
-  rw [Finset.disjoint_iff_ne]
-  intro c hc d hd heq
-  simp only [mem_rectangle] at hc
-  simp only [translateRegion, Finset.mem_image, translateCell, rectangleMinusCorner,
-    Finset.mem_erase] at hd
-  obtain ⟨⟨x', y'⟩, ⟨hd_ne, hd_rect⟩, rfl⟩ := hd
-  simp only [mem_rectangle] at hd_rect
-  -- d = (x' + 0, y' + a), c ∈ rectangle n a, c = d
-  -- c.2 < a but c.2 = y' + a ≥ a (since y' ≥ 0)
-  have hc2 : c.2 < ↑a := hc.2.2.2
-  have hy' : 0 ≤ y' := hd_rect.2.2.1
-  -- From heq: c = ((x', y').1 + 0, (x', y').2 + ↑a) = (x', y' + a)
-  -- So c.2 = y' + a, which follows directly from heq
-  have hd2 : c.2 = y' + ↑a := (congrArg Prod.snd heq).trans (by simp)
-  linarith
+/-- For any k, the (3k+2) × 2 rectangle with a missing corner is L-tileable.
 
-/-- The two parts of a horizontal split of a three-cornered rectangle are disjoint -/
-theorem rectangleMinusCorner_split_horizontal_disjoint (a b m : ℕ) (_hb : 0 < b) :
-    Disjoint (rectangle a m) (translateRegion (rectangleMinusCorner b m) (a, 0)) := by
-  rw [Finset.disjoint_iff_ne]
-  intro c hc d hd heq
-  simp only [mem_rectangle] at hc
-  simp only [translateRegion, Finset.mem_image, translateCell, rectangleMinusCorner,
-    Finset.mem_erase] at hd
-  obtain ⟨⟨x', y'⟩, ⟨hd_ne, hd_rect⟩, rfl⟩ := hd
-  simp only [mem_rectangle] at hd_rect
-  -- d = (x' + a, y' + 0), c ∈ rectangle a m, c = d
-  -- c.1 < a but c.1 = x' + a ≥ a (since x' ≥ 0)
-  have hc1 : c.1 < ↑a := hc.2.1
-  have hx' : 0 ≤ x' := hd_rect.1
-  -- From heq: c = ((x', y').1 + ↑a, (x', y').2 + 0) = (x' + a, y')
-  -- So c.1 = x' + a, which follows directly from heq
-  have hd1 : c.1 = x' + ↑a := (congrArg Prod.fst heq).trans (by simp)
-  linarith
+    Base case: 2 × 2 minus corner is tileable (1 L-tromino).
+    Step: split off a 3 × 2 rectangle (tileable), leaving (3k+2) × 2 minus corner.
+-/
+theorem LTileable_3kplus2_x2_minus_corner_set (k : ℕ) :
+    Tileable_set (rectMinusCorner_set (3 * k + 2) 2) LProtoset_set := by
+  induction k with
+  | zero => exact LTileable_2x2_minus_corner_set
+  | succ k ih =>
+    -- Split: (3*(k+1)+2) = 3 + (3*k+2)
+    have heq : (3 * (↑(k+1) : ℤ) + 2) = 3 + (3 * ↑k + 2) := by push_cast; ring
+    rw [heq]
+    exact LTileable_horiz_union_rectMinusCorner_set (by norm_num) (by omega)
+      (by norm_num) LTileable_3x2_set
+      (by exact tileable_translate_set ih 3 0)
 
-/-- If we can tile a rectangle and a translated three-cornered rectangle (vertically adjacent),
-    we can tile their union -/
-theorem LTileable_vertical_union_rect_minus (n a b : ℕ) (hb : 0 < b)
-    (h1 : LTileable (rectangle n a))
-    (h2 : LTileable (rectangleMinusCorner n b)) :
-    LTileable (rectangleMinusCorner n (a + b)) := by
-  rw [rectangleMinusCorner_split_vertical n a b hb]
-  apply Tileable_union LTrominoSet h1
-  · exact LTileable_translate h2 (0, a)
-  · exact rectangleMinusCorner_split_vertical_disjoint n a b hb
-
-/-- If we can tile a rectangle and a translated three-cornered rectangle (horizontally adjacent),
-    we can tile their union -/
-theorem LTileable_horizontal_union_rect_minus (a b m : ℕ) (hb : 0 < b)
-    (h1 : LTileable (rectangle a m))
-    (h2 : LTileable (rectangleMinusCorner b m)) :
-    LTileable (rectangleMinusCorner (a + b) m) := by
-  rw [rectangleMinusCorner_split_horizontal a b m hb]
-  apply Tileable_union LTrominoSet h1
-  · exact LTileable_translate h2 (a, 0)
-  · exact rectangleMinusCorner_split_horizontal_disjoint a b m hb
-
-/-- For any `k`, the three-cornered `(3k+2) × 2` rectangle is L-tileable.
-
-We split off a `3k × 2` rectangle (tileable since `3k` is a multiple of 3),
-leaving a `2 × 2` three-cornered block. -/
-theorem tileable_3kplus2_x2_minus (k : ℕ) :
-    LTileable (rectangleMinusCorner (3 * k + 2) 2) := by
-  -- Left part: full `(3k) × 2` rectangle.
-  have h_rect : LTileable (rectangle (3 * k) 2) :=
-    tileable_mult3_x2 k
-  -- Right part: `2 × 2` rectangle with one corner removed.
-  have h_minus : LTileable (rectangleMinusCorner 2 2) :=
-    tileable_2x2_minus
-  -- Combine them horizontally: width `3k` on the left and `2` on the right.
-  simpa using
-    (LTileable_horizontal_union_rect_minus
-      (a := 3 * k) (b := 2) (m := 2) (by decide) h_rect h_minus)
-
-/-- The 4×7 rectangle with a missing top-right corner is L-tileable. -/
-theorem tileable_4x7_minus : LTileable (rectangleMinusCorner 4 7) := by
-  -- Split vertically: 7 = 3 + 4.
-  have h_rect : LTileable (rectangle 4 3) := by
-    -- 4 = 2 · 2, so 4×3 is an even×3 rectangle.
-    have h := tileable_even_x3 2 (by decide)
-    simpa using h
-  have h_top : LTileable (rectangleMinusCorner 4 4) := tileable_4x4_minus
+/-- The 4×7 rectangle with a missing corner is L-tileable. -/
+theorem LTileable_4x7_minus_corner_set :
+    Tileable_set (rectMinusCorner_set 4 7) LProtoset_set := by
+  -- Split vertically: 7 = 3 + 4
+  have h_rect : Tileable_set (rect 0 0 4 3) LProtoset_set := LTileable_4x3_set
+  have h_minus : Tileable_set (rectMinusCorner_set 4 4) LProtoset_set :=
+    LTileable_4x4_minus_corner_set
   have h_union :
-      LTileable (rectangleMinusCorner 4 (3 + 4)) :=
-    LTileable_vertical_union_rect_minus 4 3 4 (by decide) h_rect h_top
+      Tileable_set (rectMinusCorner_set 4 (3 + 4)) LProtoset_set :=
+    LTileable_vert_union_rectMinusCorner_set (by norm_num) (by norm_num) (by norm_num) h_rect
+      (tileable_translate_set h_minus 0 3)
   simpa using h_union
 
-/-- The three-cornered `5 × (6k + 5)` rectangle splits as a `5 × (6k)` rectangle
-    plus a `5 × 5` three-cornered block, so it is L-tileable. -/
-theorem tileable_5x_6kplus5_minus (k : ℕ) :
-    LTileable (rectangleMinusCorner 5 (6 * k + 5)) := by
-  -- Left part: full `5 × (6k)` rectangle.
-  have h_rect : LTileable (rectangle 5 (6 * k)) :=
-    tileable_5x6j k
-  -- Right part: `5 × 5` rectangle with one corner removed.
-  have h_minus : LTileable (rectangleMinusCorner 5 5) :=
-    tileable_5x5_minus
-  -- Combine them vertically: height `6k` below and a `5 × 5` three-cornered block above.
-  simpa using
-    (LTileable_vertical_union_rect_minus
-      (n := 5) (a := 6 * k) (b := 5) (by decide) h_rect h_minus)
+/-- For any k, the 4 × (7 + 6k) rectangle with a missing corner is L-tileable.
 
-/-- The three-cornered `5 × (6k + 2)` rectangle splits as a `5 × (6k)` rectangle
-    plus a `5 × 2` three-cornered block, so it is L-tileable. -/
-theorem tileable_5x_6kplus2_minus (k : ℕ) :
-    LTileable (rectangleMinusCorner 5 (6 * k + 2)) := by
-  -- Left part: full `5 × (6k)` rectangle.
-  have h_rect : LTileable (rectangle 5 (6 * k)) :=
-    tileable_5x6j k
-  -- Right part: `5 × 2` rectangle with one corner removed.
-  have h_minus : LTileable (rectangleMinusCorner 5 2) :=
-    tileable_5x2_minus
-  -- Combine them vertically: height `6k` below and a `5 × 2` three-cornered block above.
-  simpa using
-    (LTileable_vertical_union_rect_minus
-      (n := 5) (a := 6 * k) (b := 2) (by decide) h_rect h_minus)
+    Base case: 4 × 7 is tileable.
+    Step: split off a 4 × 6 rectangle (tileable), leaving 4 × (7 + 6k) minus corner.
+-/
+theorem LTileable_4x_7plus6k_minus_corner_set (k : ℕ) :
+    Tileable_set (rectMinusCorner_set 4 (7 + 6 * k)) LProtoset_set := by
+  induction k with
+  | zero => simpa using LTileable_4x7_minus_corner_set
+  | succ k ih =>
+    -- Split: 7 + 6*(k+1) = 6 + (7 + 6*k)
+    have heq : (7 + 6 * (↑(k+1) : ℤ)) = 6 + (7 + 6 * ↑k) := by push_cast; ring
+    rw [heq]
+    apply LTileable_vert_union_rectMinusCorner_set (a := 6) (b := 7 + 6 * ↑k) (n := 4)
+    · norm_num
+    · omega
+    · norm_num
+    · exact LTileable_4x6_set
+    · exact tileable_translate_set ih 0 6
 
-/-- If `k` is odd or even, then `3k+2` is of the form `6k'+5` or `6k'+2` respectively,
-    so the three-cornered `5 × (3k+2)` rectangle is L-tileable. -/
-theorem tileable_5x_3kplus2_minus (k : ℕ) :
-    LTileable (rectangleMinusCorner 5 (3 * k + 2)) := by
-  classical
-  rcases Nat.even_or_odd k with h_even | h_odd
-  · -- even case: k = 2k', so 3k+2 = 6k'+2
-    rcases h_even with ⟨k', hk'⟩
-    have heq : 3 * k + 2 = 6 * k' + 2 := by
-      omega
-    have h := tileable_5x_6kplus2_minus k'
-    simpa [heq] using h
-  · -- odd case: k = 2k'+1, so 3k+2 = 6k'+5
-    rcases h_odd with ⟨k', hk'⟩
-    have heq : 3 * k + 2 = 6 * k' + 5 := by
-      omega
-    have h := tileable_5x_6kplus5_minus k'
-    simpa [heq] using h
+/-- For any k, the 5 × (6k+2) rectangle with a missing corner is L-tileable. -/
+theorem LTileable_5x_6kplus2_minus_corner_set (k : ℕ) :
+    Tileable_set (rectMinusCorner_set 5 (6 * k + 2)) LProtoset_set := by
+  induction k with
+  | zero => simpa using LTileable_5x2_minus_corner_set
+  | succ k ih =>
+    -- Split: 6*(k+1)+2 = 6 + (6*k+2)
+    have heq : (6 * (↑(k+1) : ℤ) + 2) = 6 + (6 * ↑k + 2) := by push_cast; ring
+    rw [heq]
+    apply LTileable_vert_union_rectMinusCorner_set (a := 6) (b := 6 * ↑k + 2) (n := 5)
+    · norm_num
+    · omega
+    · norm_num
+    · exact LTileable_5x6_set
+    · exact tileable_translate_set ih 0 6
 
-/-- For `j,k ≥ 2`, the three-cornered `(3j+2) × (3k+2)` rectangle is L-tileable. -/
-theorem tileable_rectMinusCorner_mod2_jk_ge2
+/-- For any k, the 5 × (6k+5) rectangle with a missing corner is L-tileable. -/
+theorem LTileable_5x_6kplus5_minus_corner_set (k : ℕ) :
+    Tileable_set (rectMinusCorner_set 5 (6 * k + 5)) LProtoset_set := by
+  induction k with
+  | zero =>
+    simpa using LTileable_5x5_minus_corner_set
+  | succ k ih =>
+    -- Split: 6*(k+1)+5 = 6 + (6*k+5)
+    have heq : (6 * (↑(k+1) : ℤ) + 5) = 6 + (6 * ↑k + 5) := by push_cast; ring
+    rw [heq]
+    apply LTileable_vert_union_rectMinusCorner_set (a := 6) (b := 6 * ↑k + 5) (n := 5)
+    · norm_num
+    · omega
+    · norm_num
+    · exact LTileable_5x6_set
+    · exact tileable_translate_set ih 0 6
+
+-- ============================================================
+-- Main Cases: rectMinusCorner_set iff conditions
+-- ============================================================
+
+/-- Main mod-2 case: when n ≡ m ≡ 2 (mod 3) and both ≥ 2,
+    the three-cornered rectangle is L-tileable.
+
+    The proof splits vertically: m = (3k) + 2
+    - Bottom: n × (3k) full rectangle (tileable by classification)
+    - Top: n × 2 three-cornered rectangle (Family 1 lemma)
+-/
+theorem LTileable_rectMinusCorner_mod2_set
     (j k : ℕ) (hj2 : j ≥ 2) (hk2 : k ≥ 2) :
-    LTileable (rectangleMinusCorner (3 * j + 2) (3 * k + 2)) := by
-  -- Let n = 3j+2, m = 3k+2.
+    Tileable_set (rectMinusCorner_set (3 * j + 2) (3 * k + 2)) LProtoset_set := by
+  -- n = 3j+2, m = 3k+2
   let n := 3 * j + 2
   let m := 3 * k + 2
-  have hn : n ≥ 2 := by
-    dsimp [n]
-    omega
-  have hm : m ≥ 2 := by
-    dsimp [m]
-    omega
-  -- Bottom part: full rectangle n × (3k).
-  have h_bottom : LTileable (rectangle n (3 * k)) := by
-    -- Use the rectangle classification theorem on dimensions n and 3k.
-    have hconds : RectTileableConditions n (3 * k) := by
-      right; right
-      constructor
-      · -- Area divisible by 3: 3 ∣ 3k, hence 3 ∣ n * (3k).
-        have hdiv₁ : 3 ∣ 3 * k := ⟨k, by ring⟩
-        have hdiv₂ : 3 ∣ n * (3 * k) := dvd_mul_of_dvd_right hdiv₁ _
-        exact Nat.mod_eq_zero_of_dvd hdiv₂
-      · constructor
-        · -- n ≥ 2 (given).
-          exact hn
-        · constructor
-          · -- 3k ≥ 2 since k ≥ 2.
-            have hk_ge2 : k ≥ 2 := hk2
-            have : 3 * k ≥ 6 := by omega
-            exact le_trans (by decide : 2 ≤ 6) this
-          · constructor
-            · -- ¬(n = 3 ∧ Odd (3k)) since n = 3j+2 ≥ 8, so n ≠ 3.
-              intro h
-              rcases h with ⟨hn3, _⟩
-              have hn_ge8 : n ≥ 8 := by
-                dsimp [n]
-                have : 3 * j ≥ 6 := by omega
-                omega
-              have : n ≠ 3 := by omega
-              exact this hn3
-            · -- ¬(Odd n ∧ 3k = 3) since 3k ≥ 6, so 3k ≠ 3.
-              intro h
-              rcases h with ⟨_, hm3⟩
-              have h3k_ge6 : 3 * k ≥ 6 := by
-                have : k ≥ 2 := hk2
-                omega
-              have : (3 * k) ≠ 3 := by omega
-              exact this hm3
-    -- Turn conditions into tileability.
-    have htil : LTileable (rectangle n (3 * k)) :=
-      (rect_tileable_iff n (3 * k)).2 hconds
-    simpa [n] using htil
-  -- Top strip: three-cornered n × 2 using the `(3k+2) × 2` lemma with k = j.
-  have h_top : LTileable (rectangleMinusCorner n 2) := by
-    have h := tileable_3kplus2_x2_minus j
-    simpa [n] using h
-  -- Combine via vertical split: m = (3k) + 2.
-  have h_union : LTileable (rectangleMinusCorner n (3 * k + 2)) :=
-    LTileable_vertical_union_rect_minus n (3 * k) 2 (by decide) h_bottom h_top
-  -- Rewrite back to n = 3j+2, m = 3k+2.
-  have hm_eq : m = 3 * k + 2 := rfl
-  have hn_eq : n = 3 * j + 2 := rfl
-  have : LTileable (rectangleMinusCorner n m) := by
-    simpa [m, hm_eq] using h_union
-  simpa [n, m] using this
-
-/- ### Helper lemmas for the mod 3 = 1 case -/
-
-/-- For `k ≥ 1`, the three-cornered `4 × (3k+1)` rectangle is L-tileable. -/
-theorem tileable_4x_rectMinus_3kplus1 (k : ℕ) (hk : k ≥ 1) :
-    LTileable (rectangleMinusCorner 4 (3 * k + 1)) := by
-  cases k with
-  | zero =>
-      -- Impossible since k ≥ 1
-      cases hk
-  | succ k' =>
-      cases k' with
-      | zero =>
-          -- k = 1: 4×4 minus corner
-          have : 3 * (1 : ℕ) + 1 = 4 := by decide
-          simpa [this] using tileable_4x4_minus
-      | succ k'' =>
-          -- k = k'' + 2 ≥ 2.  Write 3k+1 = 3 + (3(k-1)+1) and split off a 4×3 strip.
-          -- Apply IH to k-1 = succ k''.
-          have ih :
-              LTileable (rectangleMinusCorner 4 (3 * Nat.succ k'' + 1)) :=
-            tileable_4x_rectMinus_3kplus1 (Nat.succ k'') (by omega)
-          -- 4×3 rectangle is tileable since 4 = 2·2 and (2j)×3 is tileable for j ≥ 1.
-          have h_4x3 : LTileable (rectangle 4 3) := by
-            have h4 : 4 = 2 * 2 := by decide
-            have h := tileable_even_x3 2 (by decide)
-            simpa [h4] using h
-          -- Split vertically: height (3k+1) = 3 + (3(k-1)+1)
-          have h_decomp :
-              3 * (Nat.succ (Nat.succ k'')) + 1 =
-                3 + (3 * Nat.succ k'' + 1) := by
-            omega
-          -- Use the vertical-union lemma on three-cornered rectangles with a = 3, b = 3(k-1)+1.
-          have h_union :
-              LTileable (rectangleMinusCorner 4 (3 + (3 * Nat.succ k'' + 1))) :=
-            LTileable_vertical_union_rect_minus
-              (n := 4) (a := 3) (b := 3 * Nat.succ k'' + 1)
-              (by omega) h_4x3 ih
-          -- Rewrite back to 4 × (3k+1)^-.
-          have : LTileable (rectangleMinusCorner 4 (3 * (Nat.succ (Nat.succ k'')) + 1)) := by
-            simpa [h_decomp] using h_union
-          -- Replace k by `Nat.succ (Nat.succ k'')` in the goal.
-          simpa using this
-
-/-- Helper: If n = 3k + 1 with k ≥ 1, and j ≥ 3, then rectangle n (3(j-1)) is tileable. -/
-theorem tileable_rect_mod1_by_mult3
-    (n k j : ℕ) (hn : n ≥ 2) (hk_eq : n = 3 * k + 1) (hj3 : j ≥ 3) :
-    LTileable (rectangle n (3 * (j - 1))) := by
-  rw [rect_tileable_iff]
-  right; right
-  constructor
-  · -- Area divisible by 3
-    simp [hk_eq]
-    ring_nf
-    omega
-  · constructor
-    · exact hn
-    · constructor
-      · -- 3(j-1) ≥ 2 since j ≥ 3
-        omega
-      · constructor
-        · -- ¬(n = 3 ∧ Odd (3(j-1)))
-          intro ⟨hn3, hodd⟩
-          rw [hk_eq] at hn3
-          omega
-        · -- ¬(Odd n ∧ 3(j-1) = 3)
-          intro ⟨_, h3j1_eq_3⟩
-          -- j ≥ 3 and 3(j−1) = 3 is impossible (omega can see the contradiction).
-          have hj_ge3 := hj3
-          have h3eq := h3j1_eq_3
-          omega
-
-/-- If `n = 3k+1` and `m = 3j+1` with `j ≥ 3` and `k ≥ 1`, then
-    the three-cornered `n × m` rectangle is L-tileable. -/
-theorem tileable_rectMinusCorner_mod1_jk_ge
-    (j k : ℕ) (hj3 : j ≥ 3) (hk1 : k ≥ 1) :
-    LTileable (rectangleMinusCorner (3 * k + 1) (3 * j + 1)) := by
-  -- Let n = 3k+1, m = 3j+1.
-  let n := 3 * k + 1
-  let m := 3 * j + 1
-  have hn : n ≥ 2 := by
-    -- n = 3k+1 ≥ 4 when k ≥ 1
-    have : n ≥ 4 := by
-      dsimp [n]
-      omega
-    exact le_trans (by decide : 2 ≤ 4) this
-  have hm : m ≥ 2 := by
-    -- m = 3j+1 ≥ 10 when j ≥ 3
-    dsimp [m]
-    omega
-  -- Bottom part: full rectangle n × 3(j-1).
-  have h_bottom : LTileable (rectangle n (3 * (j - 1))) := by
-    -- Use `tileable_rect_mod1_by_mult3` with n = 3k+1, k = k.
-    have hk_eq : n = 3 * k + 1 := rfl
-    exact tileable_rect_mod1_by_mult3 n k j hn hk_eq hj3
-  -- Top strip: three-cornered 4 × n, then swap.
-  have h_top_base : LTileable (rectangleMinusCorner 4 n) := by
-    -- n = 3k+1, so this matches `tileable_4x_rectMinus_3kplus1`.
-    have hk_eq : n = 3 * k + 1 := rfl
-    have h := tileable_4x_rectMinus_3kplus1 k hk1
-    simpa [hk_eq] using h
-  -- Swap to get n × 4 (three-cornered).
-  have h_top : LTileable (rectangleMinusCorner n 4) :=
-    (LTileable_swap_rectangleMinusCorner 4 n).mp h_top_base
-  -- Combine via vertical split: m = 3(j-1) + 4.
-  have hm_decomp : m = 3 * (j - 1) + 4 := by
-    dsimp [m]
-    omega
-  have h_union : LTileable (rectangleMinusCorner n (3 * (j - 1) + 4)) :=
-    LTileable_vertical_union_rect_minus n (3 * (j - 1)) 4 (by decide) h_bottom h_top
-  -- Rewrite back to height m = 3j+1.
-  have hm_eq : 3 * j + 1 = 3 * (j - 1) + 4 := by
-    omega
-  -- Conclude for `rectangleMinusCorner n m`.
-  have : LTileable (rectangleMinusCorner n m) := by
-    simpa [m, hm_eq] using h_union
-  -- Finally, rewrite n, m in terms of k, j.
-  simpa [n, m] using this
-
-/-- Helper: If n = 3(k-1) + 4 with k-1 ≥ 2, then rectangleMinusCorner n 4 is tileable. -/
-theorem tileable_rectMinusCorner_mod1_width4 (n k : ℕ) (_hn : n ≥ 2)
-    (hn_decomp : n = 3 * (k - 1) + 4) (hk1' : k - 1 ≥ 2) :
-    LTileable (rectangleMinusCorner n 4) := by
-  rw [hn_decomp]
-  -- rectangleMinusCorner (3(k-1) + 4) 4 =
-  --  rectangle (3(k-1)) 4 ∪ translateRegion (rectangleMinusCorner 4 4) (3(k-1), 0)
-  have h_3k1_4 : LTileable (rectangle (3 * (k - 1)) 4) := by
-    rw [rect_tileable_iff]
+  have hn : (n : ℤ) ≥ 2 := by omega
+  have hm : (m : ℤ) ≥ 2 := by omega
+  -- Bottom part: full n × (3k) rectangle (use rect classification)
+  have h_bottom : Tileable_set (rect 0 0 (n : ℤ) (3 * k)) LProtoset_set := by
+    apply LTileable_rect_of_conditions_set n (3*k)
     right; right
-    constructor
-    · ring; omega
-    · constructor
+    refine ⟨?_, ?_, ?_, ?_, ?_⟩
+    · -- n * (3k) % 3 = 0
+      have h3k : 3 ∣ 3 * k := dvd_mul_right 3 k
+      have hdvd := dvd_mul_of_dvd_right h3k n
+      rwa [Nat.dvd_iff_mod_eq_zero] at hdvd
+    · -- n ≥ 2
+      omega
+    · -- 3k ≥ 2
+      omega
+    · -- ¬(n = 3 ∧ Odd (3k))
+      rintro ⟨hn3, _⟩
+      simp only [n] at hn3
+      omega
+    · -- ¬(Odd n ∧ 3k = 3)
+      rintro ⟨_, hm3⟩
+      have hm3' : (3 * k : ℤ) = 3 := by exact_mod_cast hm3
+      have hk2' : (k : ℤ) ≥ 2 := by exact_mod_cast hk2
+      linarith
+  -- Top part: n × 2 three-cornered (use Family 1)
+  have h_top : Tileable_set (rectMinusCorner_set (n : ℤ) 2) LProtoset_set :=
+    LTileable_3kplus2_x2_minus_corner_set j
+  -- Combine: m = (3k) + 2
+  have h_union : Tileable_set (rectMinusCorner_set (n : ℤ) ((3 * k) + 2)) LProtoset_set :=
+    LTileable_vert_union_rectMinusCorner_set (by omega)
+      (by norm_num) (by omega) h_bottom
+      (tileable_translate_set h_top 0 (3 * k))
+  exact h_union
+
+-- ============================================================
+-- Mod-1 family: 4 × (3k+1) minus corner for all k ≥ 1
+-- ============================================================
+
+/-- For any k ≥ 1, the 4 × (3k+1) rectangle with a missing corner is L-tileable.
+    Base: k=1 gives 4×4. Step: split off a 4×3 strip from the bottom. -/
+theorem LTileable_4x_3kplus1_minus_corner_set (k : ℕ) (hk : k ≥ 1) :
+    Tileable_set (rectMinusCorner_set 4 (3 * k + 1)) LProtoset_set := by
+  induction k with
+  | zero => exact absurd hk (by omega)
+  | succ k' ih =>
+    rcases k' with _ | k''
+    · -- k = 1: 4 × 4
+      simp only [Nat.zero_add]
+      norm_num
+      exact LTileable_4x4_minus_corner_set
+    · -- k = k''+2: split 3*(k''+2)+1 = 3 + (3*(k''+1)+1)
+      have ih' : Tileable_set (rectMinusCorner_set 4 (3 * (k'' + 1) + 1)) LProtoset_set :=
+        ih (by omega)
+      have heq : (3 * (↑(k'' + 2) : ℤ) + 1) = 3 + (3 * ↑(k'' + 1) + 1) := by
+        push_cast; ring
+      rw [heq]
+      apply LTileable_vert_union_rectMinusCorner_set (a := 3) (n := 4)
+      · norm_num
+      · push_cast; omega
+      · norm_num
+      · exact LTileable_4x3_set
+      · exact tileable_translate_set ih' 0 3
+
+-- ============================================================
+-- Mod-1 recurrence for j ≥ 3: (3k+1) × (3j+1) via bottom full rect + top corner rect
+-- ============================================================
+
+/-- For j ≥ 3 and k ≥ 1, the (3k+1) × (3j+1) rectangle with missing corner is L-tileable.
+    Proof: bottom full (3k+1) × (3*(j-1)) rect + top (3k+1) × 4 corner rect. -/
+theorem LTileable_rectMinusCorner_mod1_jk_ge_set
+    (j k : ℕ) (hj3 : j ≥ 3) (hk1 : k ≥ 1) :
+    Tileable_set (rectMinusCorner_set (3 * k + 1) (3 * j + 1)) LProtoset_set := by
+  -- Let a = 3*(j-1) (bottom height), n = 3*k+1
+  let n := 3 * k + 1
+  let a := 3 * (j - 1)
+  have hn2 : (n : ℤ) ≥ 2 := by simp only [n]; push_cast; omega
+  have ha_pos : (a : ℤ) > 0 := by simp only [a]; push_cast; omega
+  have hn_pos : (n : ℤ) > 0 := by simp only [n]; push_cast; omega
+  -- Bottom: full n × a rectangle
+  have h_bottom : Tileable_set (rect 0 0 (n : ℤ) (a : ℤ)) LProtoset_set := by
+    apply LTileable_rect_of_conditions_set n a
+    right; right
+    refine ⟨?_, ?_, ?_, ?_, ?_⟩
+    · -- n * a % 3 = 0: a = 3*(j-1), so 3 ∣ n*a
+      have h3a : 3 ∣ a := ⟨j - 1, by simp only [a]⟩
+      have hdvd := dvd_mul_of_dvd_right h3a n
+      rwa [Nat.dvd_iff_mod_eq_zero] at hdvd
+    · -- n ≥ 2
+      simp only [n]; omega
+    · -- a ≥ 2: j ≥ 3 → j-1 ≥ 2 → 3*(j-1) ≥ 6 ≥ 2
+      simp only [a]; omega
+    · -- ¬(n = 3 ∧ Odd a): n = 3*k+1 ≥ 4, so n ≠ 3
+      rintro ⟨hn3, _⟩; simp only [n] at hn3; omega
+    · -- ¬(Odd n ∧ a = 3): a ≥ 6, so a ≠ 3
+      rintro ⟨_, ha3⟩; simp only [a] at ha3; omega
+  -- Top: (3k+1) × 4 corner rect (via swap of 4 × (3k+1))
+  have h4xn : Tileable_set (rectMinusCorner_set 4 (n : ℤ)) LProtoset_set :=
+    LTileable_4x_3kplus1_minus_corner_set k hk1
+  have h_top : Tileable_set (rectMinusCorner_set (n : ℤ) 4) LProtoset_set :=
+    LTileable_swap_rectMinusCorner_set h4xn
+  -- Combine: height = a + 4 = 3*(j-1) + 4 = 3*j+1
+  have heq : (a : ℤ) + 4 = 3 * ↑j + 1 := by simp only [a]; push_cast; omega
+  have h_union : Tileable_set (rectMinusCorner_set (n : ℤ) ((a : ℤ) + 4)) LProtoset_set :=
+    LTileable_vert_union_rectMinusCorner_set ha_pos (by norm_num) hn_pos
+      h_bottom (tileable_translate_set h_top 0 (a : ℤ))
+  rw [heq] at h_union
+  exact h_union
+
+-- ============================================================
+-- Mod-1 recurrence for k ≥ 3: (3k+1) × (3j+1) via left full rect + right corner rect
+-- ============================================================
+
+/-- For k ≥ 3 and j ≥ 1, the (3k+1) × (3j+1) rectangle with missing corner is L-tileable.
+    Proof: left full (3*(k-1)) × (3j+1) rect + right 4 × (3j+1) corner rect. -/
+theorem LTileable_rectMinusCorner_mod1_recurrence_k_ge3_set
+    (j k : ℕ) (hj1 : j ≥ 1) (hk3 : k ≥ 3) :
+    Tileable_set (rectMinusCorner_set (3 * k + 1) (3 * j + 1)) LProtoset_set := by
+  -- Let b = 3*(k-1) (left width), m = 3*j+1
+  let m := 3 * j + 1
+  let b := 3 * (k - 1)
+  have hm_pos : (m : ℤ) > 0 := by simp only [m]; push_cast; omega
+  have hb_pos : (b : ℤ) > 0 := by simp only [b]; push_cast; omega
+  -- Left: full b × m rectangle
+  have h_left : Tileable_set (rect 0 0 (b : ℤ) (m : ℤ)) LProtoset_set := by
+    apply LTileable_rect_of_conditions_set b m
+    right; right
+    refine ⟨?_, ?_, ?_, ?_, ?_⟩
+    · -- b * m % 3 = 0: b = 3*(k-1), so 3 ∣ b*m
+      have h3b : 3 ∣ b := ⟨k - 1, by simp only [b]⟩
+      have hdvd := dvd_mul_of_dvd_left h3b m
+      rwa [Nat.dvd_iff_mod_eq_zero] at hdvd
+    · -- b ≥ 2: k ≥ 3 → k-1 ≥ 2 → 3*(k-1) ≥ 6 ≥ 2
+      simp only [b]; omega
+    · -- m ≥ 2: j ≥ 1 → 3*j+1 ≥ 4 ≥ 2
+      simp only [m]; omega
+    · -- ¬(b = 3 ∧ Odd m): b ≥ 6, so b ≠ 3
+      rintro ⟨hb3, _⟩; simp only [b] at hb3; omega
+    · -- ¬(Odd b ∧ m = 3): m ≥ 4, so m ≠ 3
+      rintro ⟨_, hm3⟩; simp only [m] at hm3; omega
+  -- Right: 4 × (3j+1) corner rect
+  have h_right : Tileable_set (rectMinusCorner_set 4 (m : ℤ)) LProtoset_set :=
+    LTileable_4x_3kplus1_minus_corner_set j hj1
+  -- Combine (horizontal): width = b + 4 = 3*(k-1) + 4 = 3*k+1
+  have heq : (b : ℤ) + 4 = 3 * ↑k + 1 := by simp only [b]; push_cast; omega
+  have h_union : Tileable_set (rectMinusCorner_set ((b : ℤ) + 4) (m : ℤ)) LProtoset_set :=
+    LTileable_horiz_union_rectMinusCorner_set hb_pos (by norm_num) hm_pos
+      h_left (tileable_translate_set h_right (b : ℤ) 0)
+  rw [heq] at h_union
+  exact h_union
+
+-- ============================================================
+-- Main mod-1 case: (3k+1) × (3j+1) for all k,j ≥ 1
+-- ============================================================
+
+/-- For any j, k ≥ 1, the (3k+1) × (3j+1) rectangle with missing corner is L-tileable. -/
+theorem LTileable_rectMinusCorner_mod1_set (j k : ℕ) (hj1 : j ≥ 1) (hk1 : k ≥ 1) :
+    Tileable_set (rectMinusCorner_set (3 * k + 1) (3 * j + 1)) LProtoset_set := by
+  rcases le_or_gt k 2 with hk2 | hk3
+  · -- k ≤ 2
+    rcases le_or_gt j 2 with hj2 | hj3
+    · -- k ≤ 2, j ≤ 2: small cases (k,j) ∈ {1,2}²
+      interval_cases k <;> interval_cases j
+      · simpa using LTileable_4x4_minus_corner_set
+      · simpa using LTileable_4x7_minus_corner_set
+      · simpa using LTileable_swap_rectMinusCorner_set LTileable_4x7_minus_corner_set
+      · simpa using LTileable_7x7_minus_corner_set
+    · -- k ≤ 2, j ≥ 3: use jk_ge lemma
+      exact LTileable_rectMinusCorner_mod1_jk_ge_set j k hj3 hk1
+  · -- k ≥ 3: use recurrence
+    exact LTileable_rectMinusCorner_mod1_recurrence_k_ge3_set j k hj1 (by omega)
+
+-- ============================================================
+-- Mod-2 coverage: 5 × n for any n ≡ 2 mod 3
+-- ============================================================
+
+/-- For any n with n % 3 = 2, the 5 × n rectangle with missing corner is L-tileable. -/
+theorem LTileable_5x_mod2_minus_corner_set (n : ℕ) (hn : n % 3 = 2) :
+    Tileable_set (rectMinusCorner_set 5 n) LProtoset_set := by
+  -- Write n = 6*t+2 or n = 6*t+5 depending on parity of n/3
+  have hcase : (∃ t, n = 6 * t + 2) ∨ (∃ t, n = 6 * t + 5) := by
+    rcases Nat.even_or_odd (n / 3) with ⟨t, ht⟩ | ⟨t, ht⟩
+    · left; exact ⟨t, by omega⟩
+    · right; exact ⟨t, by omega⟩
+  rcases hcase with ⟨t, rfl⟩ | ⟨t, rfl⟩
+  · -- n = 6*t+2
+    exact LTileable_5x_6kplus2_minus_corner_set t
+  · -- n = 6*t+5
+    exact LTileable_5x_6kplus5_minus_corner_set t
+
+-- ============================================================
+-- Complete mod-2 case: (3j+2) × (3k+2) for all j, k ≥ 0
+-- ============================================================
+
+/-- For any j, k ≥ 0, the (3j+2) × (3k+2) rectangle with missing corner is L-tileable. -/
+theorem LTileable_mod2_minus_corner_set_all (j k : ℕ) :
+    Tileable_set (rectMinusCorner_set (3 * j + 2) (3 * k + 2)) LProtoset_set := by
+  rcases le_or_gt k 1 with hk1 | hk2
+  · interval_cases k
+    · -- k = 0: (3j+2) × 2
+      norm_num
+      exact LTileable_3kplus2_x2_minus_corner_set j
+    · -- k = 1: (3j+2) × 5
+      norm_num
+      apply LTileable_swap_rectMinusCorner_set
+      exact LTileable_5x_mod2_minus_corner_set (3 * j + 2) (by omega)
+  · rcases le_or_gt j 1 with hj1 | hj2
+    · interval_cases j
+      · -- j = 0: 2 × (3k+2)
+        norm_num
+        apply LTileable_swap_rectMinusCorner_set
+        exact LTileable_3kplus2_x2_minus_corner_set k
+      · -- j = 1: 5 × (3k+2)
+        norm_num
+        exact LTileable_5x_mod2_minus_corner_set (3 * k + 2) (by omega)
+    · -- j ≥ 2, k ≥ 2
+      exact LTileable_rectMinusCorner_mod2_set j k (by omega) (by omega)
+
+-- ============================================================
+-- Necessity: L-tileability implies area condition
+-- ============================================================
+
+/-- If rectMinusCorner_set n m is L-tileable, then (n*m-1) % 3 = 0. -/
+theorem LTileable_rectMinusCorner_ncard_set (n m : ℕ) (hn : n ≥ 2) (hm : m ≥ 2)
+    (h : Tileable_set (rectMinusCorner_set (n : ℤ) m) LProtoset_set) :
+    (n * m - 1) % 3 = 0 := by
+  have hdvd := Tileable_set.ncard_dvd (ι := Unit) (ps := LProtoset_set)
+    (rectMinusCorner_set_finite (n : ℤ) (m : ℤ)) h ()
+  simp only [LProtoset_set, LPrototile_set_ncard,
+    rectMinusCorner_set_ncard n m (by omega) (by omega)] at hdvd
+  rwa [Nat.dvd_iff_mod_eq_zero] at hdvd
+
+
+
+-- ============================================================
+-- Main iff: Ash–Golomb dog-eared rectangle theorem (Set version)
+-- ============================================================
+
+/-- **Native Set-framework version of Ash–Golomb's dog-eared rectangle theorem.**
+    An n×m rectangle with the top-right corner removed is L-tileable iff
+    (n*m - 1) is divisible by 3, for n,m ≥ 2. -/
+theorem LTileable_rectMinusCorner_iff_set (n m : ℕ) (hn : n ≥ 2) (hm : m ≥ 2) :
+    LTileable_set (rect 0 0 (n : ℤ) m \ {((n : ℤ) - 1, (m : ℤ) - 1)}) ↔
+    (n * m - 1) % 3 = 0 := by
+  simp only [LTileable_set]
+  -- Rewrite the region as rectMinusCorner_set
+  have hrw : rect 0 0 (n : ℤ) m \ {((n : ℤ) - 1, (m : ℤ) - 1)} =
+      rectMinusCorner_set (n : ℤ) (m : ℤ) := rfl
+  rw [hrw]
+  constructor
+  · -- Necessity
+    exact LTileable_rectMinusCorner_ncard_set n m hn hm
+  · -- Sufficiency: (n*m-1) % 3 = 0 ⇒ tileable
+    intro hmod
+    -- n*m % 3 = 1 (since n*m ≥ 4, n*m - 1 ≥ 1, and (n*m-1) % 3 = 0)
+    have hpos : n * m ≥ 1 := Nat.mul_pos (by omega) (by omega)
+    have hnm1 : n * m % 3 = 1 := by omega
+    -- Either n ≡ m ≡ 1 mod 3, or n ≡ m ≡ 2 mod 3
+    have hres := mod3_both_one_or_two_of_area_mod3_zero hnm1
+    rcases hres with ⟨hn1, hm1⟩ | ⟨hn2, hm2⟩
+    · -- Mod-1 case: n = 3*k+1, m = 3*j+1 with k,j ≥ 1
+      let k := n / 3; let j := m / 3
+      have hk1 : k ≥ 1 := by simp only [k]; omega
+      have hj1 : j ≥ 1 := by simp only [j]; omega
+      have hn_eq : n = 3 * k + 1 := by simp only [k]; omega
+      have hm_eq : m = 3 * j + 1 := by simp only [j]; omega
+      have h := LTileable_rectMinusCorner_mod1_set j k hj1 hk1
+      convert h using 2
       · omega
-      · constructor
-        · omega
-        · constructor
-          · intro ⟨h, _⟩; omega
-          · intro ⟨_, h⟩; omega
-  have h_4_4 : LTileable (rectangleMinusCorner 4 4) := tileable_4x4_minus
-  exact LTileable_horizontal_union_rect_minus (3 * (k - 1)) 4 4 (by omega) h_3k1_4 h_4_4
+      · omega
+    · -- Mod-2 case: n = 3*j+2, m = 3*k+2 with j,k ≥ 0
+      let j := n / 3; let k := m / 3
+      have hn_eq : n = 3 * j + 2 := by simp only [j]; omega
+      have hm_eq : m = 3 * k + 2 := by simp only [k]; omega
+      have h := LTileable_mod2_minus_corner_set_all j k
+      convert h using 2
+      · omega
+      · omega
 
-/-- Helper: The recurrence case when k ≥ 3 for the mod 3 = 1 case. -/
-theorem tileable_rectMinusCorner_mod1_recurrence_k_ge3
-    (n m k j : ℕ) (_hn : n ≥ 2) (hm : m ≥ 2) (hmn : m ≤ n)
-    (hk_eq : n = 3 * k + 1) (hj_eq : m = 3 * j + 1)
-    (_hk1 : k ≥ 1) (_hj1 : j ≥ 1) (hk3 : k ≥ 3) :
-    LTileable (rectangleMinusCorner n m) := by
-  -- Decompose `n = 3(k-1) + 4` to split off a 4×(3j+1) three-cornered strip horizontally.
-  have hn_decomp : n = 3 * (k - 1) + 4 := by
-    rw [hk_eq]; omega
-  -- `m` has the form 3j+1.
-  have hm_form : m = 3 * j + 1 := hj_eq
-  -- First, tile the left rectangle `3(k-1) × m`.
-  have h_left : LTileable (rectangle (3 * (k - 1)) m) := by
-    -- Use the rectangle classification theorem.
-    have hconds : RectTileableConditions (3 * (k - 1)) m := by
-      right; right
-      constructor
-      · -- Area divisible by 3: 3 ∣ 3*(k-1), hence 3 ∣ (3*(k-1))*m.
-        have hdiv₁ : 3 ∣ 3 * (k - 1) := ⟨k - 1, by ring⟩
-        have hdiv₂ : 3 ∣ (3 * (k - 1)) * m := dvd_mul_of_dvd_left hdiv₁ _
-        exact Nat.mod_eq_zero_of_dvd hdiv₂
-      · constructor
-        · -- 3(k-1) ≥ 2 since k ≥ 3.
-          have hk_minus : k - 1 ≥ 2 := by omega
-          have : 3 * (k - 1) ≥ 6 := by omega
-          exact le_trans (by decide : 2 ≤ 6) this
-        · constructor
-          · -- m ≥ 2 (given).
-            exact hm
-          · constructor
-            · -- ¬(3(k-1) = 3 ∧ Odd m) since 3(k-1) ≥ 6, so 3(k-1) ≠ 3.
-              intro h
-              rcases h with ⟨hn3, _⟩
-              -- From 3(k-1) = 3 and k ≥ 3 we get a contradiction.
-              have hk_ge3 := hk3
-              have h_eq := hn3
-              omega
-            · -- ¬(Odd (3(k-1)) ∧ m = 3) since `m = 3j+1 ≠ 3`.
-              intro h
-              rcases h with ⟨_, hm3⟩
-              -- From `m = 3j+1`, `m` cannot be 3.
-              have hm_ne3 : m ≠ 3 := by
-                intro hm_eq3
-                subst hm_eq3
-                -- 3 = 3j+1 has no solutions in ℕ.
-                have h_eq : 3 = 3 * j + 1 := hm_form
-                have h_int : (3 : ℤ) = 3 * (j : ℤ) + 1 :=
-                  congrArg Int.ofNat h_eq
-                -- Now contradict in ℤ.
-                have := h_int
-                omega
-              exact hm_ne3 hm3
-    -- Turn conditions into tileability.
-    exact (rect_tileable_iff (3 * (k - 1)) m).2 hconds
-  -- Next, tile the right three-cornered strip `4 × (3j+1)`.
-  have h_right : LTileable (rectangleMinusCorner 4 m) := by
-    -- From `m = 3j+1` and `hj1 : j ≥ 1`, we can use the 4×(3k+1) lemma.
-    have hj_ge1 : j ≥ 1 := _hj1
-    -- Rewrite the height to match `tileable_4x_rectMinus_3kplus1`.
-    have : m = 3 * j + 1 := hm_form
-    -- Use the lemma and rewrite.
-    have h := tileable_4x_rectMinus_3kplus1 j hj_ge1
-    simpa [this] using h
-  -- Put the two parts together using the horizontal split of three-cornered rectangles.
-  -- `n = 3(k-1) + 4`, so we can take `a = 3(k-1)`, `b = 4`.
-  have : LTileable (rectangleMinusCorner (3 * (k - 1) + 4) m) :=
-    LTileable_horizontal_union_rect_minus (3 * (k - 1)) 4 m (by decide) h_left h_right
-  -- Rewrite back to `n`.
-  simpa [hn_decomp] using this
+-- ============================================================
+-- Deficient Rectangles: rectMinus2Corner_set
+-- ============================================================
 
-/-- The mod 3 = 1 case: if n ≡ m ≡ 1 (mod 3), then rectangleMinusCorner n m is tileable. -/
-theorem tileable_rectMinusCorner_mod1_case
-    (n m : ℕ) (hn : n ≥ 2) (hm : m ≥ 2) (hmn : m ≤ n)
-    (hn1_mod : n % 3 = 1) (hm1_mod : m % 3 = 1) :
-    LTileable (rectangleMinusCorner n m) := by
-  -- Write n = 3k + 1, m = 3j + 1 for some k, j
-  let k := n / 3
-  let j := m / 3
-  have hk_eq : n = 3 * k + 1 := by
-    have hmod_div := Nat.mod_add_div n 3
-    rw [hn1_mod] at hmod_div
-    omega
-  have hj_eq : m = 3 * j + 1 := by
-    have hmod_div := Nat.mod_add_div m 3
-    rw [hm1_mod] at hmod_div
-    omega
-  -- Since n, m ≥ 2, we have k, j ≥ 1
-  have hk1 : k ≥ 1 := by
-    by_contra hlt; push_neg at hlt
-    have hk0 : k = 0 := by omega
-    rw [hk0] at hk_eq
-    omega
-  have hj1 : j ≥ 1 := by
-    by_contra hlt; push_neg at hlt
-    have hj0 : j = 0 := by omega
-    rw [hj0] at hj_eq
-    omega
-  -- Base case: 7×7 (k = 2, j = 2)
-  by_cases hbase : k = 2 ∧ j = 2
-  · -- 7×7 case
-    obtain ⟨hk2, hj2⟩ := hbase
-    have hn7 : n = 7 := by
-      rw [hk2] at hk_eq
-      omega
-    have hm7 : m = 7 := by
-      rw [hj2] at hj_eq
-      omega
-    rw [hn7, hm7]
-    exact tileable_7x7_minus
-  · -- Recurrence: either k ≥ 3 (handled by the k-recursion), or k < 3 (small k).
-    by_cases hk3 : k ≥ 3
-    · -- Large k: use the k-recursion lemma.
-      exact tileable_rectMinusCorner_mod1_recurrence_k_ge3 n m k j hn hm hmn hk_eq hj_eq hk1 hj1 hk3
-    · -- Small k: k = 1 or 2. Handle by jk-lemma and small explicit cases.
-      have hk_le2 : k ≤ 2 := by omega
-      have hk_cases : k = 1 ∨ k = 2 := by omega
-      rcases hk_cases with hk1' | hk2'
-      · -- k = 1, so n = 4
-        have hn4 : n = 4 := by
-          have : n = 3 * 1 + 1 := by simpa [hk1'] using hk_eq
-          simpa using this
-        subst hn4
-        -- Now m = 3j+1, j ≥ 1. Split on j.
-        by_cases hj3 : j ≥ 3
-        · -- j ≥ 3: use the jk-lemma with (j,k) = (j,1)
-          have h := tileable_rectMinusCorner_mod1_jk_ge j 1 hj3 (by decide)
-          -- n = 3*1+1 = 4, m = 3j+1
-          have hm_form : m = 3 * j + 1 := hj_eq
-          have hk_form : (4 : ℕ) = 3 * 1 + 1 := by decide
-          simpa [hk_form, hm_form] using h
-        · -- j < 3, so j = 1 or 2 (since j ≥ 1)
-          have hj_le2 : j ≤ 2 := by omega
-          have hj_cases : j = 1 ∨ j = 2 := by omega
-          rcases hj_cases with hj1' | hj2'
-          · -- j = 1: m = 4, use 4×4 minus-corner
-            have hm4 : m = 4 := by
-              -- m = 3*1+1 = 4
-              simpa [hj1'] using hj_eq
-            -- Rewrite the goal to `rectangleMinusCorner 4 4`.
-            simpa [hm4] using tileable_4x4_minus
-          · -- j = 2: m = 7, use 4×7 minus-corner
-            have hm7 : m = 7 := by
-              -- m = 3*2+1 = 7
-              simpa [hj2'] using hj_eq
-            simpa [hm7] using tileable_4x7_minus
-      · -- k = 2, so n = 7 (and we are not in the base (2,2) case)
-        have hn7 : n = 7 := by
-          have : n = 3 * 2 + 1 := by simpa [hk2'] using hk_eq
-          simpa using this
-        subst hn7
-        -- Now m = 3j+1, j ≥ 1, and j ≠ 2 (since (k,j) ≠ (2,2)).
-        have hj_ne2 : j ≠ 2 := by
-          intro hj2'
-          apply hbase
-          exact ⟨hk2', hj2'⟩
-        by_cases hj3 : j ≥ 3
-        · -- j ≥ 3: use the jk-lemma with (j,k) = (j,2)
-          have h := tileable_rectMinusCorner_mod1_jk_ge j 2 hj3 (by decide)
-          have hm_form : m = 3 * j + 1 := hj_eq
-          have hk_form : (7 : ℕ) = 3 * 2 + 1 := by decide
-          simpa [hk_form, hm_form] using h
-        · -- j < 3, so j = 1 (since j ≥ 1 and j ≠ 2)
-          have hj1' : j = 1 := by omega
-          -- Then m = 4; use 7×4 minus-corner via symmetry from 4×7.
-          have hm4 : m = 4 := by
-            -- m = 3*1+1 = 4
-            simpa [hj1'] using hj_eq
-          have h := tileable_4x7_minus
-          have h' : LTileable (rectangleMinusCorner 7 4) :=
-            (LTileable_swap_rectangleMinusCorner 4 7).1 h
-          simpa [hm4] using h'
+/-- n×m rectangle with two adjacent top-right corners removed. -/
+def rectMinus2Corner_set (n m : ℤ) : Set Cell :=
+  rect 0 0 n m \ ({(n - 1, m - 1)} ∪ {(n - 2, m - 1)})
 
-/-- The mod 3 = 2 case: if n ≡ m ≡ 2 (mod 3), then rectangleMinusCorner n m is tileable. -/
-theorem tileable_rectMinusCorner_mod2_case
-    (n m : ℕ) (hn : n ≥ 2) (hm : m ≥ 2) (hmn : m ≤ n)
-    (hn2_mod : n % 3 = 2) (hm2_mod : m % 3 = 2) :
-    LTileable (rectangleMinusCorner n m) := by
-  -- Write n = 3j + 2, m = 3k + 2 for some j, k.
-  let j := n / 3
-  let k := m / 3
-  have hj_eq : n = 3 * j + 2 := by
-    have hmod_div := Nat.mod_add_div n 3
-    rw [hn2_mod] at hmod_div
-    omega
-  have hk_eq : m = 3 * k + 2 := by
-    have hmod_div := Nat.mod_add_div m 3
-    rw [hm2_mod] at hmod_div
-    omega
-  -- Case analysis on j, k relative to 2.
-  by_cases hj2 : j ≥ 2
-  · -- j ≥ 2
-    by_cases hk2 : k ≥ 2
-    · -- Both j,k ≥ 2: use the jk-lemma.
-      have h := tileable_rectMinusCorner_mod2_jk_ge2 j k hj2 hk2
-      have hn_form : n = 3 * j + 2 := hj_eq
-      have hm_form : m = 3 * k + 2 := hk_eq
-      simpa [hn_form, hm_form] using h
-    · -- j ≥ 2 but k ≤ 1: so k = 0 or 1.
-      have hk_le1 : k ≤ 1 := by omega
-      have hk_cases : k = 0 ∨ k = 1 := by omega
-      rcases hk_cases with hk0 | hk1
-      · -- k = 0: m = 2, so we have an `(n) × 2` three-cornered rectangle.
-        have hm2' : m = 2 := by
-          have : m = 3 * k + 2 := hk_eq
-          simpa [hk0] using this
-        subst hm2'
-        have hn_form : n = 3 * j + 2 := hj_eq
-        -- Use the `(3j+2) × 2` minus-corner lemma.
-        have h := tileable_3kplus2_x2_minus j
-        simpa [hn_form] using h
-      · -- k = 1: m = 5, so we have an `(n) × 5` three-cornered rectangle.
-        have hm5' : m = 5 := by
-          have : m = 3 * k + 2 := hk_eq
-          simpa [hk1] using this
-        subst hm5'
-        have hn_form : n = 3 * j + 2 := hj_eq
-        -- Use the 5×(3j+2) lemma and symmetry.
-        have h5x : LTileable (rectangleMinusCorner 5 n) := by
-          have h := tileable_5x_3kplus2_minus j
-          simpa [hn_form] using h
-        have h' : LTileable (rectangleMinusCorner n 5) :=
-          (LTileable_swap_rectangleMinusCorner 5 n).mp h5x
-        simpa using h'
-  · -- j ≤ 1: so j = 0 or 1.
-    have hj_le1 : j ≤ 1 := by omega
-    have hj_cases : j = 0 ∨ j = 1 := by omega
-    rcases hj_cases with hj0 | hj1
-    · -- j = 0: n = 2. Since m ≤ n and m ≥ 2, we get m = 2.
-      have hn2' : n = 2 := by
-        have : n = 3 * j + 2 := hj_eq
-        simpa [hj0] using this
-      subst hn2'
-      have hm2' : m = 2 := by omega
-      subst hm2'
-      -- 2×2 three-cornered rectangle.
-      simpa using tileable_2x2_minus
-    · -- j = 1: n = 5. Then `m ≤ 5` and `m ≡ 2 (mod 3)`, so `m = 2` or `m = 5`.
-      have hn5' : n = 5 := by
-        have : n = 3 * j + 2 := hj_eq
-        simpa [hj1] using this
-      subst hn5'
-      -- From `m ≤ n = 5` and `m ≡ 2 (mod 3)`, we get `k ≤ 1`, hence `k = 0` or `1`.
-      have hk_le1 : k ≤ 1 := by
-        have hmn' : 3 * k + 2 ≤ 5 := by
-          -- m = 3k+2 and m ≤ 5.
-          have : m = 3 * k + 2 := hk_eq
-          have : 3 * k + 2 ≤ 5 := by simpa [this] using hmn
-          exact this
-        omega
-      have hk_cases : k = 0 ∨ k = 1 := by omega
-      rcases hk_cases with hk0 | hk1
-      · -- k = 0: m = 2, so we have a 2×5 three-cornered rectangle.
-        have hm2' : m = 2 := by
-          have : m = 3 * k + 2 := hk_eq
-          simpa [hk0] using this
-        subst hm2'
-        -- Directly use the 5×2 three-cornered tiling.
-        simpa using tileable_5x2_minus
-      · -- k = 1: m = 5, so we have a 5×5 three-cornered rectangle.
-        have hm5' : m = 5 := by
-          have : m = 3 * k + 2 := hk_eq
-          simpa [hk1] using this
-        subst hm5'
-        simpa using tileable_5x5_minus
+-- ============================================================
+-- Helper: piece2_set (rect 0 0 4 (3k+1) minus top-left corner)
+-- ============================================================
 
-/-- Sufficiency direction assuming `m ≤ n`
-(Ash–Golomb Theorem 2 / "DOG-EARED RECTANGLE THEOREM", one-sided).
+/-- The 4×4 rectangle minus the top-left corner {(0,3)} is L-tileable.
+    Tiles: r=0 at (0,0), r=1 at (1,2), r=1 at (2,1), r=1 at (3,0), r=2 at (3,3). -/
+lemma LTileable_piece2_base_set :
+    Tileable_set (rect 0 0 4 4 \ {((0 : ℤ), (3 : ℤ))}) LProtoset_set := by
+  -- R(4,4)^- missing (3,3) rotated 90 deg counter-clockwise and shifted gives piece2!
+  -- For now, rather than plumbing rotate/translate sets, we use the explicit base case 
+  -- since the bridge is right here and explicit base cases are fast.
+  have hfin : Tileable_set (↑(rectangle 4 4 \ {(0, 3)}) : Set Cell)
+      (toProtoset_set LTrominoSet LTrominoSet_nonempty) :=
+    (Tileable_iff_to_set LTrominoSet
+      (rectangle 4 4 \ {(0, 3)})
+      LTrominoSet_nonempty).mp tileable_piece2_base
+  have hcoeeq : (↑(rectangle 4 4 \ {(0, 3)}) : Set Cell) =
+      rect 0 0 4 4 \ {((0 : ℤ), (3 : ℤ))} := by
+    ext ⟨x, y⟩; simp [mem_rectangle, mem_rect]
+  rw [LProtoset_set_eq_toSet, ← hcoeeq]; exact hfin
 
-If `n,m ≥ 2`, `m ≤ n`, and the deficient rectangle area `(n*m - 1)` is divisible
-by `3`, then `rectangleMinusCorner n m` is L-tileable.
-
-This lemma corresponds to the `m ≤ n` branch of the main theorem, where
-the full Ash–Golomb case analysis (mod 3) will be carried out. -/
-theorem rectMinusCorner_tileable_of_area_m_le_n
-    (n m : ℕ) (hn : n ≥ 2) (hm : m ≥ 2) (hmn : m ≤ n)
-    (harea : (n * m - 1) % 3 = 0) :
-    LTileable (rectangleMinusCorner n m) := by
-  -- `n,m ≥ 2` implies `1 ≤ n * m`, used to rewrite `(n*m - 1) + 1`.
-  have hn1 : 1 ≤ n := le_trans (by decide : 1 ≤ 2) hn
-  have hm1 : 1 ≤ m := le_trans (by decide : 1 ≤ 2) hm
-  have hnm_ge1 : 1 ≤ n * m := by
-    -- Since `n,m ≥ 1`, we have `1 * 1 ≤ n * m`.
-    have h : 1 * 1 ≤ n * m := Nat.mul_le_mul hn1 hm1
-    simpa using h
-  -- Use the area condition to compute `(n * m) % 3`, then apply the
-  -- modular-arithmetic classification lemma.
-  have h_add := Nat.add_mod (n * m - 1) 1 3
-  have h_step :
-      (n * m) % 3 =
-        ((n * m - 1) % 3 + 1 % 3) % 3 := by
-    -- `h_add` has left side `((n*m - 1) + 1) % 3`; rewrite it as `(n*m) % 3`.
-    have h1 : ((n * m - 1) + 1) % 3 = (n * m) % 3 := by
-      simp [Nat.sub_add_cancel hnm_ge1]
-    -- From `h1 : LHS = (n*m)%3` and `h_add : LHS = RHS`, deduce `(n*m)%3 = RHS`.
-    exact h1.symm.trans h_add
-  have hnm_mod1 : (n * m) % 3 = 1 := by
-    have : (n * m) % 3 = ((0 : ℕ) + 1) % 3 := by
-      simpa [harea, Nat.one_mod] using h_step
-    simpa [Nat.one_mod] using this
-  -- Now apply the mod-3 helper lemma: only two residue patterns are possible.
-  have hres :
-      (n % 3 = 1 ∧ m % 3 = 1) ∨ (n % 3 = 2 ∧ m % 3 = 2) :=
-    mod3_both_one_or_two_of_area_mod3_zero (n := n) (m := m) hnm_mod1
-  rcases hres with h11 | h22
-  · -- Case `n ≡ m ≡ 1 (mod 3)`: use the helper lemma
-    exact tileable_rectMinusCorner_mod1_case n m hn hm hmn h11.1 h11.2
-  · -- Case `n ≡ m ≡ 2 (mod 3)`: Ash–Golomb Case 2, to be filled.
-    have hn2_mod : n % 3 = 2 := h22.1
-    have hm2_mod : m % 3 = 2 := h22.2
-    -- Use the mod 2 helper lemma.
-    exact tileable_rectMinusCorner_mod2_case n m hn hm hmn hn2_mod hm2_mod
-
-/-- **Ash–Golomb Theorem 2 (statement)** (called the **DOG-EARED RECTANGLE THEOREM**
-in the published paper):
-
-An `n × m` rectangle with one corner removed is L-tileable iff its area is a multiple of 3.
-
-We assume `n,m ≥ 2` so the shape is non-degenerate. -/
-theorem rectMinusCorner_tileable_iff (n m : ℕ) (hn : n ≥ 2) (hm : m ≥ 2) :
-    LTileable (rectangleMinusCorner n m) ↔ (n * m - 1) % 3 = 0 := by
-  constructor
-  · -- Necessity: tileable ⇒ area divisible by 3
-    intro h
-    exact rectMinusCorner_tileable_area_div_3 (by omega) (by omega) h
-  · -- Sufficiency: area divisible by 3 ⇒ tileable.
-    intro harea
-    -- Without loss of generality, assume `m ≤ n`. If not, we can swap the axes:
-    -- L-tileability of `rectangleMinusCorner` is invariant under swapping x,y.
-    by_cases hmn : m ≤ n
-    · -- Main branch: `m ≤ n`
-      exact rectMinusCorner_tileable_of_area_m_le_n n m hn hm hmn harea
-    · -- Symmetric branch: `¬(m ≤ n)` i.e. `n < m`.
-      -- Use symmetry: first obtain a tiling for `rectangleMinusCorner m n`
-      -- (where `n ≤ m` holds), then swap back.
-      have hnm : n ≤ m := Nat.le_of_lt (Nat.lt_of_not_ge hmn)
-      -- Area condition is symmetric in `n` and `m`.
-      have harea' : (m * n - 1) % 3 = 0 := by
-        simpa [Nat.mul_comm] using harea
-      -- Apply the one-sided lemma to the swapped pair `(m,n)`.
-      have h_swapped : LTileable (rectangleMinusCorner m n) :=
-        rectMinusCorner_tileable_of_area_m_le_n m n hm hn hnm harea'
-      -- Transport the tiling back using symmetry of three-cornered rectangles.
-      exact (LTileable_swap_rectangleMinusCorner m n).mp h_swapped
-
-/-! ### Two-square deficient rectangle base case
-
-A first two-square deficient base case:
-
-If `n = 3j + 2` and `m = 3k + 1` with `j,k ≥ 1`, then the two-corner-deficient
-rectangle `rectangleMinus2Corner n m` is L-tileable.
-
-Intuitively (following Ash–Golomb, Remark 2), one covers the top two rows with a `3j × 2` rectangle
-(translated by (0,3k-1)) and one extra L-tromino near the top-right corner
-(rotated 180 deg and translated by (3j+1, 3k-1)),
-leaving a three-cornered `(3j+2) × (3k-1)` rectangle, which is L-tileable by
-`rectMinusCorner_tileable_iff`.
--/
-
--- Helper definitions for single L-tromino tilings
-
-/-- The cells of an L-tromino placed at rotation `r` and translation `(tx, ty)`. -/
-def LTrominoCellsAt (tx ty : ℤ) (r : Fin 4) : Finset Cell :=
-  PlacedTile.cells LTrominoSet ⟨(), (tx, ty), r⟩
-
-/-- A tiling consisting of a single L-tromino. -/
-def singleLTrominoTiling (tx ty : ℤ) (r : Fin 4) : TileSet LTrominoSet Unit :=
-  ⟨fun _ => ⟨(), (tx, ty), r⟩⟩
-
-/-- A single L-tromino tiles its own cells. -/
-theorem singleLTromino_valid (tx ty : ℤ) (r : Fin 4) :
-    (singleLTrominoTiling tx ty r).Valid (LTrominoCellsAt tx ty r) := by
-  constructor
-  · intro i j hij; exact absurd (Subsingleton.elim i j) hij
-  · unfold TileSet.coveredCells singleLTrominoTiling TileSet.cellsAt LTrominoCellsAt
-    ext c
-    simp only [Finset.mem_biUnion, Finset.mem_univ, true_and]
-    exact ⟨fun ⟨_, hc⟩ => hc, fun hc => ⟨(), hc⟩⟩
-
-/-- Any single L-tromino region is L-tileable. -/
-theorem LTileable_single_LTromino (tx ty : ℤ) (r : Fin 4) :
-    LTileable (LTrominoCellsAt tx ty r) :=
-  ⟨Unit, inferInstance, inferInstance, singleLTrominoTiling tx ty r,
-    singleLTromino_valid tx ty r⟩
-
-/-- The L-tromino cells for the top-right region in the decomposition. -/
-def topRightLTromino (j k : ℕ) : Finset Cell :=
-  LTrominoCellsAt (3 * j + 1) (3 * k - 1) 2
-
-/-- The L-tromino at the top-right is L-tileable. -/
-theorem LTileable_topRightLTromino (j k : ℕ) :
-    LTileable (topRightLTromino j k) :=
-  LTileable_single_LTromino (3 * j + 1) (3 * k - 1) 2
-
-
-/- ## RExp Representations for Decomposition -/
-
-/-- RExp representation of `rectangleMinus2Corner n m`.
-    This is a rectangle with two adjacent top-right corner cells removed. -/
-def rectangleMinus2Corner_rexp (n m : ℕ) : RExp :=
-  RExp.r 0 0 n m ⊖
-  RExp.r (n - 1) (m - 1) n m ⊖
-  RExp.r (n - 2) (m - 1) (n - 1) m
-
-/-- RExp representation of `topRightLTromino j k`.
-    This is a 2×2 square minus a 1×1 square, forming an L-tromino shape. -/
-def topRightLTromino_rexp (j k : ℕ) : RExp :=
-  RExp.r (3 * j) (3 * k - 2) (3 * j + 2) (3 * k) ⊖
-  RExp.r (3 * j) (3 * k - 2) (3 * j + 1) (3 * k - 1)
-
-/-- RExp representation of `translateRegion (rectangle (3j) 2) (0, 3k-1)`.
-    This is a 3j×2 rectangle translated up by (0, 3k-1). -/
-def translateRectangle_rexp (j k : ℕ) : RExp :=
-  ⇑[0, 3 * k - 1] (RExp.r 0 0 (3 * j) 2)
-
-/-- Helper lemma: The L-tromino at rotation 2 (180°) has cells (0,0), (0,-1), (-1,0) -/
-theorem LTromino_rotation2_cells :
-    rotateProto LTromino 2 = {(0, 0), (0, -1), (-1, 0)} := by
-  -- Both are finite sets, so we can use decide
-  decide
-
-
-
-theorem topRightLTromino_rexp_eval (j k : ℕ) (_hj : j ≥ 1) (_hk : k ≥ 1) :
-    RExp.eval (topRightLTromino_rexp j k) = (topRightLTromino j k : Set Cell) := by
-  ext c
-  simp only [topRightLTromino_rexp, RExp.eval_diff, RExp.eval_r, topRightLTromino,
-    LTrominoCellsAt, PlacedTile.cells, LTrominoSet, Finset.mem_coe,
-    Finset.mem_image, translateCell, LTromino_rotation2_cells,
-    mem_rect, Set.mem_diff, Finset.mem_insert, Finset.mem_singleton]
-  constructor
-  · rintro ⟨⟨h1, h2, h3, h4⟩, h5⟩
-    have hc1 : c.1 = 3 * ↑j ∨ c.1 = 3 * ↑j + 1 := by omega
-    have hc2 : c.2 = 3 * ↑k - 2 ∨ c.2 = 3 * ↑k - 1 := by omega
-    obtain h_c1 | h_c1 := hc1
-    · obtain h_c2 | h_c2 := hc2
-      · exfalso; apply h5; exact ⟨by omega, by omega, by omega, by omega⟩
-      · use (-1, 0); exact ⟨by right; right; rfl, by ext <;> omega⟩
-    · obtain h_c2 | h_c2 := hc2
-      · use (0, -1); exact ⟨by right; left; rfl, by ext <;> omega⟩
-      · use (0, 0); exact ⟨by left; rfl, by ext <;> omega⟩
-  · rintro ⟨a, ha, rfl⟩
-    rcases ha with rfl | rfl | rfl
-    · exact ⟨⟨by omega, by omega, by omega, by omega⟩, by omega⟩
-    · exact ⟨⟨by omega, by omega, by omega, by omega⟩, by omega⟩
-    · exact ⟨⟨by omega, by omega, by omega, by omega⟩, by omega⟩
-
-theorem rectangleMinus2Corner_rexp_eval (n m : ℕ) (hn : n ≥ 2) (hm : m ≥ 1) :
-    RExp.eval (rectangleMinus2Corner_rexp n m) = (rectangleMinus2Corner n m : Set Cell) := by
-  ext c
-  simp only [rectangleMinus2Corner_rexp, RExp.eval_diff, RExp.eval_r, rectangleMinus2Corner,
-    Finset.mem_coe, Finset.mem_erase, mem_rectangle, mem_rect, cornerTR, cornerTR2,
-    Set.mem_diff]
-  simp only [Int.ofNat_eq_natCast]
-  constructor
-  · rintro ⟨⟨⟨h1, h2, h3, h4⟩, h5⟩, h6⟩
-    refine ⟨?_, ?_, h1, h2, h3, h4⟩
-    · intro heq; apply h6; subst c; exact ⟨by omega, by omega, by omega, by omega⟩
-    · intro heq; apply h5; subst c; exact ⟨by omega, by omega, by omega, by omega⟩
-  · rintro ⟨h1, h2, h3, h4, h5, h6⟩
-    refine ⟨⟨⟨h3, h4, h5, h6⟩, ?_⟩, ?_⟩
-    · intro h7; apply h2; ext <;> omega
-    · intro h7; apply h1; ext <;> omega
-
-/-- The decomposition of `rectangleMinus2Corner (3j+2) (3k+1)` into three parts (as RExp):
-1. Bottom: `rectangleMinusCorner (3j+2) (3k-1)`
-2. Top-left: `translateRegion (rectangle (3j) 2) (0, 3k-1)`
-3. Top-right: `topRightLTromino j k` (an L-tromino) -/
-theorem rectangleMinus2Corner_decomp_rexp (j k : ℕ) (hj : j ≥ 1) (hk : k ≥ 1) :
-    RExp.eval (rectangleMinus2Corner_rexp (3 * j + 2) (3 * k + 1)) =
-      RExp.eval (rectangleMinusCorner_rexp (3 * j + 2) (3 * k - 1)) ∪
-      RExp.eval (translateRectangle_rexp j k) ∪
-      RExp.eval (topRightLTromino_rexp j k) := by
-  simp only [rectangleMinus2Corner_rexp, rectangleMinusCorner_rexp,
-    translateRectangle_rexp, topRightLTromino_rexp]
-  rexp_omega_direct
-
-/-- The decomposition of `rectangleMinus2Corner (3j+2) (3k+1)` into three parts:
-1. Bottom: `rectangleMinusCorner (3j+2) (3k-1)`
-2. Top-left: `translateRegion (rectangle (3j) 2) (0, 3k-1)`
-3. Top-right: `topRightLTromino j k` (an L-tromino) -/
-theorem rectangleMinus2Corner_decomp (j k : ℕ) (hj : j ≥ 1) (hk : k ≥ 1) :
-    rectangleMinus2Corner (3 * j + 2) (3 * k + 1) =
-      rectangleMinusCorner (3 * j + 2) (3 * k - 1) ∪
-      translateRegion (rectangle (3 * j) 2) (0, 3 * k - 1) ∪
-      topRightLTromino j k := by
-  apply Finset.coe_injective
-  have h1 : RExp.eval (translateRectangle_rexp j k) =
-      (translateRegion (rectangle (3 * j) 2) (0, 3 * k - 1) : Set Cell) := by
-    rw [translateRectangle_rexp, RExp.eval_shift, RExp.eval_r]
-    have h_rect : rect 0 0 (3 * ↑j) 2 = (rectangle (3 * j) 2 : Set Cell) := by
-      rw [rectangle_eq_rect_coe]
-      simp
-    rw [h_rect, translateRegion_eq_translate_coe]
-  have h2 : (rectangleMinusCorner (3 * j + 2) (3 * k - 1) : Set Cell) ∪
-            (translateRegion (rectangle (3 * j) 2) (0, 3 * k - 1) : Set Cell) ∪
-            (topRightLTromino j k : Set Cell) =
-            ↑(rectangleMinusCorner (3 * j + 2) (3 * k - 1) ∪
-              translateRegion (rectangle (3 * j) 2) (0, 3 * k - 1) ∪
-              topRightLTromino j k) := by
-    rw [Finset.coe_union, Finset.coe_union]
-  calc (rectangleMinus2Corner (3 * j + 2) (3 * k + 1) : Set Cell)
-      = RExp.eval (rectangleMinus2Corner_rexp (3 * j + 2) (3 * k + 1)) := by
-        rw [rectangleMinus2Corner_rexp_eval _ _ (by omega) (by omega)]
-    _ = RExp.eval (rectangleMinusCorner_rexp (3 * j + 2) (3 * k - 1)) ∪
-        RExp.eval (translateRectangle_rexp j k) ∪
-        RExp.eval (topRightLTromino_rexp j k) :=
-        rectangleMinus2Corner_decomp_rexp j k hj hk
-    _ = (rectangleMinusCorner (3 * j + 2) (3 * k - 1) : Set Cell) ∪
-        (translateRegion (rectangle (3 * j) 2) (0, 3 * k - 1) : Set Cell) ∪
-        (topRightLTromino j k : Set Cell) := by
-        rw [rectangleMinusCorner_rexp_eval, h1, topRightLTromino_rexp_eval j k hj hk]
-    _ = ↑(rectangleMinusCorner (3 * j + 2) (3 * k - 1) ∪
-          translateRegion (rectangle (3 * j) 2) (0, 3 * k - 1) ∪
-          topRightLTromino j k) := h2
-
-/-- First disjointness (simple version using rexp_omega): rectangleMinusCorner and
-translateRectangle don't overlap. -/
-theorem rectangleMinus2Corner_decomp_disjoint_rexp_1 (j k : ℕ) (_hj : j ≥ 1) (hk : k ≥ 1) :
-    RExp.eval (rectangleMinusCorner_rexp (3 * j + 2) (3 * k - 1) ⊓
-               translateRectangle_rexp j k) = ∅ := by
-  simp only [rectangleMinusCorner_rexp, translateRectangle_rexp]
-  rexp_omega
-
-
-/-- Second disjointness: rectangleMinusCorner and topRightLTromino don't overlap. -/
-theorem rectangleMinus2Corner_decomp_disjoint_rexp_2 (j k : ℕ) (_hj : j ≥ 1) (hk : k ≥ 1) :
-    RExp.eval (rectangleMinusCorner_rexp (3 * j + 2) (3 * k - 1) ⊓
-               topRightLTromino_rexp j k) = ∅ := by
-  -- rectangleMinusCorner has y ∈ [0, 3k-1)
-  -- topRightLTromino has y ∈ [3k-2, 3k) but with specific x-constraints
-  simp only [rectangleMinusCorner_rexp, topRightLTromino_rexp, RExp.eval_inter,
-    RExp.eval_diff, RExp.eval_r]
-  ext c
-  simp only [Set.mem_inter_iff, Set.mem_diff, mem_rect, Set.mem_empty_iff_false, iff_false]
-  intro ⟨⟨h1, h2⟩, h3, h4⟩
-  -- From rectangleMinusCorner: c in (rect minus corner)
-  -- From topRightLTromino: c in (outer rect minus inner rect)
-  have : 3 * k ≥ 1 := by omega
-  omega
-
-/-- Third disjointness: translateRectangle and topRightLTromino don't overlap. -/
-theorem rectangleMinus2Corner_decomp_disjoint_rexp_3 (j k : ℕ) (_hj : j ≥ 1) (_hk : k ≥ 1) :
-    RExp.eval (translateRectangle_rexp j k ⊓ topRightLTromino_rexp j k) = ∅ := by
-  -- translateRectangle: 0 ≤ x < 3j, 3k-1 ≤ y < 3k+1
-  -- topRightLTromino: 3j ≤ x < 3j+2, 3k-2 ≤ y < 3k
-  -- x-ranges don't overlap
-  simp only [translateRectangle_rexp, topRightLTromino_rexp, RExp.eval_inter,
-    RExp.eval_diff, RExp.eval_shift, RExp.eval_r]
-  ext c
-  simp only [Set.mem_inter_iff, Set.mem_diff, mem_rect, Set.mem_empty_iff_false, iff_false]
-  intro ⟨⟨hx1, hy1, hx2, hy2⟩, ⟨hx3, hy3, hx4, hy4⟩, _⟩
-  -- From translateRectangle: 0 ≤ c.1 < 3j
-  -- From topRightLTromino (outer): 3j ≤ c.1 < 3j+2
-  -- These contradict each other
-  omega
-
-/-- The three parts in the decomposition are pairwise disjoint (RExp version). -/
-theorem rectangleMinus2Corner_decomp_disjoint_rexp (j k : ℕ) (hj : j ≥ 1) (hk : k ≥ 1) :
-    RExp.eval (rectangleMinusCorner_rexp (3 * j + 2) (3 * k - 1) ⊓
-               translateRectangle_rexp j k) = ∅ ∧
-    RExp.eval (rectangleMinusCorner_rexp (3 * j + 2) (3 * k - 1) ⊓
-               topRightLTromino_rexp j k) = ∅ ∧
-    RExp.eval (translateRectangle_rexp j k ⊓ topRightLTromino_rexp j k) = ∅ := by
-  exact ⟨rectangleMinus2Corner_decomp_disjoint_rexp_1 j k hj hk,
-         rectangleMinus2Corner_decomp_disjoint_rexp_2 j k hj hk,
-         rectangleMinus2Corner_decomp_disjoint_rexp_3 j k hj hk⟩
-
-/-- The three parts in the decomposition are pairwise disjoint. -/
-theorem rectangleMinus2Corner_decomp_disjoint (j k : ℕ) (hj : j ≥ 1) (hk : k ≥ 1) :
-    Disjoint (rectangleMinusCorner (3 * j + 2) (3 * k - 1))
-             (translateRegion (rectangle (3 * j) 2) (0, 3 * k - 1)) ∧
-    Disjoint (rectangleMinusCorner (3 * j + 2) (3 * k - 1))
-             (topRightLTromino j k) ∧
-    Disjoint (translateRegion (rectangle (3 * j) 2) (0, 3 * k - 1))
-             (topRightLTromino j k) := by
-  have h1 : RExp.eval (translateRectangle_rexp j k) =
-      (translateRegion (rectangle (3 * j) 2) (0, 3 * k - 1) : Set Cell) := by
-    rw [translateRectangle_rexp, RExp.eval_shift, RExp.eval_r]
-    have h_rect : rect 0 0 (3 * ↑j) 2 = (rectangle (3 * j) 2 : Set Cell) := by
-      rw [rectangle_eq_rect_coe]
-      simp
-    rw [h_rect, translateRegion_eq_translate_coe]
-  have h_rexp := rectangleMinus2Corner_decomp_disjoint_rexp j k hj hk
-  rcases h_rexp with ⟨hd1, hd2, hd3⟩
-  constructor
-  · rw [Finset.disjoint_left]
-    intro a ha1 ha2
-    have ha1_set : a ∈ (rectangleMinusCorner (3 * j + 2) (3 * k - 1) : Set Cell) := ha1
-    have ha2_set : a ∈ (translateRegion (rectangle (3 * j) 2) (0, 3 * k - 1) : Set Cell) := ha2
-    rw [← rectangleMinusCorner_rexp_eval] at ha1_set
-    rw [← h1] at ha2_set
-    have h_inter : a ∈ RExp.eval
-        (rectangleMinusCorner_rexp (3 * j + 2) (3 * k - 1) ⊓ translateRectangle_rexp j k) := by
-      rw [RExp.eval_inter]
-      exact ⟨ha1_set, ha2_set⟩
-    rw [hd1] at h_inter
-    exact h_inter
-  · constructor
-    · rw [Finset.disjoint_left]
-      intro a ha1 ha2
-      have ha1_set : a ∈ (rectangleMinusCorner (3 * j + 2) (3 * k - 1) : Set Cell) := ha1
-      have ha2_set : a ∈ (topRightLTromino j k : Set Cell) := ha2
-      rw [← rectangleMinusCorner_rexp_eval] at ha1_set
-      rw [← topRightLTromino_rexp_eval j k hj hk] at ha2_set
-      have h_inter : a ∈ RExp.eval
-          (rectangleMinusCorner_rexp (3 * j + 2) (3 * k - 1) ⊓ topRightLTromino_rexp j k) := by
-        rw [RExp.eval_inter]
-        exact ⟨ha1_set, ha2_set⟩
-      rw [hd2] at h_inter
-      exact h_inter
-    · rw [Finset.disjoint_left]
-      intro a ha1 ha2
-      have ha1_set : a ∈ (translateRegion (rectangle (3 * j) 2) (0, 3 * k - 1) : Set Cell) := ha1
-      have ha2_set : a ∈ (topRightLTromino j k : Set Cell) := ha2
-      rw [← h1] at ha1_set
-      rw [← topRightLTromino_rexp_eval j k hj hk] at ha2_set
-      have h_inter : a ∈ RExp.eval (translateRectangle_rexp j k ⊓ topRightLTromino_rexp j k) := by
-        rw [RExp.eval_inter]
-        exact ⟨ha1_set, ha2_set⟩
-      rw [hd3] at h_inter
-      exact h_inter
-
-theorem tileable_rectangleMinus2Corner_3jplus2_3kplus1
-    (j k : ℕ) (hj : j ≥ 1) (hk : k ≥ 1) :
-    LTileable (rectangleMinus2Corner (3 * j + 2) (3 * k + 1)) := by
-  rw [rectangleMinus2Corner_decomp j k hj hk]
-  have h_disj := rectangleMinus2Corner_decomp_disjoint j k hj hk
-  rcases h_disj with ⟨hd1, hd2, hd3⟩
-  have h1 : LTileable (rectangleMinusCorner (3 * j + 2) (3 * k - 1)) := by
-    rw [rectMinusCorner_tileable_iff _ _ (by omega) (by omega)]
-    have h_mod : ((3 * j + 2) * (3 * k - 1) - 1) = 3 * (3 * j * k + 2 * k - j - 1) := by
+/-- rect 0 0 4 (3k+1) minus the top-left corner {(0, 3k)} is L-tileable for k ≥ 1. -/
+private lemma LTileable_piece2_set (k : ℕ) (hk : k ≥ 1) :
+    Tileable_set (rect 0 0 4 (3 * (k : ℤ) + 1) \ {((0 : ℤ), (3 * (k : ℤ)))}) LProtoset_set := by
+  induction k with
+  | zero => omega
+  | succ n ih =>
+    rcases Nat.eq_zero_or_pos n with hn | hn
+    · subst hn
+      simpa using LTileable_piece2_base_set
+    · have ih' := ih hn
       have heq :
-          (3 * j + 2) * (3 * k - 1) - 1 + (3 * j + 3) =
-          3 * (3 * j * k + 2 * k - j - 1) + (3 * j + 3) := calc
-        (3 * j + 2) * (3 * k - 1) - 1 + (3 * j + 3)
-        _ = (3 * j + 2) * (3 * k - 1) + 3 * j + 2 := by
-          have h1 : 1 ≤ 3 * j + 2 := by omega
-          have h2 : 1 ≤ 3 * k - 1 := by omega
-          have h3 : 1 ≤ (3 * j + 2) * (3 * k - 1) := by nlinarith
-          omega
-        _ = (3 * j + 2) * (3 * k - 1) + (3 * j + 2) * 1 := by ring
-        _ = (3 * j + 2) * (3 * k - 1 + 1) := (Nat.mul_add _ _ _).symm
-        _ = (3 * j + 2) * (3 * k) := by
-          have h1 : 1 ≤ 3 * k := by omega
-          congr 1; omega
-        _ = 9 * (j * k) + 6 * k := by ring
-        _ = 3 * (3 * j * k + 2 * k) := by ring
-        _ = 3 * (3 * j * k + 2 * k - j - 1 + (j + 1)) := by
-          have h1 : j ≤ 3 * j * k := by
-            have : 1 ≤ 3 * k := by omega
-            nlinarith
-          have h2 : 1 ≤ 2 * k := by omega
-          have h3 : j + 1 ≤ 3 * j * k + 2 * k := by omega
-          congr 1; omega
-        _ = 3 * (3 * j * k + 2 * k - j - 1) + 3 * (j + 1) := Nat.mul_add _ _ _
-        _ = 3 * (3 * j * k + 2 * k - j - 1) + (3 * j + 3) := by ring
+          rect 0 0 4 (3 * (↑(n + 1) : ℤ) + 1) \ {((0 : ℤ), (3 * (↑(n + 1) : ℤ)))} =
+            rect 0 0 4 3 ∪
+              translate 0 3 (rect 0 0 4 (3 * (n : ℤ) + 1) \ {((0 : ℤ), (3 * (↑n : ℤ)))}) := by
+        ext ⟨x, y⟩
+        simp only [Set.mem_diff, mem_rect, Set.mem_union, mem_translate, Set.mem_singleton_iff,
+          Prod.mk.injEq]
+        push_cast; omega
+      rw [heq]
+      apply Tileable_set.union LTileable_4x3_set (tileable_translate_set ih' 0 3)
+      rw [Set.disjoint_left]
+      rintro ⟨x, y⟩ h1 h2
+      simp only [mem_rect, mem_translate, Set.mem_diff, Set.mem_singleton_iff,
+        Prod.mk.injEq] at h1 h2
       omega
-    rw [h_mod]
-    apply Nat.mul_mod_right
-  have h2 : LTileable (translateRegion (rectangle (3 * j) 2) (0, 3 * k - 1)) := by
-    apply LTileable_translate
-    exact tileable_mult3_x2 j
-  have h3 : LTileable (topRightLTromino j k) := by
-    exact LTileable_single_LTromino (3 * j + 1) (3 * k - 1) 2
-  have h_12 : LTileable (rectangleMinusCorner (3 * j + 2) (3 * k - 1) ∪
-                         translateRegion (rectangle (3 * j) 2) (0, 3 * k - 1)) := by
-    apply Tileable_union LTrominoSet h1 h2 hd1
-  apply Tileable_union LTrominoSet h_12 h3
-  rw [Finset.disjoint_union_left]
-  exact ⟨hd2, hd3⟩
 
-def rotateRegion90 (r : Region) : Region := r.image rotateCell90
+-- ============================================================
+-- Step 3: 4 × (3k+2) minus 2 corners
+-- ============================================================
 
-theorem rotateCell90_rotateCell (c : Cell) (r : Fin 4) :
-    rotateCell90 (rotateCell c r) = rotateCell c (r + 1) := by
-  fin_cases r
-  · rfl
-  · rfl
-  · rfl
-  · change rotateCell90 (rotateCell90 (rotateCell90 (rotateCell90 c))) = c
-    simp [rotateCell90]
-
-theorem rotateProto_rotateCell90 (r : Fin 4) :
-    (rotateProto LTromino r).image rotateCell90 = rotateProto LTromino (r + 1) := by
-  ext c
-  simp only [rotateProto, Finset.mem_image]
-  constructor
-  · rintro ⟨a, ⟨b, hb, rfl⟩, rfl⟩
-    use b, hb
-    exact (rotateCell90_rotateCell b r).symm
-  · rintro ⟨b, hb, rfl⟩
-    use rotateCell b r
-    constructor
-    · use b, hb
-    · exact rotateCell90_rotateCell b r
-
-theorem rotateCell90_translateCell (c offset : Cell) :
-    rotateCell90 (translateCell c offset) =
-        translateCell (rotateCell90 c) (rotateCell90 offset) := by
-  simp [rotateCell90, translateCell]
-  omega
-
-theorem LTileable_rotate90 {r : Region} (h : LTileable r) : LTileable (rotateRegion90 r) := by
-  obtain ⟨ιₜ, _, _, t, hvalid⟩ := h
-  let t' : TileSet LTrominoSet ιₜ := ⟨fun i =>
-    ⟨(), rotateCell90 (t.tiles i).translation, (t.tiles i).rotation + 1⟩⟩
-  use ιₜ, inferInstance, inferInstance, t'
-  have cells_eq : ∀ i, t'.cellsAt i = (t.cellsAt i).image rotateCell90 := by
-    intro i
-    simp only [TileSet.cellsAt, PlacedTile.cells, LTrominoSet]
-    ext c
-    simp only [Finset.mem_image]
-    constructor
-    · rintro ⟨a, ha, rfl⟩
-      rw [← rotateProto_rotateCell90] at ha
-      simp only [Finset.mem_image] at ha
-      rcases ha with ⟨b, hb, rfl⟩
-      use translateCell b (t.tiles i).translation
-      constructor
-      · use b, hb
-      · exact rotateCell90_translateCell b (t.tiles i).translation
-    · rintro ⟨a, ⟨b, hb, rfl⟩, rfl⟩
-      have : rotateCell90 b ∈ rotateProto LTromino ((t.tiles i).rotation + 1) := by
-        rw [← rotateProto_rotateCell90]
-        simp only [Finset.mem_image]
-        use b, hb
-      use rotateCell90 b, this
-      exact (rotateCell90_translateCell b (t.tiles i).translation).symm
-  constructor
-  · intro i j hij
-    rw [Finset.disjoint_left]
-    intro c hci hcj
-    rw [cells_eq i, Finset.mem_image] at hci
-    rcases hci with ⟨a, ha, rfl⟩
-    rw [cells_eq j, Finset.mem_image] at hcj
-    rcases hcj with ⟨b, hb, eq⟩
-    have : a = b := by
-      injection eq with e1 e2
-      ext
-      · omega
-      · omega
-    subst this
-    have h_disj := hvalid.disjoint i j hij
-    rw [Finset.disjoint_left] at h_disj
-    exact h_disj ha hb
-  · ext c
-    simp only [TileSet.coveredCells, Finset.mem_biUnion, Finset.mem_univ, true_and]
-    simp only [rotateRegion90, Finset.mem_image]
-    constructor
-    · rintro ⟨i, hc⟩
-      rw [cells_eq i, Finset.mem_image] at hc
-      rcases hc with ⟨a, ha, rfl⟩
-      use a
-      constructor
-      · rw [← hvalid.covers]
-        exact Finset.mem_biUnion.mpr ⟨i, Finset.mem_univ i, ha⟩
-      · rfl
-    · rintro ⟨a, ha, rfl⟩
-      have : a ∈ t.coveredCells := by rw [hvalid.covers]; exact ha
-      rcases Finset.mem_biUnion.mp this with ⟨i, _, hia⟩
-      use i
-      rw [cells_eq i, Finset.mem_image]
-      use a, hia
-
-def piece1_rexp (k : ℕ) : RExp :=
-  RExp.r 0 (3*k+1) 2 (3*k+2) ⊔ RExp.r 0 (3*k) 1 (3*k+1)
-
-def piece2_rexp (k : ℕ) : RExp :=
-  RExp.r 0 0 4 (3*k+1) ⊖ RExp.r 0 (3*k) 1 (3*k+1)
-
-def piece1 (k : ℕ) : Finset Cell := LTrominoCellsAt 0 (3 * ↑k + 1) 3
-def piece2 (k : ℕ) : Finset Cell := rectangle 4 (3 * k + 1) \ {(0, 3 * (k : ℤ))}
-
-theorem piece1_val_rexp (k : ℕ) : (piece1_rexp k).eval = ↑(piece1 k) := by
-  ext ⟨x, y⟩
-  simp only [piece1_rexp, RExp.eval_union, RExp.eval_r, Set.mem_union,
-    piece1, LTrominoCellsAt, PlacedTile.cells, rotateProto, rotateCell, translateCell,
-    Finset.mem_coe,
-    Finset.mem_image, LTrominoSet, LTromino, rotateCell90, Finset.mem_mk,
-    Multiset.mem_coe, List.mem_cons, List.not_mem_nil, or_false]
-  constructor
-  · rintro (⟨hx1, hx2, hy1, hy2⟩ | ⟨hx1, hx2, hy1, hy2⟩)
-    · have hx : x = 0 ∨ x = 1 := by omega
-      have hy : y = 3*k+1 := by omega
-      rcases hx with rfl | rfl
-      · exact ⟨(0,0), ⟨(0,0), by decide, by rfl⟩, by { ext <;> simp; omega }⟩
-      · exact ⟨(1,0), ⟨(0,1), by decide, by rfl⟩, by { ext <;> simp; omega }⟩
-    · have hx : x = 0 := by omega
-      have hy : y = 3*k := by omega
-      exact ⟨(0,-1), ⟨(1,0), by decide, by rfl⟩, by { simp only [Prod.mk.injEq]; push_cast; omega }⟩
-  · intro h
-    rcases h with ⟨a, ⟨a1, ha1, rfl⟩, h2⟩
-    simp only [Prod.mk.injEq] at h2
-    rcases h2 with ⟨hx, hy⟩
-    rcases ha1 with rfl | rfl | rfl
-    · left; revert hx hy; simp; omega
-    · left; revert hx hy; simp; omega
-    · right; revert hx hy; simp; omega
-
-theorem piece2_val_rexp (k : ℕ) : (piece2_rexp k).eval = ↑(piece2 k) := by
-  ext ⟨x, y⟩
-  simp only [piece2_rexp, piece2, Prod.mk.injEq, rectangle, Finset.mem_coe, Finset.mem_sdiff,
-    Finset.mem_singleton, Finset.mem_product, Finset.mem_map, Function.Embedding.coeFn_mk,
-    Finset.mem_range, RExp.eval_diff, RExp.eval_r, Set.mem_diff]
-  constructor
-  · rintro ⟨⟨hx1, hx2, hy1, hy2⟩, h2⟩
-    constructor
-    · constructor
-      · have hx_ge : x ≥ 0 := by omega
-        lift x to ℕ using hx_ge
-        exact ⟨x, by omega, rfl⟩
-      · have hy_ge : y ≥ 0 := by omega
-        lift y to ℕ using hy_ge
-        exact ⟨y, by omega, rfl⟩
-    · rintro ⟨rfl, rfl⟩
-      exact h2 ⟨by omega, by omega, by omega, by omega⟩
-  · rintro ⟨⟨⟨ax, hax, rfl⟩, ⟨ay, hay, rfl⟩⟩, h2⟩
-    constructor
-    · exact ⟨by exact Int.natCast_nonneg ax, by zify at hax; omega,
-        by exact Int.natCast_nonneg ay, by zify at hay; omega⟩
-    · rintro ⟨h1, h2_1, h3, h4⟩
-      apply h2
-      constructor
-      · zify at h1 h2_1 ⊢; omega
-      · zify at h3 h4 ⊢; omega
-
-theorem piece2_eq_rotate_rectangleMinusCorner (k : ℕ) :
-    piece2 k = translateRegion (rotateRegion90 (rectangleMinusCorner (3 * k + 1) 4)) (3, 0) := by
-  ext ⟨x, y⟩
-  simp only [piece2, mem_rectangle, rotateRegion90, translateRegion, translateCell,
-    Finset.mem_image, Prod.exists, rectangleMinusCorner, Finset.mem_erase, cornerTR,
-    Finset.mem_sdiff, Finset.mem_singleton, Prod.ext_iff, rotateCell90]
-  have hk_sub : (Int.ofNat (3 * k + 1 - 1)) = 3 * (k : ℤ) := by
-    have : 3 * k + 1 - 1 = 3 * k := by omega
-    rw [this]
-    rfl
-  have h4_sub : (Int.ofNat (4 - 1)) = 3 := by rfl
-  rw [hk_sub, h4_sub]
-  constructor
-  · rintro ⟨⟨hx1, hx2, hy1, hy2⟩, hnot⟩
-    use x - 3, y
-    constructor
-    · use y, 3 - x
-      constructor
-      · constructor
-        · intro h_eq
-          apply hnot
-          injection h_eq with e1 e2
-          constructor <;> omega
-        · omega
-      · omega
-    · omega
-  · rintro ⟨a, b, ⟨a_1, b_1, ⟨hnot, hbounds⟩, eq1, eq2⟩, eq3, eq4⟩
-    constructor
-    · constructor <;> omega
-    · intro h_eq
-      apply hnot
-      ext <;> omega
-
-theorem tileable_piece2 (k : ℕ) (hk : k ≥ 1) :
-    LTileable (piece2 k) := by
-  rw [piece2_eq_rotate_rectangleMinusCorner k]
-  apply LTileable_translate
-  apply LTileable_rotate90
-  rw [rectMinusCorner_tileable_iff]
-  · have : (3 * k + 1) * 4 - 1 = 12 * k + 3 := by omega
-    rw [this]
-    omega
-  · omega
-  · decide
-
-theorem tileable_rectangleMinus2Corner_4_3kplus2 (k : ℕ) (hk : k ≥ 1) :
-    LTileable (rectangleMinus2Corner 4 (3 * k + 2)) := by
-  have h_decomp : rectangleMinus2Corner 4 (3 * k + 2) = piece1 k ∪ piece2 k := by
-    apply Finset.coe_injective
-    rw [Finset.coe_union, ← piece1_val_rexp, ← piece2_val_rexp]
-    have h1 : (rectangleMinus2Corner_rexp 4 (3 * k + 2)).eval =
-        (rectangleMinus2Corner 4 (3 * k + 2) : Set Cell) := by
-      rw [rectangleMinus2Corner_rexp_eval 4 (3 * k + 2) (by omega) (by omega)]
-    rw [← h1]
+/-- 4×(3k+2) rectangle minus two top-right corners is L-tileable for k ≥ 1. -/
+theorem LTileable_4x_3kplus2_minus_2corner_set (k : ℕ) (hk : k ≥ 1) :
+    Tileable_set (rectMinus2Corner_set 4 (3 * (k : ℤ) + 2)) LProtoset_set := by
+  let piece1 : Set Cell :=
+    {((0 : ℤ), (3 * (k : ℤ))),
+     ((0 : ℤ), (3 * (k : ℤ) + 1)),
+     ((1 : ℤ), (3 * (k : ℤ) + 1))}
+  let piece2 : Set Cell :=
+    rect 0 0 4 (3 * (k : ℤ) + 1) \ {((0 : ℤ), (3 * (k : ℤ)))}
+  have hdecomp : rectMinus2Corner_set 4 (3 * (k : ℤ) + 2) = piece1 ∪ piece2 := by
     ext ⟨x, y⟩
-    simp [rectangleMinus2Corner_rexp, piece1_rexp, piece2_rexp]
+    simp [rectMinus2Corner_set, piece1, piece2, mem_rect]
     omega
-  have h_disj : Disjoint (piece1 k) (piece2 k) := by
-    rw [Finset.disjoint_left]
-    intro ⟨x, y⟩ h1 h2
-    have h1' : (x, y) ∈ (piece1_rexp k).eval := by rw [piece1_val_rexp]; exact h1
-    have h2' : (x, y) ∈ (piece2_rexp k).eval := by rw [piece2_val_rexp]; exact h2
-    simp [piece1_rexp, piece2_rexp] at h1' h2'
+  have hdisj : Disjoint piece1 piece2 := by
+    rw [Set.disjoint_left]
+    rintro ⟨x, y⟩ h1 h2
+    simp [piece1, piece2, mem_rect] at h1 h2
     omega
-  rw [h_decomp]
-  have h_p1 : LTileable (piece1 k) := by
-    exact LTileable_single_LTromino 0 (3 * k + 1) 3
-  have h_p2 : LTileable (piece2 k) := by
-    exact tileable_piece2 k hk
-  exact Tileable_union LTrominoSet h_p1 h_p2 h_disj
-
-def left_piece_j (j k : ℕ) : Finset Cell := rectangle (3 * (j - 1)) (3 * k + 2)
-def right_piece_j (j k : ℕ) : Finset Cell :=
-  translateRegion (rectangleMinus2Corner 4 (3 * k + 2)) (3 * (j - 1), 0)
-
-theorem decomp_j (j k : ℕ) (hj : j ≥ 2) :
-    rectangleMinus2Corner (3 * j + 1) (3 * k + 2) = left_piece_j j k ∪ right_piece_j j k := by
-  apply Finset.coe_injective
-  rw [Finset.coe_union]
-  have h1 : (rectangleMinus2Corner_rexp (3 * j + 1) (3 * k + 2)).eval =
-      (rectangleMinus2Corner (3 * j + 1) (3 * k + 2) : Set Cell) := by
-    rw [rectangleMinus2Corner_rexp_eval (3 * j + 1) (3 * k + 2) (by omega) (by omega)]
-  have h2 : (RExp.r 0 0 (3 * (j - 1)) (3 * k + 2)).eval = (left_piece_j j k : Set Cell) := by
-    ext ⟨x, y⟩
-    simp only [left_piece_j, rectangle, Finset.mem_coe, Finset.mem_product, Finset.mem_map,
-      Function.Embedding.coeFn_mk, Finset.mem_range, RExp.eval_r]
-    constructor
-    · rintro ⟨hx1, hx2, hy1, hy2⟩
-      constructor
-      · have : x ≥ 0 := by omega
-        lift x to ℕ using this
-        have hj' : (↑(j-1):ℤ) = ↑j-1 := by omega
-        exact ⟨x, by omega, rfl⟩
-      · have : y ≥ 0 := by omega
-        lift y to ℕ using this
-        exact ⟨y, by omega, rfl⟩
-    · rintro ⟨⟨ax, hax, rfl⟩, ⟨ay, hay, rfl⟩⟩
-      have hj' : (↑(j-1):ℤ) = ↑j-1 := by omega
-      have hx : (Int.ofNat ax : ℤ) = ↑ax := rfl
-      have hy : (Int.ofNat ay : ℤ) = ↑ay := rfl
-      exact ⟨by exact Int.natCast_nonneg ax, by omega, by exact Int.natCast_nonneg ay, by omega⟩
-  have h3 : (RExp.shift (3 * (j - 1)) 0 (rectangleMinus2Corner_rexp 4 (3 * k + 2))).eval =
-      (right_piece_j j k : Set Cell) := by
-    rw [RExp.eval_shift]
-    have h4 : (rectangleMinus2Corner_rexp 4 (3 * k + 2)).eval =
-        (rectangleMinus2Corner 4 (3 * k + 2) : Set Cell) := by
-      rw [rectangleMinus2Corner_rexp_eval 4 (3 * k + 2) (by omega) (by omega)]
-    rw [h4]
-    ext ⟨x, y⟩
-    simp only [right_piece_j, translate, translateRegion, translateCell, Finset.mem_coe,
-      Finset.mem_image, Prod.exists, Set.mem_setOf_eq]
-    constructor
-    · intro hx
-      use (x - 3 * (↑j - 1)), y
-      constructor
-      · convert hx using 1; ext <;> simp
-      · ext <;> simp
-    · rintro ⟨a, b, hab, rfl, rfl⟩
-      convert hab using 1
-      ext <;> simp
-  rw [← h1, ← h2, ← h3]
-  ext ⟨x, y⟩
-  have hj' : (↑(j - 1) : ℤ) = ↑j - 1 := by omega
-  simp [rectangleMinus2Corner_rexp, RExp.eval_shift, RExp.eval_diff, Set.mem_union, Set.mem_diff]
-  omega
-
-theorem decomp_j_disj (j k : ℕ) (hj : j ≥ 2) :
-    Disjoint (left_piece_j j k) (right_piece_j j k) := by
-  rw [Finset.disjoint_left]
-  intro ⟨x, y⟩ h1 h2
-  have h_left : x < 3 * (↑j - 1) := by
-    simp only [left_piece_j, rectangle, Finset.mem_product, Finset.mem_map,
-      Function.Embedding.coeFn_mk, Finset.mem_range] at h1
-    rcases h1 with ⟨⟨ax, hax, rfl⟩, _⟩
-    have hj' : (↑(j-1):ℤ) = ↑j-1 := by omega
-    have hx : (Int.ofNat ax : ℤ) = ↑ax := rfl
-    omega
-  have h_right : x ≥ 3 * (↑j - 1) := by
-    simp only [right_piece_j, translateRegion, Finset.mem_image, translateCell, Prod.exists] at h2
-    rcases h2 with ⟨a, b, hab, rfl, rfl⟩
-    have : a ≥ 0 := by
-      have h4 : (a, b) ∈ (rectangleMinus2Corner_rexp 4 (3 * k + 2)).eval := by
-        rw [rectangleMinus2Corner_rexp_eval 4 (3 * k + 2) (by omega) (by omega)]
-        exact hab
-      simp [rectangleMinus2Corner_rexp, RExp.eval_diff] at h4
+  have hpiece1 : Tileable_set piece1 LProtoset_set := by
+    refine ⟨Fin 1, inferInstance, ⟨![⟨(), (0, 3 * (k : ℤ) + 1), 3⟩]⟩, ⟨?_, ?_⟩⟩
+    · intro i j hij; fin_cases i; fin_cases j; exact (hij rfl).elim
+    · ext ⟨x, y⟩
+      simp [piece1, TileSet_set.coveredCells, TileSet_set.cellsAt, PlacedTile_set.cells,
+        LProtoset_set, LPrototile_set, LShape_cells, mem_translate, mem_rotate, inverseRot]
       omega
+  rw [hdecomp]
+  exact Tileable_set.union hpiece1 (LTileable_piece2_set k hk) hdisj
+
+-- ============================================================
+-- Step 5: (3j+2) × (3k+1) minus 2 corners (proved before Step 4)
+-- ============================================================
+
+/-- Modular arithmetic helper: ((3j+2)*(3k-1) - 1) % 3 = 0 for j,k ≥ 1. -/
+private lemma piece5_area_mod (j k : ℕ) (hj : j ≥ 1) (hk : k ≥ 1) :
+    ((3 * j + 2) * (3 * k - 1) - 1) % 3 = 0 := by
+  obtain ⟨j', rfl⟩ : ∃ j', j = j' + 1 := ⟨j - 1, by omega⟩
+  obtain ⟨k', rfl⟩ : ∃ k', k = k' + 1 := ⟨k - 1, by omega⟩
+  have h1 : 3 * (k' + 1) - 1 = 3 * k' + 2 := by omega
+  simp only [h1]
+  have h2 : (3 * (j' + 1) + 2) * (3 * k' + 2) =
+      3 * (3 * j' * k' + 2 * j' + 5 * k' + 3) + 1 := by ring
+  have h3 : 0 < (3 * (j' + 1) + 2) * (3 * k' + 2) := by positivity
+  omega
+
+/-- (3j+2)×(3k+1) minus two top-right corners is L-tileable for j,k ≥ 1. -/
+theorem LTileable_3jplus2_x_3kplus1_minus_2corner_set (j k : ℕ) (hj : j ≥ 1) (hk : k ≥ 1) :
+    Tileable_set (rectMinus2Corner_set (3 * (j : ℤ) + 2) (3 * k + 1)) LProtoset_set := by
+  -- Decompose into A ∪ B ∪ C:
+  -- A = rectMinusCorner_set (3j+2) (3k-1)
+  -- B = translate 0 (3k-1) (rect 0 0 (3j) 2)
+  -- C = {(3j+1, 3k-1), (3j+1, 3k-2), (3j, 3k-1)} (L-tromino, r=2 at (3j+1, 3k-1))
+  have hdecomp : rectMinus2Corner_set (3 * (j : ℤ) + 2) (3 * k + 1) =
+      rectMinusCorner_set (3 * (j : ℤ) + 2) (3 * k - 1) ∪
+      translate 0 (3 * (k : ℤ) - 1) (rect 0 0 (3 * j) 2) ∪
+      ({(3 * (j : ℤ) + 1, 3 * (k : ℤ) - 1), (3 * (j : ℤ) + 1, 3 * (k : ℤ) - 2),
+        (3 * (j : ℤ), 3 * (k : ℤ) - 1)} : Set Cell) := by
+    ext ⟨x, y⟩
+    simp only [rectMinus2Corner_set, rectMinusCorner_set, Set.mem_diff, mem_rect, Set.mem_union,
+      mem_translate, Set.mem_insert_iff, Set.mem_singleton_iff, Prod.mk.injEq]
     omega
-  omega
-
-def pieceA (k : ℕ) : Finset Cell :=
-  swapRegion (rectangleMinus2Corner (3 * k + 2) 4)
-
-def pieceA_rexp (k : ℕ) : RExp :=
-  RExp.r 0 0 4 (3 * k + 2) ⊖ RExp.r 3 (3 * k) 4 (3 * k + 2)
-
-theorem pieceA_val_rexp (k : ℕ) (hk : k ≥ 1) :
-    (pieceA_rexp k).eval = (pieceA k : Set Cell) := by
-  ext ⟨x, y⟩
-  simp only [pieceA_rexp, RExp.eval_diff, RExp.eval_r, Set.mem_diff, pieceA,
-    swapRegion, Finset.mem_coe, Finset.mem_image, rectangleMinus2Corner,
-    Finset.mem_erase, mem_rectangle, mem_rect, cornerTR, cornerTR2, Prod.exists,
-    Int.ofNat_eq_natCast]
-  have hk1 : ((3 * k + 2 - 1 : ℕ) : ℤ) = 3 * k + 1 := by omega
-  have hk2 : ((3 * k + 2 - 2 : ℕ) : ℤ) = 3 * k := by omega
-  have h41 : ((4 - 1 : ℕ) : ℤ) = 3 := by rfl
-  simp only [hk1, hk2, h41]
-  constructor
-  · rintro ⟨⟨hx1, hx2, hy1, hy2⟩, hnot⟩
-    use y, x
-    constructor
-    · constructor
-      · intro h_eq; apply hnot; injection h_eq with e1 e2; subst e1 e2
-        exact ⟨by omega, by omega, by omega, by omega⟩
-      · constructor
-        · intro h_eq; apply hnot; injection h_eq with e1 e2; subst e1 e2
-          exact ⟨by omega, by omega, by omega, by omega⟩
-        · exact ⟨by omega, by omega, by omega, by omega⟩
-    · rfl
-  · rintro ⟨a, b, ⟨h1, h2, h3, h4, h5, h6⟩, rfl, rfl⟩
-    refine ⟨⟨by omega, by omega, by omega, by omega⟩, ?_⟩
-    intro h_eq
-    have ha : a = 3 * k ∨ a = 3 * k + 1 := by omega
-    have hb : b = 3 := by omega
-    rcases ha with rfl | rfl
-    · apply h1; exact Prod.ext rfl hb
-    · apply h2; exact Prod.ext rfl hb
-
-def pieceB (k : ℕ) : Finset Cell :=
-  LTrominoCellsAt 3 (3 * ↑k + 1) 3
-
-def pieceB_rexp (k : ℕ) : RExp :=
-  RExp.union (RExp.r 3 (3*k+1) 5 (3*k+2)) (RExp.r 3 (3*k) 4 (3*k+1))
-
-theorem pieceB_val_rexp (k : ℕ) :
-    (pieceB_rexp k).eval = (pieceB k : Set Cell) := by
-  ext ⟨x, y⟩
-  simp only [pieceB_rexp, RExp.eval_union, RExp.eval_r, Set.mem_union,
-    pieceB, LTrominoCellsAt, PlacedTile.cells, rotateProto, rotateCell, translateCell,
-    Finset.mem_coe,
-    Finset.mem_image, LTrominoSet, LTromino, rotateCell90, Finset.mem_mk,
-    Multiset.mem_coe, List.mem_cons, List.not_mem_nil, or_false]
-  constructor
-  · rintro (⟨hx1, hx2, hy1, hy2⟩ | ⟨hx1, hx2, hy1, hy2⟩)
-    · have hx : x = 3 ∨ x = 4 := by omega
-      have hy : y = 3*k+1 := by omega
-      rcases hx with rfl | rfl
-      · exact ⟨(0,0), ⟨(0,0), by decide, by rfl⟩, by { ext <;> simp; omega }⟩
-      · exact ⟨(1,0), ⟨(0,1), by decide, by rfl⟩, by { ext <;> simp; omega }⟩
-    · have hx : x = 3 := by omega
-      have hy : y = 3*k := by omega
-      exact ⟨(0,-1), ⟨(1,0), by decide, by rfl⟩, by { simp only [Prod.mk.injEq]; push_cast; omega }⟩
-  · intro h
-    rcases h with ⟨a, ⟨a1, ha1, rfl⟩, h2⟩
-    simp only [Prod.mk.injEq] at h2
-    rcases h2 with ⟨hx, hy⟩
-    rcases ha1 with rfl | rfl | rfl
-    · left; revert hx hy; simp; omega
-    · left; revert hx hy; simp; omega
-    · right; revert hx hy; simp; omega
-
-def pieceC (k : ℕ) : Finset Cell :=
-  translateRegion (rectangle 3 (3 * k + 1)) (4, 0)
-
-def pieceC_rexp (k : ℕ) : RExp :=
-  RExp.r 4 0 7 (3 * k + 1)
-
-theorem pieceC_val_rexp (k : ℕ) :
-    (pieceC_rexp k).eval = (pieceC k : Set Cell) := by
-  ext ⟨x, y⟩
-  simp only [pieceC_rexp, RExp.eval_r, pieceC, translateRegion, translateCell,
-    Finset.mem_coe, Finset.mem_image, rectangle, Finset.mem_product,
-    Finset.mem_map, Function.Embedding.coeFn_mk, Finset.mem_range, Prod.exists,
-    rect, Set.mem_setOf_eq]
-  constructor
-  · rintro ⟨hx1, hx2, hy1, hy2⟩
-    use x - 4, y
-    have h1 : x - 4 ≥ 0 := by omega
-    have h2 : y ≥ 0 := by omega
-    exact ⟨⟨⟨Int.toNat (x - 4), by omega, by exact Int.toNat_of_nonneg h1⟩,
-        ⟨Int.toNat y, by omega, by exact Int.toNat_of_nonneg h2⟩⟩,
-      by { ext <;> simp }⟩
-  · rintro ⟨a, b, ⟨⟨ax, hax, rfl⟩, ⟨ay, hay, rfl⟩⟩, rfl, rfl⟩
-    have hax_z : (Int.ofNat ax : ℤ) = ↑ax := rfl
-    have hay_z : (Int.ofNat ay : ℤ) = ↑ay := rfl
-    exact ⟨by omega, by omega, by omega, by omega⟩
-
-theorem decomp_7_rexp (k : ℕ) (hk : k ≥ 1) :
-    (rectangleMinus2Corner_rexp 7 (3 * k + 2)).eval =
-    (RExp.union (RExp.union (pieceA_rexp k) (pieceB_rexp k)) (pieceC_rexp k)).eval := by
-  ext ⟨x, y⟩
-  simp only [rectangleMinus2Corner_rexp, pieceA_rexp, pieceB_rexp, pieceC_rexp,
-    RExp.eval_union, RExp.eval_diff, RExp.eval_r, Set.mem_union, Set.mem_diff,
-    rect, Set.mem_setOf_eq]
-  omega
-
-theorem decomp_7 (k : ℕ) (hk : k ≥ 1) :
-    rectangleMinus2Corner 7 (3 * k + 2) = pieceA k ∪ pieceB k ∪ pieceC k := by
-  apply Finset.coe_injective
-  rw [Finset.coe_union, Finset.coe_union]
-  have h_eval := decomp_7_rexp k hk
-  rw [rectangleMinus2Corner_rexp_eval 7 (3 * k + 2) (by decide) (by omega)] at h_eval
-  rw [RExp.eval_union, RExp.eval_union,
-    pieceA_val_rexp k hk, pieceB_val_rexp k, pieceC_val_rexp k] at h_eval
-  exact h_eval
-
-theorem decomp_7_disj1 (k : ℕ) (hk : k ≥ 1) :
-    Disjoint (pieceA k) (pieceB k) := by
-  rw [Finset.disjoint_left]
-  intro c h1 h2
-  have h1_rexp : c ∈ (pieceA_rexp k).eval := by rw [pieceA_val_rexp k hk]; exact h1
-  have h2_rexp : c ∈ (pieceB_rexp k).eval := by rw [pieceB_val_rexp k]; exact h2
-  rcases c with ⟨x, y⟩
-  simp only [pieceA_rexp, pieceB_rexp, RExp.eval_union, RExp.eval_diff, RExp.eval_r,
-    Set.mem_union, Set.mem_diff, rect, Set.mem_setOf_eq] at h1_rexp h2_rexp
-  omega
-
-theorem decomp_7_disj2 (k : ℕ) (hk : k ≥ 1) :
-    Disjoint (pieceA k ∪ pieceB k) (pieceC k) := by
-  rw [Finset.disjoint_left]
-  intro c h1 h2
-  have h1_rexp : c ∈ (RExp.union (pieceA_rexp k) (pieceB_rexp k)).eval := by
-    rw [RExp.eval_union, pieceA_val_rexp k hk, pieceB_val_rexp k]
-    exact Finset.mem_union.mp h1
-  have h2_rexp : c ∈ (pieceC_rexp k).eval := by rw [pieceC_val_rexp k]; exact h2
-  rcases c with ⟨x, y⟩
-  simp only [pieceA_rexp, pieceB_rexp, pieceC_rexp, RExp.eval_union, RExp.eval_r,
-    RExp.eval_diff, Set.mem_union, Set.mem_diff, rect, Set.mem_setOf_eq] at h1_rexp h2_rexp
-  omega
-
-theorem tileable_pieceA (k : ℕ) (hk : k ≥ 1) : LTileable (pieceA k) := by
-  have : LTileable (rectangleMinus2Corner (3 * k + 2) (3 * 1 + 1)) := by
-    exact tileable_rectangleMinus2Corner_3jplus2_3kplus1 k 1 hk (by omega)
-  have h2 : 3 * 1 + 1 = 4 := rfl
-  rw [h2] at this
-  exact LTileable_swap this
-
-theorem tileable_pieceB (k : ℕ) : LTileable (pieceB k) := by
-  exact LTileable_single_LTromino 3 (3 * k + 1) 3
-
-theorem tileable_pieceC (k : ℕ) (hk : k ≥ 1) (hk_odd : Odd k) : LTileable (pieceC k) := by
-  apply LTileable_translate
-  rw [rect_tileable_iff]
-  right; right
-  constructor
-  · have : 3 * (3 * k + 1) = 3 * (3 * k + 1) := rfl
-    rw [this]
-    apply Nat.mul_mod_right
-  · constructor
+  have hdisj_AB : Disjoint
+      (rectMinusCorner_set (3 * (j : ℤ) + 2) (3 * k - 1))
+      (translate 0 (3 * (k : ℤ) - 1) (rect 0 0 (3 * j) 2)) := by
+    rw [Set.disjoint_left]
+    rintro ⟨x, y⟩ h1 h2
+    simp only [rectMinusCorner_set, Set.mem_diff, mem_rect, Set.mem_singleton_iff,
+      mem_translate, Prod.mk.injEq] at h1 h2
+    push_cast at *; omega
+  have hdisj_ABC : Disjoint
+      (rectMinusCorner_set (3 * (j : ℤ) + 2) (3 * k - 1) ∪
+       translate 0 (3 * (k : ℤ) - 1) (rect 0 0 (3 * j) 2))
+      ({(3 * (j : ℤ) + 1, 3 * (k : ℤ) - 1), (3 * (j : ℤ) + 1, 3 * (k : ℤ) - 2),
+        (3 * (j : ℤ), 3 * (k : ℤ) - 1)} : Set Cell) := by
+    rw [Set.disjoint_left]
+    rintro ⟨x, y⟩ h1 h2
+    simp only [Set.mem_union, rectMinusCorner_set, Set.mem_diff, mem_rect,
+      Set.mem_singleton_iff, mem_translate, Set.mem_insert_iff, Prod.mk.injEq] at h1 h2
+    push_cast at *; omega
+  have hA : Tileable_set (rectMinusCorner_set (3 * (j : ℤ) + 2) (3 * k - 1)) LProtoset_set := by
+    have h := (LTileable_rectMinusCorner_iff_set (3 * j + 2) (3 * k - 1) (by omega) (by omega)).mpr
+      (piece5_area_mod j k hj hk)
+    simp only [LTileable_set] at h
+    convert h using 1
+    ext ⟨x, y⟩
+    simp only [rectMinusCorner_set, Set.mem_diff, mem_rect, Set.mem_singleton_iff, Prod.mk.injEq]
+    push_cast; omega
+  have hB : Tileable_set (translate 0 (3 * (k : ℤ) - 1) (rect 0 0 (3 * (j : ℤ)) 2))
+      LProtoset_set := by
+    apply tileable_translate_set
+    apply LTileable_rect_of_conditions_set (3*j) 2
+    unfold RectTileableConditions
+    right; right
+    refine ⟨?_, ?_, ?_, ?_, ?_⟩
+    · have : 3 * j * 2 % 3 = 0 := by omega
+      exact_mod_cast this
     · omega
-    · constructor
-      · omega
-      · constructor
-        · intro h; obtain ⟨_, h_odd_cond⟩ := h
-          obtain ⟨j, hj⟩ := hk_odd
-          obtain ⟨i, hi⟩ := h_odd_cond
-          omega
-        · intro h; obtain ⟨_, h_eq⟩ := h
-          omega
+    · omega
+    · intro ⟨h1, h2⟩; norm_num at h2
+    · intro ⟨h1, h2⟩; norm_num at h2
+  have hC : Tileable_set
+      ({(3 * (j : ℤ) + 1, 3 * (k : ℤ) - 1), (3 * (j : ℤ) + 1, 3 * (k : ℤ) - 2),
+        (3 * (j : ℤ), 3 * (k : ℤ) - 1)} : Set Cell)
+      LProtoset_set := by
+    refine ⟨Fin 1, inferInstance, ⟨![⟨(), (3 * (j : ℤ) + 1, 3 * (k : ℤ) - 1), 2⟩]⟩, ⟨?_, ?_⟩⟩
+    · intro i j' hij; fin_cases i; fin_cases j'; exact (hij rfl).elim
+    · ext ⟨x, y⟩
+      simp [TileSet_set.coveredCells, TileSet_set.cellsAt, PlacedTile_set.cells,
+        LProtoset_set, LPrototile_set, LShape_cells, mem_translate, mem_rotate,
+        inverseRot, rotateCell_2]
+      omega
+  rw [hdecomp]
+  exact Tileable_set.union (Tileable_set.union hA hB hdisj_AB) hC hdisj_ABC
 
-theorem tileable_rectangleMinus2Corner_3jplus1_3kplus2
+-- ============================================================
+-- Step 4: (3j+1) × (3k+2) minus 2 corners
+-- ============================================================
+
+private lemma LTileable_3jplus1_x_3kplus2_minus_2corner_set_case_j1
+    (k : ℕ) (hk : k ≥ 1) :
+    Tileable_set (rectMinus2Corner_set (3 * (1 : ℤ) + 1) (3 * k + 2)) LProtoset_set := by
+  simpa using (LTileable_4x_3kplus2_minus_2corner_set k hk)
+
+private lemma LTileable_3jplus1_x_3kplus2_minus_2corner_set_case_j2
+    (k : ℕ) (hk : k ≥ 1) :
+    Tileable_set (rectMinus2Corner_set (3 * (2 : ℤ) + 1) (3 * k + 2)) LProtoset_set := by
+  rcases Nat.even_or_odd k with ⟨m, hm⟩ | ⟨m, hm⟩
+  · have hdecomp : rectMinus2Corner_set (3 * (2 : ℤ) + 1) (3 * ↑k + 2) =
+      rect 0 0 3 (3 * (k : ℤ) + 2) ∪
+      translate 3 0 (rectMinus2Corner_set 4 (3 * ↑k + 2)) := by
+      ext ⟨x, y⟩
+      simp only [rectMinus2Corner_set, Set.mem_diff, mem_rect, Set.mem_union,
+        mem_translate, Set.mem_singleton_iff, Prod.mk.injEq]
+      push_cast; omega
+    have hdisj : Disjoint
+        (rect 0 0 3 (3 * (k : ℤ) + 2))
+        (translate 3 0 (rectMinus2Corner_set 4 (3 * ↑k + 2))) := by
+      rw [Set.disjoint_left]
+      rintro ⟨x, y⟩ h1 h2
+      simp only [mem_rect, mem_translate, rectMinus2Corner_set, Set.mem_diff, mem_rect] at h1 h2
+      push_cast at *; omega
+    have hleft : Tileable_set (rect 0 0 3 (3 * (k : ℤ) + 2)) LProtoset_set := by
+      apply LTileable_rect_of_conditions_set 3 (3*k+2)
+      unfold RectTileableConditions; right; right
+      refine ⟨?_, ?_, ?_, ?_, ?_⟩
+      · have : 3 * (3 * k + 2) % 3 = 0 := by omega
+        exact_mod_cast this
+      · omega
+      · omega
+      · intro ⟨_, hodd⟩
+        rw [Nat.odd_iff] at hodd
+        subst hm; omega
+      · intro ⟨hodd, h2⟩; omega
+    rw [hdecomp]
+    exact Tileable_set.union hleft
+      (tileable_translate_set (LTileable_4x_3kplus2_minus_2corner_set k hk) 3 0) hdisj
+  · have hdecomp7 : rectMinus2Corner_set (3 * (2 : ℤ) + 1) (3 * ↑k + 2) =
+      (rect 0 0 4 (3 * (k : ℤ) + 2) \
+        ({((3 : ℤ), (3 * (k : ℤ) + 1))} ∪ {((3 : ℤ), (3 * (k : ℤ)))})) ∪
+      ({((3 : ℤ), (3 * (k : ℤ) + 1)),
+        ((4 : ℤ), (3 * (k : ℤ) + 1)),
+        ((3 : ℤ), (3 * (k : ℤ)))} : Set Cell) ∪
+      translate 4 0 (rect 0 0 3 (3 * (k : ℤ) + 1)) := by
+      ext ⟨x, y⟩
+      simp only [rectMinus2Corner_set, Set.mem_diff, mem_rect, Set.mem_union,
+        Set.mem_insert_iff, Set.mem_singleton_iff, mem_translate, Prod.mk.injEq]
+      push_cast; omega
+    have hdisj_AB : Disjoint
+        (rect 0 0 4 (3 * (k : ℤ) + 2) \
+          ({((3 : ℤ), (3 * (k : ℤ) + 1))} ∪ {((3 : ℤ), (3 * (k : ℤ)))}))
+        ({((3 : ℤ), (3 * (k : ℤ) + 1)),
+          ((4 : ℤ), (3 * (k : ℤ) + 1)),
+          ((3 : ℤ), (3 * (k : ℤ)))} : Set Cell) := by
+      rw [Set.disjoint_left]
+      rintro ⟨x, y⟩ h1 h2
+      simp only [Set.mem_diff, mem_rect, Set.mem_union, Set.mem_singleton_iff,
+        Set.mem_insert_iff, Prod.mk.injEq] at h1 h2
+      push_cast at *; omega
+    have hdisj_ABC : Disjoint
+        ((rect 0 0 4 (3 * (k : ℤ) + 2) \
+          ({((3 : ℤ), (3 * (k : ℤ) + 1))} ∪ {((3 : ℤ), (3 * (k : ℤ)))})) ∪
+         ({((3 : ℤ), (3 * (k : ℤ) + 1)),
+           ((4 : ℤ), (3 * (k : ℤ) + 1)),
+           ((3 : ℤ), (3 * (k : ℤ)))} : Set Cell))
+        (translate 4 0 (rect 0 0 3 (3 * (k : ℤ) + 1))) := by
+      rw [Set.disjoint_left]
+      rintro ⟨x, y⟩ h1 h2
+      simp only [Set.mem_union, Set.mem_diff, mem_rect, Set.mem_insert_iff,
+        Set.mem_singleton_iff, Prod.mk.injEq, mem_translate] at h1 h2
+      push_cast at *; omega
+    have hA : Tileable_set
+        (rect 0 0 4 (3 * (k : ℤ) + 2) \
+          ({((3 : ℤ), (3 * (k : ℤ) + 1))} ∪ {((3 : ℤ), (3 * (k : ℤ)))}))
+        LProtoset_set := by
+      have heq : rect 0 0 4 (3 * (k : ℤ) + 2) \
+          ({((3 : ℤ), (3 * (k : ℤ) + 1))} ∪ {((3 : ℤ), (3 * (k : ℤ)))}) =
+          Set.swapRegion (rectMinus2Corner_set (3 * (k : ℤ) + 2) 4) := by
+        ext ⟨x, y⟩
+        simp only [Set.mem_diff, mem_rect, Set.mem_union, Set.mem_singleton_iff,
+          mem_swapRegion, rectMinus2Corner_set, Prod.mk.injEq]
+        push_cast; omega
+      rw [heq]
+      exact LTileable_swap_set
+        (LTileable_3jplus2_x_3kplus1_minus_2corner_set k 1 hk (by omega))
+    have hB : Tileable_set
+        ({((3 : ℤ), (3 * (k : ℤ) + 1)),
+          ((4 : ℤ), (3 * (k : ℤ) + 1)),
+          ((3 : ℤ), (3 * (k : ℤ)))} : Set Cell) LProtoset_set := by
+      refine ⟨Fin 1, inferInstance, ⟨![⟨(), (3, 3 * (k : ℤ) + 1), 3⟩]⟩, ⟨?_, ?_⟩⟩
+      · intro i j' hij; fin_cases i; fin_cases j'; exact (hij rfl).elim
+      · ext ⟨x, y⟩
+        simp [TileSet_set.coveredCells, TileSet_set.cellsAt, PlacedTile_set.cells,
+          LProtoset_set, LPrototile_set, LShape_cells, mem_translate, mem_rotate,
+          inverseRot, rotateCell_1]
+        omega
+    have hC : Tileable_set (translate 4 0 (rect 0 0 3 (3 * (k : ℤ) + 1))) LProtoset_set := by
+      apply tileable_translate_set
+      apply LTileable_rect_of_conditions_set 3 (3*k+1)
+      unfold RectTileableConditions; right; right
+      refine ⟨?_, ?_, ?_, ?_, ?_⟩
+      · have : 3 * (3 * k + 1) % 3 = 0 := by omega
+        exact_mod_cast this
+      · omega
+      · omega
+      · rintro ⟨_, hodd⟩
+        rw [Nat.odd_iff] at hodd
+        subst hm; omega
+      · intro ⟨_, h2⟩; omega
+    rw [hdecomp7]
+    exact Tileable_set.union (Tileable_set.union hA hB hdisj_AB) hC hdisj_ABC
+
+private lemma LTileable_3jplus1_x_3kplus2_minus_2corner_set_case_jge3
+    (n k : ℕ) (hn2 : n ≥ 2) (hk : k ≥ 1) :
+    Tileable_set (rectMinus2Corner_set (3 * (↑(n + 1) : ℤ) + 1) (3 * ↑k + 2)) LProtoset_set := by
+  have hdecomp : rectMinus2Corner_set (3 * (↑(n + 1) : ℤ) + 1) (3 * ↑k + 2) =
+      rect 0 0 (3 * (n : ℤ)) (3 * k + 2) ∪
+      translate (3 * (n : ℤ)) 0 (rectMinus2Corner_set 4 (3 * ↑k + 2)) := by
+    ext ⟨x, y⟩
+    simp only [rectMinus2Corner_set, Set.mem_diff, mem_rect, Set.mem_union, mem_translate,
+      Set.mem_singleton_iff, Prod.mk.injEq]
+    push_cast; omega
+  have hdisj : Disjoint
+      (rect 0 0 (3 * (n : ℤ)) (3 * k + 2))
+      (translate (3 * (n : ℤ)) 0 (rectMinus2Corner_set 4 (3 * ↑k + 2))) := by
+    rw [Set.disjoint_left]
+    rintro ⟨x, y⟩ h1 h2
+    simp only [mem_rect, mem_translate, rectMinus2Corner_set, Set.mem_diff, mem_rect] at h1 h2
+    push_cast at *; omega
+  have hleft : Tileable_set (rect 0 0 (3 * (n : ℤ)) (3 * k + 2)) LProtoset_set := by
+    apply LTileable_rect_of_conditions_set (3*n) (3*k+2)
+    unfold RectTileableConditions; right; right
+    refine ⟨?_, ?_, ?_, ?_, ?_⟩
+    · have : (3 * n) * (3 * k + 2) = 3 * (n * (3 * k + 2)) := by ring
+      rw [this]
+      omega
+    · omega
+    · omega
+    · intro ⟨h1, _⟩; omega
+    · intro ⟨_, h2⟩; omega
+  rw [hdecomp]
+  exact Tileable_set.union hleft
+    (tileable_translate_set (LTileable_4x_3kplus2_minus_2corner_set k hk) _ _) hdisj
+
+set_option maxHeartbeats 4000000 in
+-- Increase heartbeat for this case-splitting theorem.
+/-- (3j+1)×(3k+2) minus two top-right corners is L-tileable for j,k ≥ 1. -/
+theorem LTileable_3jplus1_x_3kplus2_minus_2corner_set
     (j k : ℕ) (hj : j ≥ 1) (hk : k ≥ 1) :
-    LTileable (rectangleMinus2Corner (3 * j + 1) (3 * k + 2)) := by
-  obtain rfl | hj2 := eq_or_lt_of_le hj
-  · exact tileable_rectangleMinus2Corner_4_3kplus2 k hk
-  · have hj2_le : 2 ≤ j := hj2
-    obtain rfl | hj3 := eq_or_lt_of_le hj2_le
-    · rcases Nat.even_or_odd k with (h_even | h_odd)
-      · rw [decomp_j 2 k hj2]
-        have h_disj := decomp_j_disj 2 k hj2
-        have h1 : LTileable (left_piece_j 2 k) := by
-          have h1_subst : left_piece_j 2 k = rectangle (3 * (2 - 1)) (3 * k + 2) := rfl
-          rw [h1_subst]
-          rw [rect_tileable_iff]
-          right; right
-          constructor
-          · have : 3 * (2 - 1) * (3 * k + 2) = 3 * ((2 - 1) * (3 * k + 2)) := by ring
-            rw [this]
-            apply Nat.mul_mod_right
-          · constructor
-            · omega
-            · constructor
-              · omega
-              · constructor
-                · intro h; obtain ⟨h1, h2⟩ := h; obtain ⟨i, hi⟩ := h2
-                  obtain ⟨l, rfl⟩ := h_even; omega
-                · intro h; obtain ⟨h1, h2⟩ := h; obtain ⟨i, hi⟩ := h1; omega
-        have h2 : LTileable (right_piece_j 2 k) := by
-          have h2_subst : right_piece_j 2 k =
-              translateRegion (rectangleMinus2Corner 4 (3 * k + 2)) (3 * (2 - 1), 0) := rfl
-          rw [h2_subst]
-          apply LTileable_translate
-          exact tileable_rectangleMinus2Corner_4_3kplus2 k hk
-        exact Tileable_union LTrominoSet h1 h2 h_disj
-      · have h_decomp :
-            rectangleMinus2Corner (3 * 2 + 1) (3 * k + 2) = pieceA k ∪ pieceB k ∪ pieceC k := by
-          have : 3 * 2 + 1 = 7 := rfl
-          rw [this]
-          exact decomp_7 k hk
-        rw [h_decomp]
-        have hA : LTileable (pieceA k) := tileable_pieceA k hk
-        have hB : LTileable (pieceB k) := tileable_pieceB k
-        have hC : LTileable (pieceC k) := tileable_pieceC k hk h_odd
-        have hAB : LTileable (pieceA k ∪ pieceB k) :=
-          Tileable_union LTrominoSet hA hB (decomp_7_disj1 k hk)
-        exact Tileable_union LTrominoSet hAB hC (decomp_7_disj2 k hk)
-    · rw [decomp_j j k hj2]
-      have h_disj := decomp_j_disj j k hj2
-      have h1 : LTileable (left_piece_j j k) := by
-        have h1_subst : left_piece_j j k = rectangle (3 * (j - 1)) (3 * k + 2) := rfl
-        rw [h1_subst]
-        rw [rect_tileable_iff]
-        right; right
-        constructor
-        · have : 3 * (j - 1) * (3 * k + 2) = 3 * ((j - 1) * (3 * k + 2)) := by ring
-          rw [this]
-          apply Nat.mul_mod_right
-        · constructor
-          · have h2 : j - 1 ≥ 1 := by omega
-            have h3 : 3 * (j - 1) ≥ 3 * 1 := Nat.mul_le_mul_left 3 h2
-            omega
-          · constructor
-            · omega
-            · constructor
-              · intro h; obtain ⟨h1, h2⟩ := h; obtain ⟨i, hi⟩ := h2; omega
-              · intro h; obtain ⟨h1, h2⟩ := h; obtain ⟨i, hi⟩ := h1; omega
-      have h2 : LTileable (right_piece_j j k) := by
-        have h2_subst : right_piece_j j k =
-            translateRegion (rectangleMinus2Corner 4 (3 * k + 2)) (3 * (j - 1), 0) := rfl
-        rw [h2_subst]
-        apply LTileable_translate
-        exact tileable_rectangleMinus2Corner_4_3kplus2 k hk
-      exact Tileable_union LTrominoSet h1 h2 h_disj
+    Tileable_set (rectMinus2Corner_set (3 * (j : ℤ) + 1) (3 * k + 2)) LProtoset_set := by
+  have hj_cases : j = 1 ∨ j = 2 ∨ j ≥ 3 := by omega
+  rcases hj_cases with rfl | rfl | hj3
+  · simpa using LTileable_3jplus1_x_3kplus2_minus_2corner_set_case_j1 k hk
+  · simpa using LTileable_3jplus1_x_3kplus2_minus_2corner_set_case_j2 k hk
+  · let n : ℕ := j - 1
+    have hn2 : n ≥ 2 := by
+      simp [n]
+      omega
+    have hjn : j = n + 1 := by
+      simp [n]
+      omega
+    rw [hjn]
+    exact LTileable_3jplus1_x_3kplus2_minus_2corner_set_case_jge3 n k hn2 hk
 
+-- ============================================================
+-- Step 6: Main theorem
+-- ============================================================
 
-/-- **Two-square deficient rectangle theorem (statement)**:
-
-If `n * m ≡ 2 [MOD 3]` and we remove a corner square together with the
-boundary square immediately adjacent to it, the remaining region is
-L-tileable. -/
-theorem rectMinus2Corner_tileable_of_area_mod2
-    (n m : ℕ) (hn : n ≥ 3) (hm : m ≥ 3) (hmod : n * m % 3 = 2) :
-    LTileable (rectangleMinus2Corner n m) := by
+/-- **Native Set-framework version of the two-corner-deficient rectangle theorem.**
+    An n×m rectangle with two adjacent top-right corners removed is L-tileable
+    when n*m ≡ 2 (mod 3), for n, m ≥ 3. -/
+theorem LTileable_rectMinus2Corner_set (n m : ℕ) (hn : n ≥ 3) (hm : m ≥ 3)
+    (hmod : n * m % 3 = 2) :
+    LTileable_set (rect 0 0 (n : ℤ) m \ ({((n : ℤ) - 1, (m : ℤ) - 1)} ∪
+                                          {((n : ℤ) - 2, (m : ℤ) - 1)})) := by
+  simp only [LTileable_set]
+  have hrw : rect 0 0 (n : ℤ) m \ ({((n : ℤ) - 1, (m : ℤ) - 1)} ∪ {((n : ℤ) - 2, (m : ℤ) - 1)}) =
+      rectMinus2Corner_set (n : ℤ) m := rfl
+  rw [hrw]
   have h_cases := mod3_one_two_or_two_one_of_area_mod3_two hmod
   rcases h_cases with ⟨hn1, hm2⟩ | ⟨hn2, hm1⟩
-  · -- Case 1: n % 3 = 1, m % 3 = 2
-    let j := n / 3
-    let k := m / 3
-    have hj_eq : n = 3 * j + 1 := by
-      have h := Nat.div_add_mod n 3
-      rw [hn1] at h
-      omega
-    have hk_eq : m = 3 * k + 2 := by
-      have h := Nat.div_add_mod m 3
-      rw [hm2] at h
-      omega
-    have hj_ge : j ≥ 1 := by
-      have : 3 * j + 1 ≥ 3 := hj_eq ▸ hn
-      omega
-    have hk_ge : k ≥ 1 := by
-      have : 3 * k + 2 ≥ 3 := hk_eq ▸ hm
-      omega
-    rw [hj_eq, hk_eq]
-    exact tileable_rectangleMinus2Corner_3jplus1_3kplus2 j k hj_ge hk_ge
-  · -- Case 2: n % 3 = 2, m % 3 = 1
-    let j := n / 3
-    let k := m / 3
-    have hj_eq : n = 3 * j + 2 := by
-      have h := Nat.div_add_mod n 3
-      rw [hn2] at h
-      omega
-    have hk_eq : m = 3 * k + 1 := by
-      have h := Nat.div_add_mod m 3
-      rw [hm1] at h
-      omega
-    have hj_ge : j ≥ 1 := by
-      have : 3 * j + 2 ≥ 3 := hj_eq ▸ hn
-      omega
-    have hk_ge : k ≥ 1 := by
-      have : 3 * k + 1 ≥ 3 := hk_eq ▸ hm
-      omega
-    rw [hj_eq, hk_eq]
-    exact tileable_rectangleMinus2Corner_3jplus2_3kplus1 j k hj_ge hk_ge
+  · -- n ≡ 1 mod 3, m ≡ 2 mod 3
+    let j := n / 3; let k := m / 3
+    have hj1 : j ≥ 1 := by simp only [j]; omega
+    have hk1 : k ≥ 1 := by simp only [k]; omega
+    have h := LTileable_3jplus1_x_3kplus2_minus_2corner_set j k hj1 hk1
+    convert h using 2
+    · simp only [j]; omega
+    · simp only [k]; omega
+  · -- n ≡ 2 mod 3, m ≡ 1 mod 3
+    let j := n / 3; let k := m / 3
+    have hj1 : j ≥ 1 := by simp only [j]; omega
+    have hk1 : k ≥ 1 := by simp only [k]; omega
+    have h := LTileable_3jplus2_x_3kplus1_minus_2corner_set j k hj1 hk1
+    convert h using 2
+    · simp only [j]; omega
+    · simp only [k]; omega
