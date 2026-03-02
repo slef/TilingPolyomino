@@ -1333,11 +1333,12 @@ theorem LTileable_3jplus2_x_3kplus1_minus_2corner_set (j k : ℕ) (hj : j ≥ 1)
   have hdecomp : rectMinus2Corner_set (3 * (j : ℤ) + 2) (3 * k + 1) =
       rectMinusCorner_set (3 * (j : ℤ) + 2) (3 * k - 1) ∪
       translate 0 (3 * (k : ℤ) - 1) (rect 0 0 (3 * j) 2) ∪
-      ({(3 * (j : ℤ) + 1, 3 * (k : ℤ) - 1), (3 * (j : ℤ) + 1, 3 * (k : ℤ) - 2), (3 * (j : ℤ), 3 * (k : ℤ) - 1)} : Set Cell) := by
+      ({(3 * (j : ℤ) + 1, 3 * (k : ℤ) - 1), (3 * (j : ℤ) + 1, 3 * (k : ℤ) - 2),
+        (3 * (j : ℤ), 3 * (k : ℤ) - 1)} : Set Cell) := by
     ext ⟨x, y⟩
     simp only [rectMinus2Corner_set, rectMinusCorner_set, Set.mem_diff, mem_rect, Set.mem_union,
       mem_translate, Set.mem_insert_iff, Set.mem_singleton_iff, Prod.mk.injEq]
-    push_cast; omega
+    omega
   have hdisj_AB : Disjoint
       (rectMinusCorner_set (3 * (j : ℤ) + 2) (3 * k - 1))
       (translate 0 (3 * (k : ℤ) - 1) (rect 0 0 (3 * j) 2)) := by
@@ -1349,7 +1350,8 @@ theorem LTileable_3jplus2_x_3kplus1_minus_2corner_set (j k : ℕ) (hj : j ≥ 1)
   have hdisj_ABC : Disjoint
       (rectMinusCorner_set (3 * (j : ℤ) + 2) (3 * k - 1) ∪
        translate 0 (3 * (k : ℤ) - 1) (rect 0 0 (3 * j) 2))
-      ({(3 * (j : ℤ) + 1, 3 * (k : ℤ) - 1), (3 * (j : ℤ) + 1, 3 * (k : ℤ) - 2), (3 * (j : ℤ), 3 * (k : ℤ) - 1)} : Set Cell) := by
+      ({(3 * (j : ℤ) + 1, 3 * (k : ℤ) - 1), (3 * (j : ℤ) + 1, 3 * (k : ℤ) - 2),
+        (3 * (j : ℤ), 3 * (k : ℤ) - 1)} : Set Cell) := by
     rw [Set.disjoint_left]
     rintro ⟨x, y⟩ h1 h2
     simp only [Set.mem_union, rectMinusCorner_set, Set.mem_diff, mem_rect,
@@ -1374,19 +1376,19 @@ theorem LTileable_3jplus2_x_3kplus1_minus_2corner_set (j k : ℕ) (hj : j ≥ 1)
       exact_mod_cast this
     · omega
     · omega
-    · intro ⟨h1, h2⟩; omega
+    · intro ⟨h1, h2⟩; norm_num at h2
     · intro ⟨h1, h2⟩; norm_num at h2
   have hC : SetTileable
-      ({(3 * (j : ℤ) + 1, 3 * (k : ℤ) - 1), (3 * (j : ℤ) + 1, 3 * (k : ℤ) - 2), (3 * (j : ℤ), 3 * (k : ℤ) - 1)} : Set Cell)
+      ({(3 * (j : ℤ) + 1, 3 * (k : ℤ) - 1), (3 * (j : ℤ) + 1, 3 * (k : ℤ) - 2),
+        (3 * (j : ℤ), 3 * (k : ℤ) - 1)} : Set Cell)
       LProtoset_set := by
-    refine ⟨Fin 1, inferInstance, ⟨![⟨(), (3 * (j : ℤ) + 1, 3 * k - 1), 2⟩]⟩, ⟨?_, ?_⟩⟩
+    refine ⟨Fin 1, inferInstance, ⟨![⟨(), (3 * (j : ℤ) + 1, 3 * (k : ℤ) - 1), 2⟩]⟩, ⟨?_, ?_⟩⟩
     · intro i j' hij; fin_cases i; fin_cases j'; exact (hij rfl).elim
     · ext ⟨x, y⟩
-      simp only [SetTileSet.coveredCells, Set.mem_iUnion, Fin.exists_fin_one,
-        SetTileSet.cellsAt, SetPlacedTile.cells, LProtoset_set, LPrototile_set, LShape_cells,
-        mem_translate, mem_rotate, inverseRot, rotateCell_2,
-        Set.mem_insert_iff, Set.mem_singleton_iff, Prod.mk.injEq]
-      push_cast; omega
+      simp [SetTileSet.coveredCells, SetTileSet.cellsAt, SetPlacedTile.cells,
+        LProtoset_set, LPrototile_set, LShape_cells, mem_translate, mem_rotate,
+        inverseRot, rotateCell_2]
+      omega
   rw [hdecomp]
   exact SetTileable.union (SetTileable.union hA hB hdisj_AB) hC hdisj_ABC
 
@@ -1408,15 +1410,14 @@ private lemma LTileable_3jplus1_x_3kplus2_minus_2corner_set_case_j2
       translate 3 0 (rectMinus2Corner_set 4 (3 * ↑k + 2)) := by
       ext ⟨x, y⟩
       simp only [rectMinus2Corner_set, Set.mem_diff, mem_rect, Set.mem_union,
-        mem_translate, Set.mem_insert_iff, Set.mem_singleton_iff, Prod.mk.injEq]
+        mem_translate, Set.mem_singleton_iff, Prod.mk.injEq]
       push_cast; omega
     have hdisj : Disjoint
         (rect 0 0 3 (3 * (k : ℤ) + 2))
         (translate 3 0 (rectMinus2Corner_set 4 (3 * ↑k + 2))) := by
       rw [Set.disjoint_left]
       rintro ⟨x, y⟩ h1 h2
-      simp only [mem_rect, mem_translate, rectMinus2Corner_set, Set.mem_diff, mem_rect,
-        Set.mem_insert_iff, Set.mem_singleton_iff, Prod.mk.injEq] at h1 h2
+      simp only [mem_rect, mem_translate, rectMinus2Corner_set, Set.mem_diff, mem_rect] at h1 h2
       push_cast at *; omega
     have hleft : SetTileable (rect 0 0 3 (3 * (k : ℤ) + 2)) LProtoset_set := by
       apply LTileable_rect_of_conditions_set 3 (3*k+2)
@@ -1476,7 +1477,7 @@ private lemma LTileable_3jplus1_x_3kplus2_minus_2corner_set_case_j2
           Set.swapRegion (rectMinus2Corner_set (3 * (k : ℤ) + 2) 4) := by
         ext ⟨x, y⟩
         simp only [Set.mem_diff, mem_rect, Set.mem_union, Set.mem_singleton_iff,
-          Set.mem_swapRegion, rectMinus2Corner_set, Prod.mk.injEq]
+          mem_swapRegion, rectMinus2Corner_set, Prod.mk.injEq]
         push_cast; omega
       rw [heq]
       exact LTileable_swap_set
@@ -1488,11 +1489,10 @@ private lemma LTileable_3jplus1_x_3kplus2_minus_2corner_set_case_j2
       refine ⟨Fin 1, inferInstance, ⟨![⟨(), (3, 3 * (k : ℤ) + 1), 3⟩]⟩, ⟨?_, ?_⟩⟩
       · intro i j' hij; fin_cases i; fin_cases j'; exact (hij rfl).elim
       · ext ⟨x, y⟩
-        simp only [SetTileSet.coveredCells, Set.mem_iUnion, Fin.exists_fin_one,
-          SetTileSet.cellsAt, SetPlacedTile.cells, LProtoset_set, LPrototile_set,
-          LShape_cells, mem_translate, mem_rotate, inverseRot, rotateCell_3,
-          Set.mem_insert_iff, Set.mem_singleton_iff, Prod.mk.injEq]
-        push_cast; omega
+        simp [SetTileSet.coveredCells, SetTileSet.cellsAt, SetPlacedTile.cells,
+          LProtoset_set, LPrototile_set, LShape_cells, mem_translate, mem_rotate,
+          inverseRot, rotateCell_1]
+        omega
     have hC : SetTileable (translate 4 0 (rect 0 0 3 (3 * (k : ℤ) + 1))) LProtoset_set := by
       apply setTileable_translate
       apply LTileable_rect_of_conditions_set 3 (3*k+1)
@@ -1517,22 +1517,22 @@ private lemma LTileable_3jplus1_x_3kplus2_minus_2corner_set_case_jge3
       translate (3 * (n : ℤ)) 0 (rectMinus2Corner_set 4 (3 * ↑k + 2)) := by
     ext ⟨x, y⟩
     simp only [rectMinus2Corner_set, Set.mem_diff, mem_rect, Set.mem_union, mem_translate,
-      Set.mem_insert_iff, Set.mem_singleton_iff, Prod.mk.injEq]
+      Set.mem_singleton_iff, Prod.mk.injEq]
     push_cast; omega
   have hdisj : Disjoint
       (rect 0 0 (3 * (n : ℤ)) (3 * k + 2))
       (translate (3 * (n : ℤ)) 0 (rectMinus2Corner_set 4 (3 * ↑k + 2))) := by
     rw [Set.disjoint_left]
     rintro ⟨x, y⟩ h1 h2
-    simp only [mem_rect, mem_translate, rectMinus2Corner_set, Set.mem_diff, mem_rect,
-      Set.mem_insert_iff, Set.mem_singleton_iff, Prod.mk.injEq] at h1 h2
+    simp only [mem_rect, mem_translate, rectMinus2Corner_set, Set.mem_diff, mem_rect] at h1 h2
     push_cast at *; omega
   have hleft : SetTileable (rect 0 0 (3 * (n : ℤ)) (3 * k + 2)) LProtoset_set := by
     apply LTileable_rect_of_conditions_set (3*n) (3*k+2)
     unfold RectTileableConditions; right; right
     refine ⟨?_, ?_, ?_, ?_, ?_⟩
-    · have : 3 * n * (3 * k + 2) % 3 = 0 := by omega
-      exact_mod_cast this
+    · have : (3 * n) * (3 * k + 2) = 3 * (n * (3 * k + 2)) := by ring
+      rw [this]
+      omega
     · omega
     · omega
     · intro ⟨h1, _⟩; omega
@@ -1584,13 +1584,13 @@ theorem LTileable_rectMinus2Corner_set (n m : ℕ) (hn : n ≥ 3) (hm : m ≥ 3)
     have hk1 : k ≥ 1 := by simp only [k]; omega
     have h := LTileable_3jplus1_x_3kplus2_minus_2corner_set j k hj1 hk1
     convert h using 2
-    · push_cast; simp only [j]; omega
-    · push_cast; simp only [k]; omega
+    · simp only [j]; omega
+    · simp only [k]; omega
   · -- n ≡ 2 mod 3, m ≡ 1 mod 3
     let j := n / 3; let k := m / 3
     have hj1 : j ≥ 1 := by simp only [j]; omega
     have hk1 : k ≥ 1 := by simp only [k]; omega
     have h := LTileable_3jplus2_x_3kplus1_minus_2corner_set j k hj1 hk1
     convert h using 2
-    · push_cast; simp only [j]; omega
-    · push_cast; simp only [k]; omega
+    · simp only [j]; omega
+    · simp only [k]; omega
