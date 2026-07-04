@@ -3,3 +3,4 @@ import TilingPolyomino.Basic
 import TilingPolyomino.TilingSet
 import TilingPolyomino.LTromino
 import TilingPolyomino.LTrominoSetBridge
+import TilingPolyomino.TwoCornerDefects
