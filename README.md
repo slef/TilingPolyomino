@@ -16,6 +16,14 @@ An earlier preprint version is available at
 where some theorem names (for example the “DOG-EARED RECTANGLE THEOREM”) differ slightly
 from the final published article.
 
+The library also contains a formalization of a new result, due to the
+**MIT-ULB CompGeom Group** (`TilingPolyomino/TwoCornerDefects.lean`,
+theorem `LTileable_rectMinusTwoCorners_iff`):
+
+> An `n × m` rectangle (`n, m ≥ 6`) with a defect of size 1 or 2 at each of
+> two distinct corners is L-tromino tileable if and only if its area is
+> divisible by 3.
+
 Future work will extend this library with additional theorems and constructions about tilings by trominoes and other polyominoes.
 
 ---
@@ -25,6 +33,7 @@ Future work will extend this library with additional theorems and constructions 
 - `TilingPolyomino.lean`: main entry point for the library.
 - `TilingPolyomino/Basic.lean`: basic definitions and helper lemmas.
 - `TilingPolyomino/LTromino.lean`: development around tilings with L‑trominoes and related results inspired by Ash–Golomb.
+- `TilingPolyomino/TwoCornerDefects.lean`: the two-corner defect theorem, a new result due to the MIT-ULB CompGeom Group.
 
 ---
 

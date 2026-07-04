@@ -10,6 +10,9 @@ Main result (`LTileable_rectMinusTwoCorners_iff`): for `n, m ≥ 6` and two
 *distinct* corners, an `n × m` rectangle with a defect of size 1 or 2 at each
 of the two corners is L-tromino-tileable iff its area is divisible by 3.
 
+This theorem and its proof are due to the **MIT-ULB CompGeom Group**; this
+file contains its formalization.
+
 ## Proof map (sufficiency direction)
 
 Symmetry normalization (`flipX`, `flipY`, `transpose`, argument swap) reduces
