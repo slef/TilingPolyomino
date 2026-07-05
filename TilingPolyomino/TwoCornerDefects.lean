@@ -151,7 +151,7 @@ lemma rectMinusTwoCorners_comm (n m : ℤ) (c1 c2 : Corner) (d1 d2 : DefectType)
 -- Basic facts about defect cells
 -- ============================================================
 
-private lemma cells_finite (c : Corner) (d : DefectType) (n m : ℤ) :
+lemma Corner.cells_finite (c : Corner) (d : DefectType) (n m : ℤ) :
     (c.cells d n m).Finite := by
   cases c <;> cases d <;>
     simp only [Corner.cells] <;>
@@ -159,13 +159,13 @@ private lemma cells_finite (c : Corner) (d : DefectType) (n m : ℤ) :
       | exact Set.finite_singleton _
       | exact (Set.finite_singleton _).insert _
 
-private lemma cells_ncard (c : Corner) (d : DefectType) (n m : ℤ) :
+lemma Corner.cells_ncard (c : Corner) (d : DefectType) (n m : ℤ) :
     ((c.cells d n m).ncard : ℤ) = d.size := by
   cases c <;> cases d <;>
     simp only [Corner.cells, DefectType.size] <;>
     simp
 
-private lemma cells_subset_rect (c : Corner) (d : DefectType) (n m : ℤ)
+lemma Corner.cells_subset_rect (c : Corner) (d : DefectType) (n m : ℤ)
     (hn : 2 ≤ n) (hm : 2 ≤ m) :
     c.cells d n m ⊆ rect 0 0 n m := by
   rintro ⟨x, y⟩ hxy
@@ -174,7 +174,7 @@ private lemma cells_subset_rect (c : Corner) (d : DefectType) (n m : ℤ)
       Prod.mk.injEq] at hxy <;>
     (simp only [mem_rect]; omega)
 
-private lemma cells_disjoint {c1 c2 : Corner} (d1 d2 : DefectType) (n m : ℤ)
+lemma Corner.cells_disjoint {c1 c2 : Corner} (d1 d2 : DefectType) (n m : ℤ)
     (hn : 4 ≤ n) (hm : 4 ≤ m) (hc : c1 ≠ c2) :
     Disjoint (c1.cells d1 n m) (c2.cells d2 n m) := by
   rw [Set.disjoint_left]
@@ -200,19 +200,19 @@ lemma rectMinusTwoCorners_ncard (n m : ℤ) (c1 c2 : Corner) (d1 d2 : DefectType
     (hn : 4 ≤ n) (hm : 4 ≤ m) (hc : c1 ≠ c2) :
     ((rectMinusTwoCorners n m c1 c2 d1 d2).ncard : ℤ) = n * m - d1.size - d2.size := by
   have hsub : c1.cells d1 n m ∪ c2.cells d2 n m ⊆ rect 0 0 n m :=
-    Set.union_subset (cells_subset_rect c1 d1 n m (by omega) (by omega))
-      (cells_subset_rect c2 d2 n m (by omega) (by omega))
+    Set.union_subset (Corner.cells_subset_rect c1 d1 n m (by omega) (by omega))
+      (Corner.cells_subset_rect c2 d2 n m (by omega) (by omega))
   have hcard : (c1.cells d1 n m ∪ c2.cells d2 n m).ncard =
       (c1.cells d1 n m).ncard + (c2.cells d2 n m).ncard :=
-    Set.ncard_union_eq (cells_disjoint d1 d2 n m hn hm hc)
-      (cells_finite c1 d1 n m) (cells_finite c2 d2 n m)
+    Set.ncard_union_eq (Corner.cells_disjoint d1 d2 n m hn hm hc)
+      (Corner.cells_finite c1 d1 n m) (Corner.cells_finite c2 d2 n m)
   have hrect : (((rect 0 0 n m).ncard : ℕ) : ℤ) = n * m := by
     rw [rect_ncard]
     push_cast
     rw [sub_zero, sub_zero, Int.toNat_of_nonneg (by omega : (0:ℤ) ≤ n),
       Int.toNat_of_nonneg (by omega : (0:ℤ) ≤ m)]
-  have h1 := cells_ncard c1 d1 n m
-  have h2 := cells_ncard c2 d2 n m
+  have h1 := Corner.cells_ncard c1 d1 n m
+  have h2 := Corner.cells_ncard c2 d2 n m
   have hs1 := d1.size_pos
   have hs1' := d1.size_le_two
   have hs2 := d2.size_pos
@@ -221,7 +221,8 @@ lemma rectMinusTwoCorners_ncard (n m : ℤ) (c1 c2 : Corner) (d1 d2 : DefectType
     calc (16 : ℤ) = 4 * 4 := by norm_num
     _ ≤ n * m := mul_le_mul hn hm (by norm_num) (by omega)
   rw [rectMinusTwoCorners,
-    Set.ncard_diff hsub ((cells_finite c1 d1 n m).union (cells_finite c2 d2 n m)), hcard]
+    Set.ncard_diff hsub ((Corner.cells_finite c1 d1 n m).union
+      (Corner.cells_finite c2 d2 n m)), hcard]
   omega
 
 /-- Necessity: a tileable two-defect rectangle has area divisible by 3. -/

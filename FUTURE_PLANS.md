@@ -108,6 +108,23 @@ block from a corner.
 
 ---
 
+## Extension 2: Fat polyominoes — infinite regions
+
+The fat-polyomino theorem (`FatPolyomino.lean`, in progress 2026-07-05) is
+stated for **finite** connected vertex-aligned polyominoes. SL believes the
+theorem remains true for *infinite* fat polyominoes as well (with the area
+condition read appropriately, e.g. vacuous). The finiteness hypothesis is
+genuinely used in the current statement (`ncard` of an infinite set is `0`,
+so `3 ∣ P.ncard` holds vacuously while a finite tiling cannot exist — but an
+*infinite* tiling could). Revisit once the finite case is done: restate
+`LTileable` for possibly-infinite tile families, and adapt the chain
+construction (the Euler tour becomes a one- or two-way infinite walk).
+
+- [ ] Formulate infinite-tiling notion (`Tileable` with arbitrary index type)
+- [ ] Extend the fat theorem to infinite fat polyominoes
+
+---
+
 ## Notes on Proof Sketches (Images)
 
 Stefan sent 3 scanned images on 2026-02-27 showing the handwritten proof structure.

@@ -4,6 +4,50 @@
 
 ## Session log
 
+- **2026-07-05 (Fat polyominoes — tiling half proved).** Per SL's review of
+  the skeleton: `isVertex_rect_iff` demoted to an `example`; infinite-`P`
+  conjecture recorded in `FUTURE_PLANS.md`. Then closed three of the four
+  `sorry`s, leaf-first, build green after each:
+  (1) `RectPiece.tileable_optDefects` — translation to the origin plus the
+  existing rectangle/one-corner/two-corner theorems; needed the `cells_*`
+  helper lemmas of `TwoCornerDefects.lean` de-privatized (renamed into the
+  `Corner` namespace: `Corner.cells_finite/ncard/subset_rect/disjoint`).
+  (2) `exists_pushTromino` — statement change surfaced: dropped the
+  `Disjoint R.cells S.cells` hypothesis (a `PushAdj` configuration forces
+  the pieces onto opposite sides of the contact line, so it was redundant).
+  Proof: 4 core geometric configurations (`BR–BL`, `TR–TL`, `TL–BL`,
+  `TR–BR`) × 2 export sizes with explicit trominoes (each set fact by
+  `simp only` + `omega`), the 4 mirrored configurations by swapping `R`/`S`
+  (`s ↔ 3 − s`), the 8 impossible corner pairs killed by `omega`. A case
+  enumeration, but each case is 3 one-line-ish goals; a symmetry-machinery
+  reduction to 2 configurations was considered and rejected as no shorter.
+  (3) `chainCells_tileable` — induction along the chain: if the head's
+  residue mod 3 is 0, tile it and recurse defect-free; otherwise get the
+  straddling tromino from (2), tile the head minus both defects via (1),
+  and recurse with the inherited defect. Set bookkeeping via
+  `Set.ncard_diff`/`ncard_union_eq` and a final `omega` per area goal.
+  Remaining `sorry`: only `exists_cornerChain` (the geometric decomposition,
+  steps 1–4 of the sketch) — deferred per SL, to be worked jointly.
+  Whole project builds green.
+
+- **2026-07-05 (Fat polyominoes — Phases 1–3 skeleton).** New target theorem
+  (SL): every fat connected polyomino with area ≡ 0 (mod 3) is L-tileable;
+  first lemma uses the *vertex-aligned* weakening (all vertex coordinates
+  multiples of 20). Created `TilingPolyomino/FatPolyomino.lean` with:
+  polyomino notions (`CellAdj`, `CellConnected`, `IsVertex`,
+  `VertexAligned`); the corner-chain interface between the geometric
+  decomposition and the tiling argument (`RectPiece` — sides ≥ 6 —,
+  `PushAdj`, `ChainLink`, `IsCornerChain`); four `sorry`ed skeleton lemmas
+  (`exists_cornerChain` = vertical decomposition + spanning tree + Euler
+  tour; `exists_pushTromino` = one defect push; `RectPiece.tileable_optDefects`
+  = one piece via the existing rectangle/one-corner/two-corner theorems;
+  `chainCells_tileable` = induction along the chain); and the main lemma
+  `LTileable_of_vertexAligned` proved from these (no `sorry` in the glue).
+  `IsVertex` defined as "membership pattern around the grid point constant
+  neither row- nor column-wise"; sanity lemma `isVertex_rect_iff` (vertices
+  of a rectangle = its 4 corners) proved by `omega`. Awaiting SL's review of
+  the definitions and lemma statements (Checkpoints 1–3 for this theorem).
+
 - **2026-07-05 (AGENTS.md policy update — layout & attribution).** Per SL's
   revised `AGENTS.md`: moved the abstract layer into the library folder
   (`TilingPolyomino/Abstract.lean`, `TilingPolyomino/AbstractBridge.lean`,
