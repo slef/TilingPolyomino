@@ -14,5 +14,9 @@ name = "mathlib"
 scope = "leanprover-community"
 rev = "v4.27.0"
 
+# The library root does NOT import TilingPolyomino.Abstract (its pedagogical
+# definitions must not leak to consumers), so Abstract is listed as an extra
+# root to keep the sorry-free contract enforced by every `lake build`.
 [[lean_lib]]
 name = "TilingPolyomino"
+roots = ["TilingPolyomino", "TilingPolyomino.Abstract"]

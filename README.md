@@ -30,7 +30,19 @@ Future work will extend this library with additional theorems and constructions 
 
 ## Project structure
 
-- `TilingPolyomino.lean`: main entry point for the library.
+- `TilingPolyomino/Abstract.lean`: **start here as a reader** — the
+  reader-facing layer: self-contained elementary definitions (an L-tromino
+  as an explicit three-cell set, a tiling as a finite disjoint family of
+  tiles) followed by the headline theorem statements, nothing else.
+- `TilingPolyomino/AbstractBridge.lean`: the `sorry`-free proofs of the
+  `Abstract.lean` statements, bridging them to the general layer;
+  `Abstract.lean` delegates to it by definitional equality, so readers need
+  not open it.
+- `TilingPolyomino.lean`: main entry point for the library. It deliberately
+  does **not** import `TilingPolyomino.Abstract`, so the abstract layer's
+  pedagogical definitions do not leak to library consumers; `lake build`
+  still checks the abstract layer via an explicit extra root in
+  `lakefile.toml`.
 - `TilingPolyomino/Basic.lean`: basic definitions and helper lemmas.
 - `TilingPolyomino/LTromino.lean`: development around tilings with L‑trominoes and related results inspired by Ash–Golomb.
 - `TilingPolyomino/TwoCornerDefects.lean`: the two-corner defect theorem, a new result due to the MIT-ULB CompGeom Group.
