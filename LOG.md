@@ -4,6 +4,70 @@
 
 ## Session log
 
+- **2026-07-05 (Fat polyominoes — vertical decomposition, steps 1–2).**
+  SL sketched the `exists_cornerChain` proof (vertical decomposition →
+  door graph + spanning tree rooted at a leaf → subdivide slabs at door
+  midpoints → clockwise Euler tour with door-midpoint entry/exit corners).
+  New file `TilingPolyomino/VerticalDecomposition.lean`, **no `sorry`**:
+  - Boundary-walk lemmas (`isCutLine_of_horiz_discont`,
+    `exists_vertex_row_of_vert_discont`): a membership discontinuity
+    between adjacent cells yields a vertex on the line/row between them —
+    walk along the boundary edge to its first end (an
+    `Int.exists_least_of_bdd` extraction; finiteness bounds the walk);
+    at the end the two "constant-pattern" conjuncts of `IsVertex` fail for
+    complementary reasons, so the proof is 4 lines per conjunct.
+  - `Slab`, `Slab.IsSlabOf` (strip between consecutive cut lines × maximal
+    vertical run): pairwise disjoint (`eq_of_mem`), cover
+    (`exists_slab_mem` — run/strip extraction plus column propagation
+    `mem_iff_of_no_cut`), aligned coordinates (`IsSlabOf.aligned`) and
+    sides ≥ f (`side_ge`).
+  - Doors (`DoorBetween`, `Slab.Adj`) and **connectivity of the door
+    graph** (`slab_reachable`): follow a cell path, slab changes happen
+    only through doors (`eq_or_adj_of_cellAdj`; vertical neighbours share
+    their run, so all slab transitions are horizontal).
+  Remaining for `exists_cornerChain`: the tree/tour layer (spanning tree
+  rooted at a leaf, slab subdivision, clockwise Euler tour). Design
+  question for SL recorded in the session summary: custom rooted-tree
+  inductive vs Mathlib `SimpleGraph` spanning trees.
+
+- **2026-07-05 (Vertical decomposition — reframed per SL, tree layer set
+  up).** SL's review: the deliverable is a decomposition of `P` into
+  disjoint rectangles (`RectPiece`-compatible), stated as such — the
+  `Slab` naming had suggested full strips. The definition was already
+  per-component (strip × maximal run); renamed `Slab` → `VPiece`,
+  `IsSlabOf` → `VPiece.IsPieceOf`, and added the explicit packaging:
+  `vDecomp P` (the set of pieces), `vDecomp_isDecomposition` (rectangles
+  ⊆ `P`, pairwise disjoint, union = `P`), `vDecomp_finite` (inject a
+  piece into its bottom-left cell), and `VPiece.toRectPiece` (for
+  20-aligned `P`; sides ≥ 20 ≥ 6). Spanning-tree layer per SL's
+  delegation ("whatever works best"): custom rose tree `PieceTree`
+  (mutual `pieces`/`piecesList`, `WF`/`WFChildren` — the nested-inductive
+  mutual pattern), `IsSpanningTree` (well-formed, nodup, complete);
+  `exists_spanning_pieceTree` was the file's one `sorry`, closed the same
+  day (see next entry). Whole project green.
+
+- **2026-07-05 (Spanning tree proved — VerticalDecomposition sorry-free).**
+  SL asked whether the direct construction beats invoking Mathlib's
+  `SimpleGraph.Connected.exists_isTree_le`; answer: yes, because the tour
+  needs a *rooted rose tree with a recursion principle*, and extracting
+  that from an abstract `IsTree` costs the same induction again through a
+  heavier API. Direct proof, ~200 lines, no `sorry`:
+  - `ReachIn S` (door-reachability within a piece set) with `mem`/`symm`/
+    `component` lemmas — `reachIn_component` upgrades a path in `S` to a
+    path *within* the component of its start;
+  - `exists_attach`: stop a door path one step before `r` (head induction);
+  - `exists_children_aux`: inner induction — peel off the component of an
+    arbitrary uncovered piece, build its subtree via the outer IH rooted
+    at the attach point, recurse on the rest (closure under reachability
+    is the maintained invariant);
+  - `exists_rooted_tree_aux`: outer induction on `≤ n` (plain `Nat`
+    induction on an upper bound, avoiding strong-induction eliminators);
+  - `exists_spanning_pieceTree` assembles them on `vDecomp P`.
+  Both `FatPolyomino` sub-goals delegated so far are done; the single
+  remaining `sorry` in the project is `exists_cornerChain`, whose missing
+  ingredient is now only the subdivision + Euler tour layer (step 4 of the
+  plan).
+
 - **2026-07-05 (Fat polyominoes — tiling half proved).** Per SL's review of
   the skeleton: `isVertex_rect_iff` demoted to an `example`; infinite-`P`
   conjecture recorded in `FUTURE_PLANS.md`. Then closed three of the four
