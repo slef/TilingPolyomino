@@ -1,3 +1,4 @@
 /.lake
 *.lean.bak
 *_original.lean
+__pycache__/
