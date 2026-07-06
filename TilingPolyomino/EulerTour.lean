@@ -33,9 +33,11 @@ main lemma `LTileable_of_vertexAligned` (both formerly stated in
 * The root's cycle is broken at the top turn, so **any** root works and no
   re-rooting of the spanning tree is needed.
 
-All sub-pieces have sides ≥ 10 (column widths are half of ≥ 20; cut
-heights are multiples of 10, consecutive ones ≥ 10 apart because doors
-have length ≥ 20 and same-side doors are ≥ 20 apart).
+All sub-pieces have sides ≥ 6 (column widths are half of ≥ 12; cut
+heights are multiples of 6, consecutive ones ≥ 6 apart because doors
+have length ≥ 12 and same-side doors are ≥ 12 apart).  The bound 12 = 2·6
+is tight: the vertical split needs each column ≥ 6, so pieces ≥ 12 wide,
+and a door midpoint sits ≥ 6 (half the door length) from the piece edges.
 -/
 
 open Set
@@ -168,14 +170,14 @@ def doorMid (s t : VPiece) : ℤ :=
 lemma doorMid_comm (s t : VPiece) : doorMid s t = doorMid t s := by
   simp [doorMid, max_comm, min_comm]
 
-/-- Margins of a door midpoint, for a `20`-aligned polyomino: it is a
-    multiple of `10` sitting at distance ≥ 10 from both ends of the door
+/-- Margins of a door midpoint, for a `12`-aligned polyomino: it is a
+    multiple of `6` sitting at distance ≥ 6 from both ends of the door
     (hence from the tops and bottoms of both pieces). -/
 lemma doorMid_spec {P : Set Cell} (hfin : P.Finite)
-    (hal : VertexAligned 20 P) {s t : VPiece}
+    (hal : VertexAligned 12 P) {s t : VPiece}
     (hs : s.IsPieceOf P) (ht : t.IsPieceOf P) (hadj : s.Adj t) :
-    10 ∣ doorMid s t ∧
-    max s.y0 t.y0 + 10 ≤ doorMid s t ∧ doorMid s t + 10 ≤ min s.y1 t.y1 := by
+    6 ∣ doorMid s t ∧
+    max s.y0 t.y0 + 6 ≤ doorMid s t ∧ doorMid s t + 6 ≤ min s.y1 t.y1 := by
   obtain ⟨-, hs0, -, hs1⟩ := hs.aligned hfin hal
   obtain ⟨-, ht0, -, ht1⟩ := ht.aligned hfin hal
   have hoverlap : max s.y0 t.y0 < min s.y1 t.y1 := by
@@ -714,12 +716,12 @@ private lemma runs_disjoint {P : Set Cell} {c d : VPiece}
     simp only [VPiece.cells, mem_rect] <;> omega
 
 /-- Doors from two distinct west neighbours into `R` have midpoints at
-    least 20 apart. -/
+    least 12 apart. -/
 private lemma doorMid_sep_west {P : Set Cell} (hfin : P.Finite)
-    (hal : VertexAligned 20 P) {R c d : VPiece} (hR : R.IsPieceOf P)
+    (hal : VertexAligned 12 P) {R c d : VPiece} (hR : R.IsPieceOf P)
     (hc : c.IsPieceOf P) (hd : d.IsPieceOf P) (hne : c ≠ d)
     (h1 : DoorBetween c R) (h2 : DoorBetween d R) :
-    doorMid R c + 20 ≤ doorMid R d ∨ doorMid R d + 20 ≤ doorMid R c := by
+    doorMid R c + 12 ≤ doorMid R d ∨ doorMid R d + 12 ≤ doorMid R c := by
   have hs1 := doorMid_spec hfin hal hR hc (Or.inr h1)
   have hs2 := doorMid_spec hfin hal hR hd (Or.inr h2)
   have hrun := runs_disjoint hc hd
@@ -729,12 +731,12 @@ private lemma doorMid_sep_west {P : Set Cell} (hfin : P.Finite)
   · right; omega
 
 /-- Doors from `R` into two distinct east neighbours have midpoints at
-    least 20 apart. -/
+    least 12 apart. -/
 private lemma doorMid_sep_east {P : Set Cell} (hfin : P.Finite)
-    (hal : VertexAligned 20 P) {R c d : VPiece} (hR : R.IsPieceOf P)
+    (hal : VertexAligned 12 P) {R c d : VPiece} (hR : R.IsPieceOf P)
     (hc : c.IsPieceOf P) (hd : d.IsPieceOf P) (hne : c ≠ d)
     (h1 : DoorBetween R c) (h2 : DoorBetween R d) :
-    doorMid R c + 20 ≤ doorMid R d ∨ doorMid R d + 20 ≤ doorMid R c := by
+    doorMid R c + 12 ≤ doorMid R d ∨ doorMid R d + 12 ≤ doorMid R c := by
   have hs1 := doorMid_spec hfin hal hR hc (Or.inl h1)
   have hs2 := doorMid_spec hfin hal hR hd (Or.inl h2)
   have hrun := runs_disjoint hc hd (h1.1.symm.trans h2.1) hne
@@ -762,7 +764,7 @@ private lemma evCells_disjoint {evs₁ evs₂ : List (ℤ × Set Cell)}
     leaving through the two halves of that door (`WestTour` when `T` hangs
     west of the parent, `EastTour` when it hangs east). -/
 private theorem exists_tour (P : Set Cell) (hfin : P.Finite)
-    (hal : VertexAligned 20 P) :
+    (hal : VertexAligned 12 P) :
     ∀ n : ℕ, ∀ T : PieceTree, T.pieces.length ≤ n → T.WF P →
       (∀ s ∈ T.pieces, s.IsPieceOf P) → T.pieces.Nodup →
       (∀ pp : VPiece, pp.IsPieceOf P → pp ∉ T.pieces →
@@ -893,7 +895,7 @@ private theorem exists_tour (P : Set Cell) (hfin : P.Finite)
       obtain ⟨c, hc, rfl⟩ := he
       exact hRdisj c (hEmem c hc).1
     have hWsep : westEvs.Pairwise
-        (fun e f => e.1 + 20 ≤ f.1 ∨ f.1 + 20 ≤ e.1) := by
+        (fun e f => e.1 + 12 ≤ f.1 ∨ f.1 + 12 ≤ e.1) := by
       rw [hWEdef, List.pairwise_map]
       refine ((hpw.filter _).imp_of_mem fun {c d} hc hd h => ?_)
       have hcw := hWmem c hc
@@ -903,7 +905,7 @@ private theorem exists_tour (P : Set Cell) (hfin : P.Finite)
       exact doorMid_sep_west hfin hal hR (hcrootP c hcw.1) (hcrootP d hdw.1)
         hne hcw.2 hdw.2
     have hEsep : eastEvs.Pairwise
-        (fun e f => e.1 + 20 ≤ f.1 ∨ f.1 + 20 ≤ e.1) := by
+        (fun e f => e.1 + 12 ≤ f.1 ∨ f.1 + 12 ≤ e.1) := by
       rw [hEEdef, List.pairwise_map]
       refine ((hpw.filter _).imp_of_mem fun {c d} hc hd h => ?_)
       have hce := hEmem c hc
@@ -984,16 +986,16 @@ private theorem exists_tour (P : Set Cell) (hfin : P.Finite)
       simp only [PieceTree.root_node] at hdoor ⊢
       set mp := doorMid R pp with hmp
       have hmpspec := doorMid_spec hfin hal hR hppP (Or.inl hdoor)
-      have hy0mp : R.y0 + 10 ≤ mp := by
+      have hy0mp : R.y0 + 6 ≤ mp := by
         have := le_max_left R.y0 pp.y0
         omega
-      have hmpy1 : mp + 10 ≤ R.y1 := by
+      have hmpy1 : mp + 6 ≤ R.y1 := by
         have := min_le_left R.y1 pp.y1
         omega
       have hppne : ∀ c ∈ cs, pp ∉ c.pieces := fun c hc h => hppnot (by
         rw [PieceTree.pieces_node]
         exact List.mem_cons_of_mem _ (PieceTree.mem_piecesList hc h))
-      have hsepP : ∀ e ∈ eastEvs, e.1 + 20 ≤ mp ∨ mp + 20 ≤ e.1 := by
+      have hsepP : ∀ e ∈ eastEvs, e.1 + 12 ≤ mp ∨ mp + 12 ≤ e.1 := by
         intro e he
         rw [hEEdef, List.mem_map] at he
         obtain ⟨c, hc, rfl⟩ := he
@@ -1008,13 +1010,13 @@ private theorem exists_tour (P : Set Cell) (hfin : P.Finite)
       set eA := sE.filter (fun e => decide (mp < e.1)) with heA
       set eB := sE.filter (fun e => !decide (mp < e.1)) with heB
       have hsplitE : (eA ++ eB).Perm sE := List.filter_append_perm _ sE
-      have heAmem : ∀ e ∈ eA, e ∈ sE ∧ mp + 20 ≤ e.1 := by
+      have heAmem : ∀ e ∈ eA, e ∈ sE ∧ mp + 12 ≤ e.1 := by
         intro e he
         rw [heA, List.mem_filter] at he
         have hlt := of_decide_eq_true he.2
         have := hsepP e (hsEmem e he.1)
         exact ⟨he.1, by omega⟩
-      have heBmem : ∀ e ∈ eB, e ∈ sE ∧ e.1 + 20 ≤ mp := by
+      have heBmem : ∀ e ∈ eB, e ∈ sE ∧ e.1 + 12 ≤ mp := by
         intro e he
         rw [heB, List.mem_filter] at he
         have hge : ¬(mp < e.1) := by simpa using he.2
@@ -1177,16 +1179,16 @@ private theorem exists_tour (P : Set Cell) (hfin : P.Finite)
       set mp := doorMid pp R with hmp
       have hmpspec := doorMid_spec hfin hal hppP hR (Or.inl hdoor)
       have hcomm : doorMid R pp = mp := doorMid_comm R pp
-      have hy0mp : R.y0 + 10 ≤ mp := by
+      have hy0mp : R.y0 + 6 ≤ mp := by
         have := le_max_right pp.y0 R.y0
         omega
-      have hmpy1 : mp + 10 ≤ R.y1 := by
+      have hmpy1 : mp + 6 ≤ R.y1 := by
         have := min_le_right pp.y1 R.y1
         omega
       have hppne : ∀ c ∈ cs, pp ∉ c.pieces := fun c hc h => hppnot (by
         rw [PieceTree.pieces_node]
         exact List.mem_cons_of_mem _ (PieceTree.mem_piecesList hc h))
-      have hsepP : ∀ e ∈ westEvs, e.1 + 20 ≤ mp ∨ mp + 20 ≤ e.1 := by
+      have hsepP : ∀ e ∈ westEvs, e.1 + 12 ≤ mp ∨ mp + 12 ≤ e.1 := by
         intro e he
         rw [hWEdef, List.mem_map] at he
         obtain ⟨c, hc, rfl⟩ := he
@@ -1201,13 +1203,13 @@ private theorem exists_tour (P : Set Cell) (hfin : P.Finite)
       set wA := sW.filter (fun e => decide (mp < e.1)) with hwA
       set wB := sW.filter (fun e => !decide (mp < e.1)) with hwB
       have hsplitW : (wA ++ wB).Perm sW := List.filter_append_perm _ sW
-      have hwAmem : ∀ e ∈ wA, e ∈ sW ∧ mp + 20 ≤ e.1 := by
+      have hwAmem : ∀ e ∈ wA, e ∈ sW ∧ mp + 12 ≤ e.1 := by
         intro e he
         rw [hwA, List.mem_filter] at he
         have hlt := of_decide_eq_true he.2
         have := hsepP e (hsWmem e he.1)
         exact ⟨he.1, by omega⟩
-      have hwBmem : ∀ e ∈ wB, e ∈ sW ∧ e.1 + 20 ≤ mp := by
+      have hwBmem : ∀ e ∈ wB, e ∈ sW ∧ e.1 + 12 ≤ mp := by
         intro e he
         rw [hwB, List.mem_filter] at he
         have hge : ¬(mp < e.1) := by simpa using he.2
@@ -1470,11 +1472,11 @@ private lemma wf_pieces {P : Set Cell} :
       omega
 
 /-- **Corner-chain existence** (formerly the last `sorry` of
-    `FatPolyomino.lean`).  A nonempty finite connected 20-aligned polyomino
+    `FatPolyomino.lean`).  A nonempty finite connected 12-aligned polyomino
     admits a corner chain: vertical decomposition, spanning tree of the
     door graph, and the clockwise Euler tour of its subdivided pieces. -/
 theorem exists_cornerChain (P : Set Cell) (hfin : P.Finite) (hne : P.Nonempty)
-    (hconn : CellConnected P) (hal : VertexAligned 20 P) :
+    (hconn : CellConnected P) (hal : VertexAligned 12 P) :
     ∃ l : List ChainLink, IsCornerChain l P := by
   obtain ⟨T, hT⟩ := exists_spanning_pieceTree P hfin hne hconn
   have hpieces : ∀ s ∈ T.pieces, s.IsPieceOf P :=
@@ -1489,12 +1491,12 @@ theorem exists_cornerChain (P : Set Cell) (hfin : P.Finite) (hne : P.Nonempty)
       exact Set.mem_biUnion (hT.complete s hsP) hps
   exact ⟨l, hlne, hlchain, hldisj, hlcells.trans hcov, hlnex⟩
 
-/-- **Main lemma (20-aligned polyominoes).**  A finite connected polyomino
-    all of whose vertices lie on the pitch-20 grid is L-tileable if its
+/-- **Main lemma (12-aligned polyominoes).**  A finite connected polyomino
+    all of whose vertices lie on the pitch-12 grid is L-tileable if its
     area is divisible by 3.  (Moved here from `FatPolyomino.lean`, whose
     corner-chain machinery supplies `IsCornerChain.tileable`.) -/
 theorem LTileable_of_vertexAligned (P : Set Cell) (hfin : P.Finite)
-    (hconn : CellConnected P) (hal : VertexAligned 20 P)
+    (hconn : CellConnected P) (hal : VertexAligned 12 P)
     (harea : 3 ∣ P.ncard) : LTileable P := by
   rcases P.eq_empty_or_nonempty with rfl | hne
   · exact Tileable.empty _

@@ -10,10 +10,11 @@ of the boundary is far (some fixed distance) from every other vertex and edge.
 
 This file sets up the first, slightly weaker lemma on the way there
 (`LTileable_of_vertexAligned`): instead of true fatness we assume every
-vertex of the polyomino has both coordinates divisible by 20 (the polyomino
-is *20-aligned*).  The bound 20 is provisional and generous — the
-construction below needs pieces of side ≥ 6, and pitch-20 alignment yields
-pieces of side ≥ 10.
+vertex of the polyomino has both coordinates divisible by 12 (the polyomino
+is *12-aligned*).  The bound 12 = 2·6 is tight for this construction: the
+vertical decomposition is split at each piece's midline, so each column is
+half of a side ≥ 12, giving sub-pieces of side ≥ 6 — exactly the bound the
+two-corner-defect theorem needs.
 
 ## Proof sketch (SL)
 
@@ -146,8 +147,8 @@ lemma optSize_le_two (e : Option DefectType) : optSize e ≤ 2 := by
 
 /-- An axis-aligned rectangular piece `[x0, x1) × [y0, y1)` of the
     decomposition, with both sides ≥ 6 — the bound required by the
-    two-corner-defect theorem.  (The decomposition of a 20-aligned polyomino
-    actually produces sides ≥ 10.) -/
+    two-corner-defect theorem.  (The subdivision of a 12-aligned polyomino
+    produces sub-pieces of side exactly ≥ 6.) -/
 structure RectPiece where
   x0 : ℤ
   y0 : ℤ

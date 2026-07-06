@@ -12,7 +12,7 @@ rectangles (**pieces**, `VPiece`).  Plan (SL, 2026-07-05):
    rectangles contained in `P`, pairwise disjoint, with union exactly `P`
    (`vDecomp_isDecomposition`), and there are finitely many
    (`vDecomp_finite`).  For an `f`-aligned polyomino all piece coordinates
-   are multiples of `f`, so sides are ≥ `f` and for `f = 20` each piece is
+   are multiples of `f`, so sides are ≥ `f` and for `f = 12` each piece is
    a `RectPiece` of the corner-chain layer (`VPiece.toRectPiece`).
 2. *(§5 — proved)* **Doors** between horizontally adjacent pieces; the door
    graph is connected because `P` is (`vPiece_reachable`).
@@ -558,11 +558,11 @@ theorem vDecomp_finite (P : Set Cell) (hfin : P.Finite) :
     exact VPiece.IsPieceOf.eq_of_mem hs ht (hmem s hs)
       (by rw [heq']; exact hmem t ht)
 
-/-- For a `20`-aligned polyomino, a piece of the vertical decomposition
+/-- For a `12`-aligned polyomino, a piece of the vertical decomposition
     qualifies as a `RectPiece` of the corner-chain layer: its sides are
-    ≥ 20 ≥ 6. -/
+    ≥ 12 ≥ 6. -/
 def VPiece.toRectPiece (s : VPiece) {P : Set Cell} (hfin : P.Finite)
-    (hal : VertexAligned 20 P) (hs : s.IsPieceOf P) : RectPiece where
+    (hal : VertexAligned 12 P) (hs : s.IsPieceOf P) : RectPiece where
   x0 := s.a
   y0 := s.y0
   x1 := s.b
@@ -571,7 +571,7 @@ def VPiece.toRectPiece (s : VPiece) {P : Set Cell} (hfin : P.Finite)
   tall := by have := hs.side_ge hfin hal; omega
 
 @[simp] lemma VPiece.toRectPiece_cells (s : VPiece) {P : Set Cell}
-    (hfin : P.Finite) (hal : VertexAligned 20 P) (hs : s.IsPieceOf P) :
+    (hfin : P.Finite) (hal : VertexAligned 12 P) (hs : s.IsPieceOf P) :
     (s.toRectPiece hfin hal hs).cells = s.cells := rfl
 
 -- ============================================================
