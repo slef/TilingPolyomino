@@ -4,6 +4,38 @@
 
 ## Session log
 
+- **2026-07-06 (Euler tour — the fat-polyomino main lemma is PROVED).**
+  New file `TilingPolyomino/EulerTour.lean` (~1500 lines) completes
+  `exists_cornerChain`; the whole project now builds with **zero `sorry`
+  and zero warnings**, and `LTileable_of_vertexAligned` (a finite
+  connected 20-aligned polyomino with `3 ∣ area` is L-tileable) is
+  verified with standard axioms only. Design decisions (approved /
+  delegated by SL):
+  - **Uniform split rule**: every piece with ≥ 1 door is split at its
+    vertical midline (SL simplified my "≥ 2 doors" correction further);
+    the sub-piece cycle (west column up, east column down) makes any
+    entry point work, so the root is arbitrary — no re-rooting.
+  - **No separator cuts**: the only horizontal cuts are door midpoints;
+    the sub-piece between two consecutive same-side midpoints serves as
+    landing area of one door and take-off area of the next. Same-side
+    door midpoints are ≥ 40 apart, door halves ≥ 10, so all sub-pieces
+    have sides ≥ 10 ≥ 6.
+  - Crossings: west→east through the pieces with *bottom* edges at the
+    midpoint (config `(BR,BL)`), east→west through those with *top*
+    edges there (`(TL,TR)`); turns `(TR,TL)`/`(BL,BR)` — the four
+    `PushAdj` lemmas are one-line `omega` proofs.
+  Structure: `WestTour`/`EastTour` (spliceable-chain interfaces with
+  head/last corner data), `SegUp`/`SegDown` column folds over sorted
+  door-event lists (bespoke insertion-sort existence lemma; separations
+  from run-disjointness of same-strip pieces), and one big induction on
+  the tree producing West/East/root chains simultaneously; the root
+  chain breaks the cycle at the top turn. `exists_cornerChain` and the
+  main lemma moved from `FatPolyomino.lean` (which is now sorry-free) to
+  `EulerTour.lean`, since they need the whole stack. Remaining for the
+  full fat-polyomino theorem: replace `VertexAligned` by true fatness,
+  and the converse direction (both recorded in FUTURE_PLANS/earlier
+  notes).
+
 - **2026-07-05 (Fat polyominoes — vertical decomposition, steps 1–2).**
   SL sketched the `exists_cornerChain` proof (vertical decomposition →
   door graph + spanning tree rooted at a leaf → subdivide slabs at door

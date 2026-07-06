@@ -41,20 +41,19 @@ pieces of side ≥ 10.
 ## Formalization roadmap
 
 * §1 Polyominoes: `CellAdj`, `CellConnected`, `IsVertex`, `VertexAligned`.
-* §2 Main lemma statement: `LTileable_of_vertexAligned`.
-* §3 Corner chains — the *output* of steps 1–4: `RectPiece`, `PushAdj`,
-  `ChainLink`, `chainCells`, `IsCornerChain`.
-* §4 The two halves of the proof:
-  - `exists_cornerChain` (steps 1–4, the geometric decomposition — the one
-    remaining `sorry`, to be broken into further lemmas in the next phase);
-  - `exists_pushTromino` (step 5, one tromino push — proved: four core
-    corner configurations with explicit trominoes, the rest by swapping
-    the roles of the two pieces),
-    `RectPiece.tileable_optDefects` (step 6, one piece — proved by
-    translation to the origin from the rectangle and corner-defect
-    theorems),
-    `chainCells_tileable` (the induction along the chain — proved).
-* §5 `LTileable_of_vertexAligned` from the two halves (proved, no `sorry`).
+* §2 Corner chains — the interface between the geometric decomposition and
+  the tiling argument: `RectPiece`, `PushAdj`, `ChainLink`, `chainCells`,
+  `IsCornerChain`.
+* §3–§4 The tiling half, all proved here:
+  `exists_pushTromino` (step 5, one tromino push — four core corner
+  configurations with explicit trominoes, the rest by swapping the roles
+  of the two pieces), `RectPiece.tileable_optDefects` (step 6, one piece —
+  translation to the origin plus the rectangle and corner-defect
+  theorems), `chainCells_tileable` (the induction along the chain) and
+  `IsCornerChain.tileable`.
+* The geometric half (`exists_cornerChain`) lives in
+  `VerticalDecomposition.lean` and `EulerTour.lean`; the latter also
+  proves the main lemma `LTileable_of_vertexAligned`.
 -/
 
 open Set
@@ -336,18 +335,13 @@ structure IsCornerChain (l : List ChainLink) (P : Set Cell) : Prop where
   entry_ne_exit : ∀ K ∈ l, K.entry ≠ K.exit
 
 -- ============================================================
--- §4 The two halves of the proof
+-- §4 The tiling half of the proof
 -- ============================================================
-
-/-- **Decomposition lemma** (steps 1–4 of the sketch; the geometric half).
-    Every nonempty finite connected 20-aligned polyomino admits a corner
-    chain: vertical decomposition through the vertical edges, spanning tree
-    of the dual graph, halving of two-door rectangles, horizontal cuts at
-    door midpoints, Euler tour.  To be decomposed into further lemmas. -/
-theorem exists_cornerChain (P : Set Cell) (hfin : P.Finite) (hne : P.Nonempty)
-    (hconn : CellConnected P) (hal : VertexAligned 20 P) :
-    ∃ l : List ChainLink, IsCornerChain l P := by
-  sorry
+--
+-- The geometric half — the existence of a corner chain
+-- (`exists_cornerChain`) — is proved in `VerticalDecomposition.lean` and
+-- `EulerTour.lean`, which build on this file; `EulerTour.lean` also states
+-- the main lemma `LTileable_of_vertexAligned`.
 
 /-- A single placed L-tromino is L-tileable. -/
 private lemma LTileable_single (dx dy : ℤ) (r : Fin 4) :
@@ -895,23 +889,5 @@ theorem IsCornerChain.tileable {l : List ChainLink} {P : Set Cell}
     none (by simpa [hc.covers] using harea)
   simpa [hc.covers] using h
 
--- ============================================================
--- §5 Main lemma
--- ============================================================
-
-/-- **Main lemma (20-aligned polyominoes).**  A finite connected polyomino
-    all of whose vertices lie on the pitch-20 grid is L-tileable if its area
-    is divisible by 3.
-
-    This is the vertex-aligned weakening of the fat-polyomino theorem; the
-    genuine fatness hypothesis (all vertices far from each other and from
-    all edges) replaces `VertexAligned` in a later phase.  The converse
-    (tileable → 3 ∣ area) is routine and will be added when the statement
-    is upgraded to an iff. -/
-theorem LTileable_of_vertexAligned (P : Set Cell) (hfin : P.Finite)
-    (hconn : CellConnected P) (hal : VertexAligned 20 P)
-    (harea : 3 ∣ P.ncard) : LTileable P := by
-  rcases P.eq_empty_or_nonempty with rfl | hne
-  · exact Tileable.empty _
-  · obtain ⟨l, hl⟩ := exists_cornerChain P hfin hne hconn hal
-    exact hl.tileable harea
+-- The main lemma `LTileable_of_vertexAligned` is stated and proved in
+-- `EulerTour.lean`, once `exists_cornerChain` is available.
