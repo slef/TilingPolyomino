@@ -5,5 +5,6 @@ import TilingPolyomino.LTromino
 import TilingPolyomino.LTrominoSetBridge
 import TilingPolyomino.TwoCornerDefects
 import TilingPolyomino.FatPolyomino
+import TilingPolyomino.AlignedPolyomino
 import TilingPolyomino.VerticalDecomposition
 import TilingPolyomino.EulerTour
