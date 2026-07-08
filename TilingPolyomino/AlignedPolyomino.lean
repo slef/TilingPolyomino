@@ -193,15 +193,17 @@ private lemma LTileable_gridCell (c : Cell) : LTileable (gridCell c) := by
   rw [heq]
   exact hbase.translate c.1 c.2
 
-/-- A point lies in the grid cell of its own corner. -/
-private lemma mem_gridCell_cornerOf (p : Cell) : p ∈ gridCell (cornerOf p) := by
+/-- A point lies in the grid cell of its own corner.  (Public: also used by
+    `OffsetPolyomino.lean`.) -/
+lemma mem_gridCell_cornerOf (p : Cell) : p ∈ gridCell (cornerOf p) := by
   obtain ⟨a, b⟩ := p
   simp only [gridCell, cornerOf, mem_rect]
   omega
 
 /-- If `c` is a grid corner (`3 ∣ c.1`, `2 ∣ c.2`) then every point of
-    `gridCell c` has corner `c`. -/
-private lemma cornerOf_of_mem_gridCell {c q : Cell} (h1 : 3 ∣ c.1) (h2 : 2 ∣ c.2)
+    `gridCell c` has corner `c`.  (Public: also used by
+    `OffsetPolyomino.lean`.) -/
+lemma cornerOf_of_mem_gridCell {c q : Cell} (h1 : 3 ∣ c.1) (h2 : 2 ∣ c.2)
     (hq : q ∈ gridCell c) : cornerOf q = c := by
   obtain ⟨cx, cy⟩ := c
   obtain ⟨x, y⟩ := q

@@ -8,3 +8,4 @@ import TilingPolyomino.FatPolyomino
 import TilingPolyomino.AlignedPolyomino
 import TilingPolyomino.VerticalDecomposition
 import TilingPolyomino.EulerTour
+import TilingPolyomino.OffsetPolyomino
