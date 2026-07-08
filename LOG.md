@@ -497,3 +497,24 @@
 ## Times
 
 - Phase 5 (abstract layer + bridges): ~1 session, 2026-07-04.
+
+# Reorganization: per-topic modules (2026-07-08)
+
+- Executed `docs/reorganization-plan.md` (v4, SL-approved), stages 0–6, one
+  commit per green build: e2c66c3 (Grid), 4bd9dfe (FatPolyomino split),
+  80bf629 (VerticalDecomposition split), 0351cc0 (OffsetPolyomino split +
+  literate FatPolyomino.lean).
+- Governing rule: `Polyomino/` = tiling-free polyomino theory, imports only
+  `Grid.lean` + Mathlib (audited clean). The corridor construction lives in
+  `Corridor/`; the corner-chain engine in `CornerChain/`; the old aligned
+  route in `Polyomino/Decomposition/` + `EulerTour.lean`.
+- Pure moves, no proof changes. Only textual deltas: 14 lemmas lost
+  `private` (used across new file boundaries), `VPiece.toRectPiece` moved
+  to `EulerTour.lean` §0, `FatPolyomino.lean` rewritten as the literate
+  statement of `LTileable_of_fat`.
+- Validation: `lake build` green; `lean_verify` on `LTileable_of_fat` and
+  `LTileable_of_vertexAligned`: standard axioms only.
+- Hiccups: two (translate_union/diff private across CornerChain boundary;
+  FatPolyomino.lean needed an explicit CornerChain.Tiling import since the
+  Corridor route only pulls CornerChain.Defs). Lesson: don't pipe `lake
+  build` through grep — it masks the exit code.

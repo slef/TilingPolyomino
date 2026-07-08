@@ -3,8 +3,13 @@
 Source: SL's verbal sketch + whiteboard drawing, 2026-07-07; construction
 refined and scoping decisions fixed by SL later the same day.  This note
 records the argument as the agent understands it, the formal definitions,
-and the constant accounting.  Skeleton: `TilingPolyomino/OffsetPolyomino.lean`
-(green, one `sorry`: `exists_corridorChain`).
+and the constant accounting.  Formalized (complete, zero sorries) in:
+`TilingPolyomino/Polyomino/{Fat,NextVtx,Boundary,RayParity,BoundaryCycle}.lean`
+(tiling-free theory), `TilingPolyomino/Corridor/*.lean` (the corridor
+construction), and `TilingPolyomino/FatPolyomino.lean` (the literate
+statement of `LTileable_of_fat`, mirroring this note).  Until 2026-07-08
+all of this lived in the single file `OffsetPolyomino.lean`; see
+`docs/reorganization-plan.md`.
 
 ## 1. Statement
 
@@ -152,9 +157,11 @@ carried out as written; the three final lemmas
 (`edgePiece_subset_corridor`, `edgePiece_disjoint`, `corridor_covered`)
 were proved by three parallel subagents and spliced back.  Remaining
 follow-ups: the `LTileable ⇒ 3 ∣ area` converse, holes, abstract-layer
-exposure, and splitting `OffsetPolyomino.lean` into per-topic modules.**
+exposure, and splitting `OffsetPolyomino.lean` into per-topic modules
+(the split was carried out 2026-07-08 — see `docs/reorganization-plan.md`;
+`OffsetPolyomino.lean` no longer exists).**
 
-Done (all green in `OffsetPolyomino.lean`): `Fat` + `Fat.mono` + rectangle
+Done (all green; file references are pre-split `OffsetPolyomino.lean`): `Fat` + `Fat.mono` + rectangle
 sanity check; `offsetCore` with unconditional `VertexOnGrid 3 2`,
 `LTileable_offsetCore`, `6 ∣ ncard`; corridor area/disjointness/
 nonemptiness; assembly `LTileable_of_fat` from the one `sorry`
