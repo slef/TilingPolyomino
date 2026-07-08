@@ -1,4 +1,5 @@
-import TilingPolyomino.VerticalDecomposition
+import TilingPolyomino.Polyomino.Decomposition.SpanningTree
+import TilingPolyomino.CornerChain.Tiling
 
 /-!
 # The Euler tour: from a spanning tree to a corner chain
@@ -41,6 +42,26 @@ and a door midpoint sits ≥ 6 (half the door length) from the piece edges.
 -/
 
 open Set
+
+-- ============================================================
+-- §0 Aligned decomposition pieces are corner-chain pieces
+-- ============================================================
+
+/-- For a `12`-aligned polyomino, a piece of the vertical decomposition
+    qualifies as a `RectPiece` of the corner-chain layer: its sides are
+    ≥ 12 ≥ 6. -/
+def VPiece.toRectPiece (s : VPiece) {P : Set Cell} (hfin : P.Finite)
+    (hal : VertexAligned 12 P) (hs : s.IsPieceOf P) : RectPiece where
+  x0 := s.a
+  y0 := s.y0
+  x1 := s.b
+  y1 := s.y1
+  wide := by have := hs.side_ge hfin hal; omega
+  tall := by have := hs.side_ge hfin hal; omega
+
+@[simp] lemma VPiece.toRectPiece_cells (s : VPiece) {P : Set Cell}
+    (hfin : P.Finite) (hal : VertexAligned 12 P) (hs : s.IsPieceOf P) :
+    (s.toRectPiece hfin hal hs).cells = s.cells := rfl
 
 -- ============================================================
 -- §1 Chain and tree cell bookkeeping

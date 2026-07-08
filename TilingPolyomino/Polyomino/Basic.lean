@@ -66,3 +66,25 @@ example (x0 y0 x1 y1 : ℤ) (hx : x0 < x1) (hy : y0 < y1) (v : Cell) :
     boundary features of `P` to be at distance ≥ `f` from each other. -/
 def VertexAligned (f : ℤ) (P : Set Cell) : Prop :=
   ∀ v : Cell, IsVertex P v → f ∣ v.1 ∧ f ∣ v.2
+
+/-- A finite set of cells fits in a box. -/
+lemma exists_bound (P : Set Cell) (hfin : P.Finite) :
+    ∃ B : ℤ, ∀ p ∈ P, p.1 < B ∧ p.2 < B ∧ -B < p.1 ∧ -B < p.2 := by
+  obtain ⟨M₁, hM₁⟩ := (hfin.image Prod.fst).bddAbove
+  obtain ⟨M₂, hM₂⟩ := (hfin.image Prod.snd).bddAbove
+  obtain ⟨m₁, hm₁⟩ := (hfin.image Prod.fst).bddBelow
+  obtain ⟨m₂, hm₂⟩ := (hfin.image Prod.snd).bddBelow
+  refine ⟨|M₁| + |M₂| + |m₁| + |m₂| + 1, fun p hp => ?_⟩
+  have h1 : p.1 ≤ M₁ := hM₁ (Set.mem_image_of_mem _ hp)
+  have h2 : p.2 ≤ M₂ := hM₂ (Set.mem_image_of_mem _ hp)
+  have h3 : m₁ ≤ p.1 := hm₁ (Set.mem_image_of_mem _ hp)
+  have h4 : m₂ ≤ p.2 := hm₂ (Set.mem_image_of_mem _ hp)
+  have := le_abs_self M₁
+  have := le_abs_self M₂
+  have := neg_abs_le m₁
+  have := neg_abs_le m₂
+  have := abs_nonneg M₁
+  have := abs_nonneg M₂
+  have := abs_nonneg m₁
+  have := abs_nonneg m₂
+  omega

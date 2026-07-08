@@ -7,6 +7,8 @@ import TilingPolyomino.LTrominoSetBridge
 import TilingPolyomino.TwoCornerDefects
 import TilingPolyomino.FatPolyomino
 import TilingPolyomino.AlignedPolyomino
-import TilingPolyomino.VerticalDecomposition
+import TilingPolyomino.Polyomino.Boundary
+import TilingPolyomino.Polyomino.Decomposition.Vertical
+import TilingPolyomino.Polyomino.Decomposition.SpanningTree
 import TilingPolyomino.EulerTour
 import TilingPolyomino.OffsetPolyomino
