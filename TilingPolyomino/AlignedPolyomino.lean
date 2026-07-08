@@ -1,4 +1,5 @@
-import TilingPolyomino.FatPolyomino
+import TilingPolyomino.TwoCornerDefects
+import TilingPolyomino.Polyomino.Basic
 import Mathlib.Tactic
 
 /-!

@@ -93,3 +93,47 @@ theorem exists_vertex_row_of_vert_discont (P : Set Cell) (hfin : P.Finite)
   · intro hc
     exact hprev (hc.1.trans (hu₁.trans hc.2.symm))
   · exact fun hc => hprev hc.1
+
+/-- The vertical boundary segments of `P`: `(x, y) ∈ bndV P` iff the unit
+    segment on the grid line `x` between the cells `(x-1, y)` and `(x, y)`
+    separates `P` from its complement. -/
+def bndV (P : Set Cell) : Set (ℤ × ℤ) :=
+  {t | ¬((t.1 - 1, t.2) ∈ P ↔ (t.1, t.2) ∈ P)}
+
+/-- The horizontal boundary segments of `P`: `(x, y) ∈ bndH P` iff the
+    unit segment on the grid row `y` between the cells `(x, y-1)` and
+    `(x, y)` separates `P` from its complement. -/
+def bndH (P : Set Cell) : Set (ℤ × ℤ) :=
+  {t | ¬((t.1, t.2 - 1) ∈ P ↔ (t.1, t.2) ∈ P)}
+
+lemma bndV_finite {P : Set Cell} (hfin : P.Finite) : (bndV P).Finite := by
+  apply Set.Finite.subset (hfin.union (hfin.image fun p => (p.1 + 1, p.2)))
+  intro t ht
+  by_cases h : (t.1, t.2) ∈ P
+  · exact Or.inl (by rwa [show ((t.1, t.2) : Cell) = t from Prod.ext rfl rfl]
+      at h)
+  · have h' : (t.1 - 1, t.2) ∈ P := by
+      by_contra h''
+      exact ht (iff_of_false h'' h)
+    exact Or.inr ⟨_, h', Prod.ext (show t.1 - 1 + 1 = t.1 by ring) rfl⟩
+
+lemma bndH_finite {P : Set Cell} (hfin : P.Finite) : (bndH P).Finite := by
+  apply Set.Finite.subset (hfin.union (hfin.image fun p => (p.1, p.2 + 1)))
+  intro t ht
+  by_cases h : (t.1, t.2) ∈ P
+  · exact Or.inl (by rwa [show ((t.1, t.2) : Cell) = t from Prod.ext rfl rfl]
+      at h)
+  · have h' : (t.1, t.2 - 1) ∈ P := by
+      by_contra h''
+      exact ht (iff_of_false h'' h)
+    exact Or.inr ⟨_, h', Prod.ext rfl (show t.2 - 1 + 1 = t.2 by ring)⟩
+
+/-- **The full boundary has even degree at every grid point** — a free
+    mod-2 identity of the 2×2 membership pattern, with no hypothesis on
+    `P` whatsoever. -/
+lemma bnd_degree (P : Set Cell) (x y : ℤ) :
+    (((x, y) ∈ bndV P) ↔ ((x, y - 1) ∈ bndV P)) ↔
+      (((x, y) ∈ bndH P) ↔ ((x - 1, y) ∈ bndH P)) := by
+  simp only [bndV, bndH, Set.mem_setOf_eq]
+  tauto
+
