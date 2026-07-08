@@ -74,13 +74,7 @@ def transpose : DefectType → DefectType
 
 end DefectType
 
-/-- The four corners of a rectangle. -/
-inductive Corner
-  | BL
-  | BR
-  | TL
-  | TR
-  deriving DecidableEq
+-- `Corner` is defined in `TilingPolyomino.Grid`.
 
 namespace Corner
 

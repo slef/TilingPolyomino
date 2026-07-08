@@ -1,3 +1,4 @@
+import TilingPolyomino.Grid
 import TilingPolyomino.Mod3
 import TilingPolyomino.Basic
 import TilingPolyomino.TilingSet

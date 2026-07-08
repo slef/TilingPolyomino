@@ -28,15 +28,11 @@ import Mathlib.Data.Set.Card
 import Mathlib.Data.Finset.Interval
 import Mathlib.Tactic
 import TilingPolyomino.Tiling
+import TilingPolyomino.Grid
 
 /- ## Basic Definitions -/
 
--- Cell is already defined in TilingPolyomino.Tiling
-
-/-- Half-open rectangle: `rect x0 y0 x1 y1` contains all cells `(x, y)` such that
-    `x0 ≤ x < x1` and `y0 ≤ y < y1`. -/
-def rect (x0 y0 x1 y1 : ℤ) : Set Cell :=
-  {p : Cell | x0 ≤ p.1 ∧ p.1 < x1 ∧ y0 ≤ p.2 ∧ p.2 < y1}
+-- `Cell`, `rect` and `mem_rect` are defined in `TilingPolyomino.Grid`.
 
 /-- Translation of a set of cells by `(dx, dy)` -/
 def translate (dx dy : ℤ) (s : Set Cell) : Set Cell :=
@@ -60,10 +56,6 @@ def reflect (s : Set Cell) : Set Cell :=
   {p : Cell | swapCell p ∈ s}
 
 /- ## Simplification Lemmas -/
-
-@[simp] theorem mem_rect (x0 y0 x1 y1 : ℤ) (p : Cell) :
-  p ∈ rect x0 y0 x1 y1 ↔ x0 ≤ p.1 ∧ p.1 < x1 ∧ y0 ≤ p.2 ∧ p.2 < y1 := by
-  rfl
 
 @[simp] theorem mem_translate (dx dy : ℤ) (s : Set Cell) (p : Cell) :
   p ∈ translate dx dy s ↔ (p.1 - dx, p.2 - dy) ∈ s := by

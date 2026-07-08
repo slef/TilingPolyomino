@@ -2,6 +2,7 @@ import Mathlib.Data.Finset.Basic
 import Mathlib.Data.Finset.Card
 import Mathlib.Data.Fintype.Basic
 import Mathlib.Tactic
+import TilingPolyomino.Grid
 
 /- ## Basic Definitions -/
 
@@ -20,8 +21,7 @@ Main ingredients:
 * Generic placement enumeration utilities
 -/
 
-/-- A cell on the integer grid -/
-abbrev Cell := ℤ × ℤ
+-- `Cell` is defined in `TilingPolyomino.Grid`.
 
 /-- A region is a finite set of cells -/
 abbrev Region := Finset Cell
